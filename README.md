@@ -1,5 +1,5 @@
 # Svelte + Vite
-
+[![Netlify Status](https://api.netlify.com/api/v1/badges/21cebd18-e9be-4c69-b522-2688b061cfa7/deploy-status)](https://app.netlify.com/projects/cardenveil/deploys)
 This template should help get you started developing with Svelte in Vite.
 
 ## Recommended IDE Setup
