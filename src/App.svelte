@@ -52,7 +52,7 @@
 </script>
 
 <!-- Updated: Background color set to custom dark gray #242424 -->
-<main class="w-full h-full bg-[#242424] flex flex-col p-4 sm:p-6 font-sans">
+<main class="w-full h-full bg-[#242424] flex flex-col  font-sans">
   
   <!-- Application Header - Now hidden when a URL is embedded -->
   {#if !embedUrl}
@@ -101,7 +101,7 @@
     <!-- Displaying the Embedded Page -->
     {:else}
       <div class="w-full h-full flex flex-col">
-        <div class="flex justify-between items-center mb-3">
+        <div class="flex justify-between items-center">
             <!-- Updated: Display text color changed to light gray and indigo highlight -->
             <h2 class="text-lg font-medium text-gray-300 truncate mr-4">
                 Displaying: <span class="font-mono text-indigo-400 text-sm">{embedUrl}</span>
@@ -121,7 +121,7 @@
           title="Embedded Web Content"
           src={embedUrl}
           class="w-full flex-grow border-4 border-gray-700 rounded-xl shadow-2xl"
-          style="min-height: 500px; min-width: 650px;"
+          style="min-height: 600px; min-width: 700px;"
           frameborder="0"
           referrerpolicy="no-referrer"
           sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
@@ -129,11 +129,6 @@
           <!-- Fallback error message if the browser does not support iframes -->
           Your browser does not support iframes.
         </iframe>
-        
-        <!-- Updated: Note text color changed to a soft gray -->
-        <p class="mt-4 text-center text-xs text-gray-500">
-            Note: Some websites may block embedding via iframe for security reasons (X-Frame-Options, CSP).
-        </p>
       </div>
     {/if}
   </section>
