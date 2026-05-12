@@ -123,6 +123,7 @@
     {gameState}
     {myId}
     {myName}
+    {party}
     onUpdate={pushState}
   />
 {/if}

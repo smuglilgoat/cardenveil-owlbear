@@ -95,14 +95,22 @@ Elles servent à accomplir la plupart des actions importantes du jeu.
 
 ### **Main de cartes**
 
-- Chaque joueur possède une **main de 2 cartes +1 carte qu’on pioche**.
-- En combat, on **pioche une carte** au début de chaque tour.
+- La taille de main par défaut est de **3 cartes** (ajustable par le MJ par joueur).
+- En combat, on **pioche une carte** (depuis la pioche normale) au début de chaque tour.
 - Hors combat, les pioches se font à intervalles réguliers ou selon le rythme fixé par le MJ.
+- Les **cartes cristallisées ne comptent pas** dans la limite de taille de main.
+
+### **Les deux pioches**
+
+Le système utilise deux pioches distinctes :
+
+- **Pioche normale** : constituée de **3 decks de 52 cartes mélangés ensemble** (156 cartes au total). C’est la pioche utilisée par défaut pour distribuer et piocher en début de round.
+- **Pioche spécialisée** : constituée de **3 decks de 52 cartes séparés par symbole** en 4 piles distinctes (♠ Piques, ♣ Trèfles, ♥ Cœurs, ♦ Carreaux), chaque pile contenant 39 cartes. Ces cartes ne s’obtiennent que via certains effets de tokens.
 
 ### **Types de cartes**
 
 - **Cartes normales** : cartes de base, piochées et défaussées tout au long du jeu.
-- **Cartes cristallisées** : cartes spéciales qui ne comptent pas dans la limite maximale de main et qui n’intergissent aps avec les tokens et totem (voir plus bas) et peuvent être jouées comme des cartes normales.
+- **Cartes cristallisées** : cartes spéciales qui ne comptent pas dans la limite maximale de main et qui n’interagissent pas avec les tokens et totem (voir plus bas) et peuvent être jouées comme des cartes normales.
 
 ### **Utilisation générale**
 
@@ -132,9 +140,21 @@ Ils servent à modifier, renforcer ou contourner les mécaniques habituelles.
 - Dans le jeu de cartes, ils servent à **surpiocher**, **échanger** ou **manipuler** des cartes.
 - Leur usage exact dépend des capacités, du style du personnage.
 
+### **Effets des tokens**
+
+Chaque token dépensé déclenche un effet lié à sa caractéristique :
+
+| Token | Effet |
+| --- | --- |
+| **Force** | Piocher une carte depuis la **pioche normale**. |
+| **Agilité** | Défausser une carte de sa main, puis piocher depuis la **pioche spécialisée** (le joueur choisit le symbole : ♠, ♣, ♥ ou ♦). |
+| **Esprit** | **Cristalliser** une carte de sa main (la déplacer dans la zone cristallisée). |
+| **Social** | **Proposer un échange** : offrir une de ses cartes à un autre joueur, qui doit accepter (et donner une carte en retour) ou refuser. En cas de refus, la carte offerte est rendue. |
+
 ### **Gestion**
 
 - Les tokens sont une **ressource consommable** : ils se dépensent au fil du jeu et se **réinitialisent après un repos**.
+- Le MJ fixe la valeur maximale de chaque type de token par joueur.
 
 ---
 
