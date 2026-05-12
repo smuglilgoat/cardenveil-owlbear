@@ -243,9 +243,9 @@
     { key: 'social',  label: 'Social',  desc: 'Échanger avec un autre joueur',      disabled: () => player.tokens.social  <= 0 || player.hand.length === 0,    use: startSocial  },
   ];
 
-  // Other players (for social target)
+  // Other players available for social trade (exclude self and the GM's real OBR ID)
   let otherPlayerIds = $derived(
-    Object.keys(gameState.players).filter(id => id !== myId)
+    Object.keys(gameState.players).filter(id => id !== myId && id !== gameState.gmId)
   );
 </script>
 

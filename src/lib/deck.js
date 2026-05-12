@@ -61,6 +61,9 @@ export function createSpecializedDecks() {
   return decks;
 }
 
+/** Reserved ID for the optional GM player-character */
+export const GM_CHAR_ID = '__gm_char__';
+
 export function createEmptyPlayer(name = '') {
   return {
     name,
@@ -78,6 +81,8 @@ export function createInitialGameState() {
     specializedDecks: createSpecializedDecks(),
     discard: [],
     pendingExchanges: [],
+    gmId: null,
+    gmCharacterId: null,
     players: {},
   };
 }

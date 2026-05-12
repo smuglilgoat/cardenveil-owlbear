@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import OBR from '@owlbear-rodeo/sdk';
-  import { createInitialGameState, createEmptyPlayer, createNormalDeck, createSpecializedDecks } from './deck.js';
+  import { createInitialGameState, createEmptyPlayer, createNormalDeck, createSpecializedDecks, GM_CHAR_ID } from './deck.js';
   import GMDashboard from './GMDashboard.svelte';
   import PlayerHand from './PlayerHand.svelte';
 
@@ -79,6 +79,8 @@
 
           if (!state.specializedDecks) { state = { ...state, specializedDecks: createSpecializedDecks() }; migrated = true; }
           if (!state.pendingExchanges)  { state = { ...state, pendingExchanges: [] };                       migrated = true; }
+          if (state.gmId === undefined)  { state = { ...state, gmId: null };                                migrated = true; }
+          if (state.gmCharacterId === undefined) { state = { ...state, gmCharacterId: null };               migrated = true; }
 
           // Ensure each player has maxHandSize
           for (const [id, p] of Object.entries(state.players)) {
@@ -91,8 +93,14 @@
           if (migrated) await OBR.room.setMetadata({ [METADATA_KEY]: state });
         }
 
-        // Register current player if not yet in state
-        if (state && !state.players[myId]) {
+        // Record the GM's OBR player ID in shared state so all clients know who the GM is
+        if (state && myRole === 'GM' && state.gmId !== myId) {
+          state = { ...state, gmId: myId };
+          await OBR.room.setMetadata({ [METADATA_KEY]: JSON.parse(JSON.stringify(state)) });
+        }
+
+        // Register current player if not yet in state (skip GM's own ID — GM uses gmCharacter if needed)
+        if (state && myRole !== 'GM' && !state.players[myId]) {
           state = {
             ...state,
             players: { ...state.players, [myId]: createEmptyPlayer(myName) },
