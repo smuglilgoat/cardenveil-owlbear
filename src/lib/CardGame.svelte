@@ -1,68 +1,118 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import OBR from '@owlbear-rodeo/sdk';
-  import { createInitialGameState, createEmptyPlayer } from './deck.js';
+  import { createInitialGameState, createEmptyPlayer, createNormalDeck, createSpecializedDecks } from './deck.js';
   import GMDashboard from './GMDashboard.svelte';
   import PlayerHand from './PlayerHand.svelte';
 
   const METADATA_KEY = 'com.cardenveil/gameState';
 
   let ready = $state(false);
-  let error = $state(null);
   let myId = $state(null);
   let myName = $state('');
   let myRole = $state(null);
   let party = $state([]);
   let gameState = $state(null);
 
+  // ── Toast notifications ──────────────────────────────────────────────
+  let toasts = $state([]);
+
+  function addToast(msg, type = 'error') {
+    const id = Date.now() + Math.random();
+    toasts = [...toasts, { id, msg: String(msg), type }];
+    setTimeout(() => dismissToast(id), type === 'error' ? 8000 : 4000);
+  }
+
+  function dismissToast(id) {
+    toasts = toasts.filter(t => t.id !== id);
+  }
+
+  // ── State push (with error toast) ────────────────────────────────────
+  async function pushState(newState) {
+    try {
+      gameState = { ...newState };
+      await OBR.room.setMetadata({ [METADATA_KEY]: newState });
+    } catch (e) {
+      addToast(e?.message ?? String(e));
+    }
+  }
+
   let unsubMeta = null;
   let unsubParty = null;
-
-  async function pushState(newState) {
-    gameState = { ...newState };
-    await OBR.room.setMetadata({ [METADATA_KEY]: newState });
-  }
 
   onMount(() => {
     OBR.onReady(async () => {
       try {
-        myId = await OBR.player.getId();
-        myName = await OBR.player.getName();
-        myRole = await OBR.player.getRole();
-        party = await OBR.party.getPlayers();
+        myId    = await OBR.player.getId();
+        myName  = await OBR.player.getName();
+        myRole  = await OBR.player.getRole();
+        party   = await OBR.party.getPlayers();
 
         const meta = await OBR.room.getMetadata();
         let state = meta[METADATA_KEY] ?? null;
 
-        // GM initialises the state if it doesn't exist yet
+        // GM initialises fresh state if nothing exists yet
         if (!state && myRole === 'GM') {
           state = createInitialGameState();
           await OBR.room.setMetadata({ [METADATA_KEY]: state });
         }
 
-        // Register the current player if not already in state
+        // ── Schema migration ──────────────────────────────────────────
+        if (state) {
+          let migrated = false;
+
+          // v1 → v2: 'deck' renamed to 'normalDeck', add specializedDecks + pendingExchanges
+          if (!state.normalDeck) {
+            state = {
+              normalDeck:       state.deck ?? createNormalDeck(),
+              specializedDecks: createSpecializedDecks(),
+              discard:          state.discard ?? [],
+              pendingExchanges: [],
+              players:          state.players ?? {},
+            };
+            migrated = true;
+            addToast('État migré vers la nouvelle structure de deck.', 'info');
+          }
+
+          if (!state.specializedDecks) { state = { ...state, specializedDecks: createSpecializedDecks() }; migrated = true; }
+          if (!state.pendingExchanges)  { state = { ...state, pendingExchanges: [] };                       migrated = true; }
+
+          // Ensure each player has maxHandSize
+          for (const [id, p] of Object.entries(state.players)) {
+            if (p.maxHandSize == null) {
+              state = { ...state, players: { ...state.players, [id]: { ...p, maxHandSize: 3 } } };
+              migrated = true;
+            }
+          }
+
+          if (migrated) await OBR.room.setMetadata({ [METADATA_KEY]: state });
+        }
+
+        // Register current player if not yet in state
         if (state && !state.players[myId]) {
           state = {
             ...state,
-            players: {
-              ...state.players,
-              [myId]: createEmptyPlayer(myName),
-            },
+            players: { ...state.players, [myId]: createEmptyPlayer(myName) },
           };
           await OBR.room.setMetadata({ [METADATA_KEY]: state });
         }
 
         gameState = state;
         ready = true;
+
       } catch (e) {
-        error = e?.message ?? String(e);
+        addToast(e?.message ?? String(e));
         ready = true;
       }
 
-      // Live sync from other clients
+      // Live sync
       unsubMeta = OBR.room.onMetadataChange((meta) => {
-        const s = meta[METADATA_KEY];
-        if (s) gameState = s;
+        try {
+          const s = meta[METADATA_KEY];
+          if (s) gameState = s;
+        } catch (e) {
+          addToast(e?.message ?? String(e));
+        }
       });
 
       unsubParty = OBR.party.onChange((players) => {
@@ -77,19 +127,37 @@
   });
 </script>
 
+<!-- ── Toast container ─────────────────────────────────────────────────── -->
+{#if toasts.length > 0}
+  <div class="fixed top-2 left-2 right-2 z-50 flex flex-col gap-1.5 pointer-events-none">
+    {#each toasts as toast (toast.id)}
+      <div
+        class="flex items-start gap-2 px-3 py-2 rounded-lg shadow-lg text-xs pointer-events-auto"
+        class:bg-red-900={toast.type === 'error'}
+        class:border-red-700={toast.type === 'error'}
+        class:text-red-200={toast.type === 'error'}
+        class:bg-indigo-900={toast.type === 'info'}
+        class:border-indigo-700={toast.type === 'info'}
+        class:text-indigo-200={toast.type === 'info'}
+        style="border-width:1px"
+      >
+        <span class="shrink-0 mt-px">{toast.type === 'error' ? '✕' : 'ℹ'}</span>
+        <span class="flex-1 break-words font-mono leading-snug">{toast.msg}</span>
+        <button
+          onclick={() => dismissToast(toast.id)}
+          class="shrink-0 opacity-60 hover:opacity-100 leading-none text-sm"
+        >×</button>
+      </div>
+    {/each}
+  </div>
+{/if}
+
+<!-- ── Main content ────────────────────────────────────────────────────── -->
 {#if !ready}
   <div class="flex items-center justify-center h-full">
     <div class="text-center space-y-2">
       <div class="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
       <p class="text-xs text-gray-500">Connexion à Owlbear Rodeo...</p>
-    </div>
-  </div>
-
-{:else if error}
-  <div class="flex items-center justify-center h-full p-4">
-    <div class="text-center space-y-2">
-      <p class="text-red-400 text-sm font-medium">Erreur de connexion</p>
-      <p class="text-xs text-gray-500">{error}</p>
     </div>
   </div>
 
