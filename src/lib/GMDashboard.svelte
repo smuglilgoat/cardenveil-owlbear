@@ -306,7 +306,7 @@
               {:else}
                 <div class="flex flex-wrap gap-1.5 mt-1.5">
                   {#each p.hand as card (card.id)}
-                    <CardDisplay {card} actions={[{ label: 'Défausser', onClick: () => gmDiscardFromHand(id, card) }]} />
+                    <CardDisplay {card} actions={[{ icon: '🗑', label: 'Défausser', onClick: () => gmDiscardFromHand(id, card) }]} />
                   {/each}
                 </div>
               {/if}

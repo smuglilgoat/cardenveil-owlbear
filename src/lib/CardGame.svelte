@@ -30,8 +30,11 @@
   // ── State push (with error toast) ────────────────────────────────────
   async function pushState(newState) {
     try {
-      gameState = { ...newState };
-      await OBR.room.setMetadata({ [METADATA_KEY]: newState });
+      // JSON round-trip strips Svelte $state Proxy wrappers — required for
+      // OBR's postMessage-based setMetadata (Proxies cannot be structured-cloned).
+      const plain = JSON.parse(JSON.stringify(newState));
+      gameState = plain;
+      await OBR.room.setMetadata({ [METADATA_KEY]: plain });
     } catch (e) {
       addToast(e?.message ?? String(e));
     }

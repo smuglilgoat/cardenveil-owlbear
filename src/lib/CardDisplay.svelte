@@ -52,9 +52,10 @@
         {#each actions as action}
           <button
             onclick={action.onClick}
-            class="text-[8px] bg-indigo-600 hover:bg-indigo-500 text-white px-1 py-0.5 rounded w-full text-center leading-tight"
+            title={action.label}
+            class="text-base bg-indigo-600 hover:bg-indigo-500 text-white rounded w-full flex items-center justify-center py-0.5 leading-none"
           >
-            {action.label}
+            {action.icon}
           </button>
         {/each}
       </div>

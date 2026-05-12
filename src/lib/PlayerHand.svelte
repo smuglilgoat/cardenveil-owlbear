@@ -57,6 +57,10 @@
   }
 
   function crystallizeCard(card) {
+    if (player.tokens.esprit <= 0) {
+      // No Esprit token available — surface this via the token action flow instead
+      return;
+    }
     onUpdate({
       ...gameState,
       players: {
@@ -65,6 +69,7 @@
           ...player,
           hand: player.hand.filter(c => c.id !== card.id),
           crystallized: [...player.crystallized, card],
+          tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
         },
       },
     });
@@ -276,7 +281,7 @@
             {#each player.hand as card (card.id)}
               <CardDisplay
                 {card}
-                actions={[{ label: 'Donner', onClick: () => completeAccept(card) }]}
+                actions={[{ icon: '↗', label: 'Donner en échange', onClick: () => completeAccept(card) }]}
               />
             {/each}
           </div>
@@ -315,7 +320,7 @@
           <p class="text-xs text-indigo-200 font-semibold">Agilité — Choisissez la carte à défausser :</p>
           <div class="flex flex-wrap gap-2">
             {#each player.hand as card (card.id)}
-              <CardDisplay {card} actions={[{ label: 'Défausser', onClick: () => agilitePickCard(card) }]} />
+              <CardDisplay {card} actions={[{ icon: '🗑', label: 'Défausser', onClick: () => agilitePickCard(card) }]} />
             {/each}
           </div>
 
@@ -350,7 +355,7 @@
           <p class="text-xs text-indigo-200 font-semibold">Esprit — Choisissez la carte à cristalliser :</p>
           <div class="flex flex-wrap gap-2">
             {#each player.hand as card (card.id)}
-              <CardDisplay {card} actions={[{ label: 'Cristalliser', onClick: () => espritPickCard(card) }]} />
+              <CardDisplay {card} actions={[{ icon: '✦', label: 'Cristalliser', onClick: () => espritPickCard(card) }]} />
             {/each}
           </div>
 
@@ -358,7 +363,7 @@
           <p class="text-xs text-indigo-200 font-semibold">Social — Choisissez votre carte à offrir :</p>
           <div class="flex flex-wrap gap-2">
             {#each player.hand as card (card.id)}
-              <CardDisplay {card} actions={[{ label: 'Offrir', onClick: () => socialPickCard(card) }]} />
+              <CardDisplay {card} actions={[{ icon: '↗', label: 'Offrir', onClick: () => socialPickCard(card) }]} />
             {/each}
           </div>
 
@@ -405,8 +410,12 @@
             <CardDisplay
               {card}
               actions={[
-                { label: 'Défausser',   onClick: () => discardCard(card)    },
-                { label: 'Cristalliser', onClick: () => crystallizeCard(card) },
+                { icon: '🗑', label: 'Défausser',   onClick: () => discardCard(card) },
+                {
+                  icon: '✦',
+                  label: player.tokens.esprit > 0 ? 'Cristalliser (−1 Esprit)' : 'Cristalliser (pas de token Esprit)',
+                  onClick: () => crystallizeCard(card),
+                },
               ]}
             />
           {/each}
@@ -434,7 +443,7 @@
             <CardDisplay
               {card}
               crystallized={true}
-              actions={[{ label: 'Jouer / Défausser', onClick: () => discardCrystallized(card) }]}
+              actions={[{ icon: '▶', label: 'Jouer / Défausser', onClick: () => discardCrystallized(card) }]}
             />
           {/each}
         </div>
