@@ -35,9 +35,9 @@
   // ── State push: dehydrate → OBR, hydrate → local ────────────────────
   async function pushState(newState) {
     try {
-      // JSON round-trip strips all Svelte $state Proxy wrappers BEFORE dehydrating.
-      // Proxies survive spread/map operations, so they must be eliminated first.
-      const plain = JSON.parse(JSON.stringify(newState));
+      // $state.snapshot() is the Svelte 5 API to unwrap reactive Proxies into
+      // plain objects. JSON round-trip alone does not strip them reliably.
+      const plain = $state.snapshot(newState);
       const dehydrated = dehydrateState(plain);
       await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
       gameState = hydrateState(dehydrated);
