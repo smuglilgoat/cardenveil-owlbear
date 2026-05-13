@@ -1,5 +1,5 @@
 import OBR, { buildImage } from '@owlbear-rodeo/sdk';
-import { cardToSvgDataUrl } from './cardSvg.js';
+import { cardToSvgUrl } from './cardSvg.js';
 
 const NS      = 'com.cardenveil';
 const ITEM_NS = `${NS}/handCard`;
@@ -133,7 +133,7 @@ export async function renderHand(hand, crystallized) {
 
       return buildImage(
         {
-          url:    cardToSvgDataUrl(card, isCrystallized),
+          url:    cardToSvgUrl(card, isCrystallized),
           mime:   'image/svg+xml',
           width:  CARD_W,
           height: CARD_H,
