@@ -15,6 +15,11 @@
   let gmCharExchanges  = $derived((gameState.pendingExchanges ?? []).filter(e => e.to === GM_CHAR_ID));
   let gmCharOutgoing   = $derived((gameState.pendingExchanges ?? []).find(e => e.from === GM_CHAR_ID) ?? null);
 
+  // All exchanges between regular players (neither side is the GM char)
+  let allPlayerExchanges = $derived(
+    (gameState.pendingExchanges ?? []).filter(e => e.from !== GM_CHAR_ID && e.to !== GM_CHAR_ID)
+  );
+
   // GM char trade action state
   let gmAction          = $state(null); // 'pick-card' | 'pick-target' | 'accept'
   let gmActionCard      = $state(null);
@@ -278,6 +283,19 @@
     gmActionCard = null;
     gmAcceptExchange = null;
   }
+
+  // Cancel any exchange and return the offered card to the sender's hand
+  function cancelExchange(exchange) {
+    const sender = gameState.players[exchange.from];
+    onUpdate({
+      ...gameState,
+      pendingExchanges: gameState.pendingExchanges.filter(e => e.id !== exchange.id),
+      players: {
+        ...gameState.players,
+        [exchange.from]: { ...sender, hand: [...sender.hand, exchange.fromCard] },
+      },
+    });
+  }
 </script>
 
 <div class="flex flex-col h-full overflow-y-auto p-3 gap-4">
@@ -518,6 +536,38 @@
       </p>
     {/if}
   </div>
+
+  <!-- ── Échanges en cours ─────────────────────────────────────────── -->
+  {#if allPlayerExchanges.length > 0}
+    <div class="bg-gray-800 rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between px-3 py-2 border-b border-gray-700">
+        <h2 class="text-xs font-semibold text-yellow-400 uppercase tracking-wide">
+          Échanges en cours ({allPlayerExchanges.length})
+        </h2>
+      </div>
+      <div class="px-3 py-2 space-y-2">
+        {#each allPlayerExchanges as ex (ex.id)}
+          <div class="flex items-center gap-2 py-1">
+            <!-- Offered card -->
+            <CardDisplay card={ex.fromCard} />
+            <!-- Arrow + names -->
+            <div class="flex-1 min-w-0 text-xs">
+              <span class="text-white font-medium">{getPlayerName(ex.from)}</span>
+              <span class="text-gray-500 mx-1">→</span>
+              <span class="text-white font-medium">{getPlayerName(ex.to)}</span>
+              <div class="text-gray-500 text-[10px]">en attente de réponse</div>
+            </div>
+            <!-- Cancel -->
+            <button
+              onclick={() => cancelExchange(ex)}
+              title="Annuler l'échange"
+              class="shrink-0 text-xs px-2 py-1 bg-red-900 hover:bg-red-800 text-red-300 rounded-lg"
+            >✕</button>
+          </div>
+        {/each}
+      </div>
+    </div>
+  {/if}
 
   <!-- ── Players ────────────────────────────────────────────────────── -->
   <div class="space-y-2">
