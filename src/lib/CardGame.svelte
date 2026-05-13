@@ -1,17 +1,22 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import OBR from '@owlbear-rodeo/sdk';
-  import { createInitialGameState, createEmptyPlayer, createNormalDeck, createSpecializedDecks, GM_CHAR_ID } from './deck.js';
+  import {
+    createInitialGameState, createEmptyPlayer,
+    createNormalDeck, createSpecializedDecks,
+    hydrateState, dehydrateState,
+    GM_CHAR_ID,
+  } from './deck.js';
   import GMDashboard from './GMDashboard.svelte';
   import PlayerHand from './PlayerHand.svelte';
 
   const METADATA_KEY = 'com.cardenveil/gameState';
 
-  let ready = $state(false);
-  let myId = $state(null);
-  let myName = $state('');
-  let myRole = $state(null);
-  let party = $state([]);
+  let ready     = $state(false);
+  let myId      = $state(null);
+  let myName    = $state('');
+  let myRole    = $state(null);
+  let party     = $state([]);
   let gameState = $state(null);
 
   // ── Toast notifications ──────────────────────────────────────────────
@@ -27,85 +32,59 @@
     toasts = toasts.filter(t => t.id !== id);
   }
 
-  // ── State push (with error toast) ────────────────────────────────────
+  // ── State push: dehydrate → OBR, hydrate → local ────────────────────
   async function pushState(newState) {
     try {
-      // JSON round-trip strips Svelte $state Proxy wrappers — required for
-      // OBR's postMessage-based setMetadata (Proxies cannot be structured-cloned).
-      const plain = JSON.parse(JSON.stringify(newState));
-      gameState = plain;
-      await OBR.room.setMetadata({ [METADATA_KEY]: plain });
+      const dehydrated = dehydrateState(newState);
+      // Write compact (ID-only) state to OBR
+      await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
+      // Keep local state as full hydrated objects
+      gameState = hydrateState(dehydrated);
     } catch (e) {
       addToast(e?.message ?? String(e));
     }
   }
 
-  let unsubMeta = null;
+  let unsubMeta  = null;
   let unsubParty = null;
 
   onMount(() => {
     OBR.onReady(async () => {
       try {
-        myId    = await OBR.player.getId();
-        myName  = await OBR.player.getName();
-        myRole  = await OBR.player.getRole();
-        party   = await OBR.party.getPlayers();
+        myId   = await OBR.player.getId();
+        myName = await OBR.player.getName();
+        myRole = await OBR.player.getRole();
+        party  = await OBR.party.getPlayers();
 
         const meta = await OBR.room.getMetadata();
-        let state = meta[METADATA_KEY] ?? null;
+        let raw = meta[METADATA_KEY] ?? null;
 
-        // GM initialises fresh state if nothing exists yet
-        if (!state && myRole === 'GM') {
-          state = createInitialGameState();
-          await OBR.room.setMetadata({ [METADATA_KEY]: state });
+        // GM creates fresh state if none exists
+        if (!raw && myRole === 'GM') {
+          const fresh = createInitialGameState();
+          await OBR.room.setMetadata({ [METADATA_KEY]: dehydrateState(fresh) });
+          raw = dehydrateState(fresh);
         }
 
-        // ── Schema migration ──────────────────────────────────────────
+        // Hydrate and patch missing fields
+        let state = raw ? hydrateState(raw) : null;
+
         if (state) {
-          let migrated = false;
+          let dirty = false;
 
-          // v1 → v2: 'deck' renamed to 'normalDeck', add specializedDecks + pendingExchanges
-          if (!state.normalDeck) {
-            state = {
-              normalDeck:       state.deck ?? createNormalDeck(),
-              specializedDecks: createSpecializedDecks(),
-              discard:          state.discard ?? [],
-              pendingExchanges: [],
-              players:          state.players ?? {},
-            };
-            migrated = true;
-            addToast('État migré vers la nouvelle structure de deck.', 'info');
+          // Record GM identity
+          if (myRole === 'GM' && state.gmId !== myId) {
+            state = { ...state, gmId: myId };
+            dirty = true;
           }
 
-          if (!state.specializedDecks) { state = { ...state, specializedDecks: createSpecializedDecks() }; migrated = true; }
-          if (!state.pendingExchanges)  { state = { ...state, pendingExchanges: [] };                       migrated = true; }
-          if (state.gmId === undefined)  { state = { ...state, gmId: null };                                migrated = true; }
-          if (state.gmCharacterId === undefined) { state = { ...state, gmCharacterId: null };               migrated = true; }
-
-          // Ensure each player has maxHandSize
-          for (const [id, p] of Object.entries(state.players)) {
-            if (p.maxHandSize == null) {
-              state = { ...state, players: { ...state.players, [id]: { ...p, maxHandSize: 3 } } };
-              migrated = true;
-            }
-          }
-
-          if (migrated) await OBR.room.setMetadata({ [METADATA_KEY]: state });
+          if (dirty) await OBR.room.setMetadata({ [METADATA_KEY]: dehydrateState(state) });
         }
 
-        // Record the GM's OBR player ID in shared state so all clients know who the GM is
-        if (state && myRole === 'GM' && state.gmId !== myId) {
-          state = { ...state, gmId: myId };
-          await OBR.room.setMetadata({ [METADATA_KEY]: JSON.parse(JSON.stringify(state)) });
-        }
-
-        // Register current player if not yet in state (skip GM's own ID — GM uses gmCharacter if needed)
+        // Register player (non-GM only)
         if (state && myRole !== 'GM' && !state.players[myId]) {
-          state = {
-            ...state,
-            players: { ...state.players, [myId]: createEmptyPlayer(myName) },
-          };
-          await OBR.room.setMetadata({ [METADATA_KEY]: state });
+          state = { ...state, players: { ...state.players, [myId]: createEmptyPlayer(myName) } };
+          await OBR.room.setMetadata({ [METADATA_KEY]: dehydrateState(state) });
         }
 
         gameState = state;
@@ -116,11 +95,11 @@
         ready = true;
       }
 
-      // Live sync
+      // Live sync: incoming raw → hydrate locally
       unsubMeta = OBR.room.onMetadataChange((meta) => {
         try {
-          const s = meta[METADATA_KEY];
-          if (s) gameState = s;
+          const raw = meta[METADATA_KEY];
+          if (raw) gameState = hydrateState(raw);
         } catch (e) {
           addToast(e?.message ?? String(e));
         }
@@ -154,10 +133,7 @@
       >
         <span class="shrink-0 mt-px">{toast.type === 'error' ? '✕' : 'ℹ'}</span>
         <span class="flex-1 break-words font-mono leading-snug">{toast.msg}</span>
-        <button
-          onclick={() => dismissToast(toast.id)}
-          class="shrink-0 opacity-60 hover:opacity-100 leading-none text-sm"
-        >×</button>
+        <button onclick={() => dismissToast(toast.id)} class="shrink-0 opacity-60 hover:opacity-100 text-sm">×</button>
       </div>
     {/each}
   </div>
@@ -175,9 +151,7 @@
 {:else if !gameState}
   <div class="flex flex-col items-center justify-center h-full gap-4 p-4">
     <p class="text-gray-400 text-sm text-center">
-      {myRole === 'GM'
-        ? 'Aucune partie initialisée.'
-        : 'En attente que le MJ initialise la partie...'}
+      {myRole === 'GM' ? 'Aucune partie initialisée.' : 'En attente que le MJ initialise la partie...'}
     </p>
     {#if myRole === 'GM'}
       <button
@@ -190,19 +164,8 @@
   </div>
 
 {:else if myRole === 'GM'}
-  <GMDashboard
-    {gameState}
-    {party}
-    {myId}
-    onUpdate={pushState}
-  />
+  <GMDashboard {gameState} {party} {myId} onUpdate={pushState} />
 
 {:else}
-  <PlayerHand
-    {gameState}
-    {myId}
-    {myName}
-    {party}
-    onUpdate={pushState}
-  />
+  <PlayerHand {gameState} {myId} {myName} {party} onUpdate={pushState} />
 {/if}

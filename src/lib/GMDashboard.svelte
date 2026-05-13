@@ -10,6 +10,9 @@
   let dealCount  = $state(1);
   let expandedPlayers = $state(new Set());
 
+  // Hard reset two-step state: 0 = idle, 1 = first confirm, 2 = second confirm
+  let resetStep = $state(0);
+
   // GM character convenience refs
   let gmChar           = $derived(gameState.gmCharacterId ? gameState.players[gameState.gmCharacterId] : null);
   let gmCharExchanges  = $derived((gameState.pendingExchanges ?? []).filter(e => e.to === GM_CHAR_ID));
@@ -62,7 +65,6 @@
   }
 
   function resetAll() {
-    if (!confirm('Réinitialiser les deux pioches ? Les mains actuelles ne seront pas affectées.')) return;
     onUpdate({ ...gameState, normalDeck: createNormalDeck(), specializedDecks: createSpecializedDecks(), discard: [] });
   }
 
@@ -200,7 +202,6 @@
   }
 
   function removeGMCharacter() {
-    if (!confirm('Supprimer le personnage MJ ? Sa main et ses tokens seront perdus.')) return;
     const players = { ...gameState.players };
     delete players[GM_CHAR_ID];
     // Cancel any pending exchanges involving GM character
@@ -284,12 +285,15 @@
     gmAcceptExchange = null;
   }
 
-  // Hard reset — wipe everything back to a fresh game state
+  // Hard reset — wipe everything back to a fresh game state (in-UI two-step)
   function hardReset() {
-    if (!confirm('⚠️ RÉINITIALISATION COMPLÈTE\n\nToutes les mains, tokens, échanges et pioches seront effacés pour tous les joueurs.\n\nContinuer ?')) return;
-    if (!confirm('Dernière confirmation — cette action est irréversible. Tout effacer ?')) return;
+    if (resetStep === 0) { resetStep = 1; return; }
+    if (resetStep === 1) { resetStep = 2; return; }
+    resetStep = 0;
     onUpdate(createInitialGameState());
   }
+
+  function cancelReset() { resetStep = 0; }
 
   // Cancel any exchange and return the offered card to the sender's hand
   function cancelExchange(exchange) {
@@ -653,13 +657,41 @@
   </div>
 
   <!-- ── Hard reset ─────────────────────────────────────────────────── -->
-  <div class="border-t border-gray-700 pt-4">
-    <button
-      onclick={hardReset}
-      class="w-full py-2 text-xs font-bold bg-transparent border border-red-800 text-red-600 hover:bg-red-950 hover:text-red-400 hover:border-red-600 rounded-lg transition-colors"
-    >
-      ⚠ Réinitialisation complète
-    </button>
+  <div class="border-t border-gray-700 pt-4 space-y-2">
+    {#if resetStep === 0}
+      <button
+        onclick={hardReset}
+        class="w-full py-2 text-xs font-bold bg-transparent border border-red-800 text-red-600 hover:bg-red-950 hover:text-red-400 hover:border-red-600 rounded-lg transition-colors"
+      >
+        ⚠ Réinitialisation complète
+      </button>
+
+    {:else if resetStep === 1}
+      <p class="text-xs text-red-400 text-center font-semibold">
+        Toutes les mains, tokens et pioches seront effacés. Confirmer ?
+      </p>
+      <div class="flex gap-2">
+        <button onclick={cancelReset} class="flex-1 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg">
+          Annuler
+        </button>
+        <button onclick={hardReset} class="flex-1 py-1.5 text-xs bg-red-800 hover:bg-red-700 text-red-100 font-bold rounded-lg">
+          Oui, continuer
+        </button>
+      </div>
+
+    {:else if resetStep === 2}
+      <p class="text-xs text-red-300 text-center font-bold">
+        ⚠ Dernière confirmation — action irréversible.
+      </p>
+      <div class="flex gap-2">
+        <button onclick={cancelReset} class="flex-1 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg">
+          Annuler
+        </button>
+        <button onclick={hardReset} class="flex-1 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg">
+          Tout effacer
+        </button>
+      </div>
+    {/if}
   </div>
 
 </div>
