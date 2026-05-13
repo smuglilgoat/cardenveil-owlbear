@@ -5,9 +5,9 @@ const NS      = 'com.cardenveil';
 const ITEM_NS = `${NS}/handCard`;
 const MENU_ID = `${NS}/hand-menu`;
 
-const CARD_W    = 120;   // PNG pixel width  (2× for sharpness)
-const CARD_H    = 180;   // PNG pixel height
-const CARD_DPI  = 200;   // 2× density → same physical size as the original 60×90 @100dpi
+const CARD_W   = 120;  // must match PNG_W in scripts/generate-cards.js
+const CARD_H   = 180;  // must match PNG_H
+const CARD_DPI = 100;  // at 100 dpi, card is 1.2×1.8 OBR grid units
 const SPACING   = 0.85;
 const MAX_ROT   = 14;
 const ARC_DIP   = 0.15;

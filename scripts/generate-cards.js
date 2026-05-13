@@ -13,6 +13,10 @@ const OUT = path.join(__dirname, '../public/cards');
 
 fs.mkdirSync(OUT, { recursive: true });
 
+// Output PNG dimensions — must match CARD_W / CARD_H in handScene.js
+export const PNG_W = 120;
+export const PNG_H = 180;
+
 const SUITS = [
   { symbol: '♠', id: 'S', isRed: false },
   { symbol: '♣', id: 'C', isRed: false },
@@ -32,9 +36,8 @@ function makeSvg(suit, value, isRed, crystallized) {
   const sw     = crystallized ? 3 : 1.5;
   const val    = esc(value);
 
-  // Sharp requires explicit xmlns and pixel dimensions for SVG rasterisation
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="120" height="180" viewBox="0 0 60 90">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 90">
   <rect width="60" height="90" rx="6" fill="${bg}" stroke="${stroke}" stroke-width="${sw}"/>
   <text x="4" y="16" font-family="serif" font-size="13" font-weight="bold" fill="${color}">${val}</text>
   <text x="4" y="30" font-family="serif" font-size="14" fill="${color}">${suit}</text>
@@ -57,7 +60,8 @@ for (const suit of SUITS) {
       const svg    = Buffer.from(makeSvg(suit.symbol, value, suit.isRed, crystallized));
 
       promises.push(
-        sharp(svg, { density: 192 })
+        sharp(svg)
+          .resize(PNG_W, PNG_H)   // force exact pixel dimensions — no density guesswork
           .png()
           .toFile(path.join(OUT, name))
           .then(() => { count++; })
@@ -67,4 +71,4 @@ for (const suit of SUITS) {
 }
 
 await Promise.all(promises);
-console.log(`Generated ${count} card PNGs → public/cards/`);
+console.log(`Generated ${count} card PNGs (${PNG_W}×${PNG_H}) → public/cards/`);
