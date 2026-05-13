@@ -391,7 +391,7 @@
   </div>
 
   <!-- ── GM Character panel ─────────────────────────────────────────── -->
-  <div class="bg-gray-800 rounded-xl overflow-hidden">
+  <div class="bg-gray-800 rounded-xl">
     <div class="flex items-center justify-between px-3 py-2 border-b border-gray-700">
       <h2 class="text-xs font-semibold text-indigo-300 uppercase tracking-wide">Personnage MJ</h2>
       {#if !gmChar}
@@ -546,7 +546,7 @@
 
   <!-- ── Échanges en cours ─────────────────────────────────────────── -->
   {#if allPlayerExchanges.length > 0}
-    <div class="bg-gray-800 rounded-xl overflow-hidden">
+    <div class="bg-gray-800 rounded-xl">
       <div class="flex items-center justify-between px-3 py-2 border-b border-gray-700">
         <h2 class="text-xs font-semibold text-yellow-400 uppercase tracking-wide">
           Échanges en cours ({allPlayerExchanges.length})
@@ -583,7 +583,7 @@
     {#each playerIds as id (id)}
       {@const p = gameState.players[id]}
       {@const expanded = expandedPlayers.has(id)}
-      <div class="bg-gray-800 rounded-xl overflow-hidden">
+      <div class="bg-gray-800 rounded-xl">
 
         <button onclick={() => toggleExpand(id)}
           class="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-700 transition-colors text-left">
