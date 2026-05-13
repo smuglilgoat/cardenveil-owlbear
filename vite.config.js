@@ -16,6 +16,14 @@ function generateCards() {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [generateCards(), svelte(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve('index.html'),
+        hand: path.resolve('hand.html'),
+      },
+    },
+  },
   server: {
     cors: {
       origin: "https://www.owlbear.rodeo",
