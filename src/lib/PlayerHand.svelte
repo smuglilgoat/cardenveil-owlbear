@@ -1,5 +1,7 @@
 <script>
+  import { onMount, onDestroy } from 'svelte';
   import CardDisplay from './CardDisplay.svelte';
+  import { initHandScene, renderHand, clearHandItems, repositionHand } from './handScene.js';
 
   /**
    * @type {{
@@ -247,6 +249,51 @@
   let otherPlayerIds = $derived(
     Object.keys(gameState.players).filter(id => id !== myId && id !== gameState.gmId)
   );
+
+  // ── Scene hand ────────────────────────────────────────────────────────
+  let sceneVisible = $state(false);
+
+  // Card selected via OBR right-click context menu action
+  // { cardId, isCrystallized } or null
+  let sceneActionPending = $state(null);
+
+  function onSceneAction(action, cardId, isCrystallized) {
+    if (action === 'select') return; // handled by context menu directly
+    // Dispatch the action immediately
+    const card = isCrystallized
+      ? player?.crystallized.find(c => c.id === cardId)
+      : player?.hand.find(c => c.id === cardId);
+    if (!card) return;
+    if (action === 'discard') {
+      isCrystallized ? discardCrystallized(card) : discardCard(card);
+    } else if (action === 'crystallize') {
+      crystallizeCard(card);
+    }
+  }
+
+  let _cleanupScene = null;
+
+  onMount(async () => {
+    _cleanupScene = await initHandScene(onSceneAction);
+  });
+
+  onDestroy(async () => {
+    _cleanupScene?.();
+    await clearHandItems();
+  });
+
+  // Re-render scene hand whenever hand/crystallized/visibility changes
+  $effect(() => {
+    if (!player) return;
+    const hand   = player.hand;
+    const cryst  = player.crystallized;
+    const vis    = sceneVisible;
+    if (vis) {
+      renderHand(hand, cryst);
+    } else {
+      clearHandItems();
+    }
+  });
 </script>
 
 {#if !player}
@@ -263,6 +310,31 @@
         <span>Pioche: <span class="text-white">{deckCount}</span></span>
         <span>Défausse: <span class="text-white">{gameState.discard.length}</span></span>
       </div>
+    </div>
+
+    <!-- ── Scene hand controls ───────────────────────────────────────── -->
+    <div class="flex gap-2">
+      <button
+        onclick={() => { sceneVisible = !sceneVisible; }}
+        class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition-colors border"
+        class:bg-indigo-600={sceneVisible}
+        class:border-indigo-500={sceneVisible}
+        class:text-white={sceneVisible}
+        class:bg-transparent={!sceneVisible}
+        class:border-gray-600={!sceneVisible}
+        class:text-gray-400={!sceneVisible}
+      >
+        {sceneVisible ? '👁 Main visible sur scène' : '👁 Afficher sur scène'}
+      </button>
+      {#if sceneVisible}
+        <button
+          onclick={() => renderHand(player.hand, player.crystallized)}
+          class="text-xs px-2 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg border border-gray-600"
+          title="Repositionner la main au bas de l'écran actuel"
+        >
+          ⊕ Repositionner
+        </button>
+      {/if}
     </div>
 
     <!-- ── Incoming exchanges ──────────────────────────────────────── -->
