@@ -290,7 +290,15 @@
     if (resetStep === 0) { resetStep = 1; return; }
     if (resetStep === 1) { resetStep = 2; return; }
     resetStep = 0;
-    onUpdate(createInitialGameState());
+    const fresh = createInitialGameState();
+    // Preserve gmId so the GM stays recognised after reset.
+    // Re-register all current players as empty so they don't get stuck on
+    // "En attente que le MJ initialise la partie..." screen.
+    const players = {};
+    for (const [id, p] of Object.entries(gameState.players)) {
+      players[id] = createEmptyPlayer(p.name);
+    }
+    onUpdate({ ...fresh, gmId: gameState.gmId, players });
   }
 
   function cancelReset() { resetStep = 0; }
