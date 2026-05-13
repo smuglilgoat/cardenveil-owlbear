@@ -284,6 +284,13 @@
     gmAcceptExchange = null;
   }
 
+  // Hard reset — wipe everything back to a fresh game state
+  function hardReset() {
+    if (!confirm('⚠️ RÉINITIALISATION COMPLÈTE\n\nToutes les mains, tokens, échanges et pioches seront effacés pour tous les joueurs.\n\nContinuer ?')) return;
+    if (!confirm('Dernière confirmation — cette action est irréversible. Tout effacer ?')) return;
+    onUpdate(createInitialGameState());
+  }
+
   // Cancel any exchange and return the offered card to the sender's hand
   function cancelExchange(exchange) {
     const sender = gameState.players[exchange.from];
@@ -643,6 +650,16 @@
     {#if playerIds.length === 0}
       <p class="text-xs text-gray-600 italic">Aucun joueur enregistré.</p>
     {/if}
+  </div>
+
+  <!-- ── Hard reset ─────────────────────────────────────────────────── -->
+  <div class="border-t border-gray-700 pt-4">
+    <button
+      onclick={hardReset}
+      class="w-full py-2 text-xs font-bold bg-transparent border border-red-800 text-red-600 hover:bg-red-950 hover:text-red-400 hover:border-red-600 rounded-lg transition-colors"
+    >
+      ⚠ Réinitialisation complète
+    </button>
   </div>
 
 </div>
