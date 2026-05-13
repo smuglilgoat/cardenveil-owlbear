@@ -35,10 +35,11 @@
   // ── State push: dehydrate → OBR, hydrate → local ────────────────────
   async function pushState(newState) {
     try {
-      const dehydrated = dehydrateState(newState);
-      // Write compact (ID-only) state to OBR
+      // JSON round-trip strips all Svelte $state Proxy wrappers BEFORE dehydrating.
+      // Proxies survive spread/map operations, so they must be eliminated first.
+      const plain = JSON.parse(JSON.stringify(newState));
+      const dehydrated = dehydrateState(plain);
       await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
-      // Keep local state as full hydrated objects
       gameState = hydrateState(dehydrated);
     } catch (e) {
       addToast(e?.message ?? String(e));
