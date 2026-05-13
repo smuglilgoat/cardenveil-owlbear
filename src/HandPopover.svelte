@@ -49,9 +49,9 @@
   ] : []);
 
   // ── Fan geometry ──────────────────────────────────────────────────────
-  const MAX_ROT  = 18;   // degrees at edges
-  const SPREAD_X = 56;   // px between card centres
-  const ARC_Y    = 18;   // px dip at edges vs centre
+  const MAX_ROT  = 20;   // degrees at edges
+  const SPREAD_X = 64;   // px between card centres
+  const ARC_Y    = 22;   // px dip at edges vs centre
 
   function fanStyle(i, n) {
     const t   = n > 1 ? (i / (n - 1)) - 0.5 : 0;
@@ -112,7 +112,7 @@
 </script>
 
 <div
-  class="w-full h-full flex items-end justify-center pb-2 select-none overflow-visible"
+  class="w-full h-full flex items-end justify-center pb-3 select-none overflow-visible"
   style="background: transparent;"
 >
   {#if !ready || !player}
@@ -123,7 +123,7 @@
     <!-- Fan container -->
     <div
       class="relative flex items-end justify-center"
-      style="width: {Math.max(180, allCards.length * SPREAD_X + 80)}px; height: 200px;"
+      style="width: {Math.max(300, allCards.length * SPREAD_X + 120)}px; height: 260px;"
     >
       {#each allCards as { card, isCrystallized }, i (card.id)}
         {@const isActive = active?.card.id === card.id}
@@ -135,7 +135,7 @@
           class="absolute bottom-0 left-1/2 cursor-pointer transition-all duration-150"
           style="
             {fanStyle(i, n)}
-            margin-left: -36px;
+            margin-left: -40px;
             z-index: {isActive ? 50 : i};
             filter: {isActive ? 'drop-shadow(0 -8px 12px rgba(99,102,241,0.7))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
             transform-origin: bottom center;
@@ -145,7 +145,7 @@
         >
           <!-- Card face -->
           <div
-            class="w-[72px] h-[108px] rounded-lg flex flex-col p-1 text-[11px] font-bold leading-none"
+            class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
             style="
               background: {isCrystallized ? '#fefce8' : '#ffffff'};
               border: {isCrystallized ? '2.5px solid #f59e0b' : '1.5px solid #d1d5db'};

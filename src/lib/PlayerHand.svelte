@@ -254,15 +254,22 @@
   const POPOVER_ID = 'com.cardenveil/hand';
   let popoverVisible = $state(false);
 
+  function cardCount() {
+    return (player?.hand.length ?? 0) + (player?.crystallized.length ?? 0);
+  }
+
   async function openPopover() {
-    const n       = (player?.hand.length ?? 0) + (player?.crystallized.length ?? 0);
-    const width   = Math.max(220, n * 56 + 80);
+    const n      = cardCount();
+    const width  = Math.max(300, n * 64 + 120);
+    const height = 300;
+    const vw     = await OBR.viewport.getWidth();
+    const vh     = await OBR.viewport.getHeight();
     await OBR.popover.open({
       id:       POPOVER_ID,
       url:      `${window.location.origin}/hand.html`,
       width,
-      height:   220,
-      anchorPosition:  { left: window.screen.width / 2, top: window.screen.height },
+      height,
+      anchorPosition:  { left: vw / 2, top: vh },
       anchorOrigin:    { horizontal: 'CENTER', vertical: 'TOP' },
       transformOrigin: { horizontal: 'CENTER', vertical: 'BOTTOM' },
       disableClickAway: true,
@@ -283,6 +290,12 @@
       await openPopover();
     }
   }
+
+  // Reopen popover to resize when hand count changes while visible
+  $effect(() => {
+    const n = cardCount();
+    if (popoverVisible && n >= 0) openPopover();
+  });
 
   onDestroy(async () => {
     if (popoverVisible) await OBR.popover.close(POPOVER_ID).catch(() => {});
