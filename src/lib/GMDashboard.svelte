@@ -1,7 +1,7 @@
 <script>
   import CardDisplay from './CardDisplay.svelte';
   import TokenPanel from './TokenPanel.svelte';
-  import { createNormalDeck, createSpecializedDecks, createEmptyPlayer, shuffle, GM_CHAR_ID } from './deck.js';
+  import { createNormalDeck, createSpecializedDecks, createEmptyPlayer, createInitialGameState, shuffle, GM_CHAR_ID } from './deck.js';
 
   /** @type {{ gameState: object, party: object[], myId: string, onUpdate: (s: object) => void }} */
   let { gameState, party, myId, onUpdate } = $props();
