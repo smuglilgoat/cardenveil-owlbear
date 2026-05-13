@@ -1,12 +1,12 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
-  import OBR from '@owlbear-rodeo/sdk';
-  import { hydrateState, dehydrateState } from './lib/deck.js';
+  import { onMount, onDestroy } from "svelte";
+  import OBR from "@owlbear-rodeo/sdk";
+  import { hydrateState, dehydrateState } from "./lib/deck.js";
 
-  const METADATA_KEY = 'com.cardenveil/gameState';
+  const METADATA_KEY = "com.cardenveil/gameState";
 
-  let ready     = $state(false);
-  let myId      = $state(null);
+  let ready = $state(false);
+  let myId = $state(null);
   let gameState = $state(null);
 
   // Which card is being actioned: { card, isCrystallized } | null
@@ -15,7 +15,7 @@
   let unsubMeta = null;
 
   async function pushState(newState) {
-    const plain      = $state.snapshot(newState);
+    const plain = $state.snapshot(newState);
     const dehydrated = dehydrateState(plain);
     await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
     gameState = hydrateState(dehydrated);
@@ -26,7 +26,7 @@
       myId = await OBR.player.getId();
 
       const meta = await OBR.room.getMetadata();
-      const raw  = meta[METADATA_KEY];
+      const raw = meta[METADATA_KEY];
       if (raw) gameState = hydrateState(raw);
 
       ready = true;
@@ -38,26 +38,35 @@
     });
   });
 
-  onDestroy(() => { unsubMeta?.(); });
+  onDestroy(() => {
+    unsubMeta?.();
+  });
 
   // ── Derived ────────────────────────────────────────────────────────────
   let player = $derived(gameState?.players?.[myId] ?? null);
 
-  let allCards = $derived(player ? [
-    ...player.hand.map(c        => ({ card: c, isCrystallized: false })),
-    ...player.crystallized.map(c => ({ card: c, isCrystallized: true  })),
-  ] : []);
+  let allCards = $derived(
+    player
+      ? [
+          ...player.hand.map((c) => ({ card: c, isCrystallized: false })),
+          ...player.crystallized.map((c) => ({
+            card: c,
+            isCrystallized: true,
+          })),
+        ]
+      : [],
+  );
 
   // ── Fan geometry ──────────────────────────────────────────────────────
-  const MAX_ROT  = 20;   // degrees at edges
-  const SPREAD_X = 64;   // px between card centres
-  const ARC_Y    = 22;   // px dip at edges vs centre
+  const MAX_ROT = 20; // degrees at edges
+  const SPREAD_X = 64; // px between card centres
+  const ARC_Y = 22; // px dip at edges vs centre
 
   function fanStyle(i, n) {
-    const t   = n > 1 ? (i / (n - 1)) - 0.5 : 0;
+    const t = n > 1 ? i / (n - 1) - 0.5 : 0;
     const rot = t * MAX_ROT * 2;
-    const tx  = t * SPREAD_X * (n - 1);
-    const ty  = Math.abs(t) * ARC_Y * 2;
+    const tx = t * SPREAD_X * (n - 1);
+    const ty = Math.abs(t) * ARC_Y * 2;
     return `transform: translateX(${tx}px) translateY(${ty}px) rotate(${rot}deg);`;
   }
 
@@ -70,7 +79,10 @@
         discard: [...gameState.discard, card],
         players: {
           ...gameState.players,
-          [myId]: { ...player, crystallized: player.crystallized.filter(c => c.id !== card.id) },
+          [myId]: {
+            ...player,
+            crystallized: player.crystallized.filter((c) => c.id !== card.id),
+          },
         },
       });
     } else {
@@ -79,7 +91,10 @@
         discard: [...gameState.discard, card],
         players: {
           ...gameState.players,
-          [myId]: { ...player, hand: player.hand.filter(c => c.id !== card.id) },
+          [myId]: {
+            ...player,
+            hand: player.hand.filter((c) => c.id !== card.id),
+          },
         },
       });
     }
@@ -94,9 +109,9 @@
         ...gameState.players,
         [myId]: {
           ...player,
-          hand:        player.hand.filter(c => c.id !== card.id),
-          crystallized:[...player.crystallized, card],
-          tokens:      { ...player.tokens, esprit: player.tokens.esprit - 1 },
+          hand: player.hand.filter((c) => c.id !== card.id),
+          crystallized: [...player.crystallized, card],
+          tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
         },
       },
     });
@@ -104,16 +119,24 @@
   }
 
   function toggleActive(card, isCrystallized) {
-    if (active?.card.id === card.id) { active = null; return; }
+    if (active?.card.id === card.id) {
+      active = null;
+      return;
+    }
     active = { card, isCrystallized };
   }
 
-  const SUIT_COLOR = { '♠': '#1e293b', '♣': '#1e293b', '♥': '#dc2626', '♦': '#dc2626' };
+  const SUIT_COLOR = {
+    "♠": "#1e293b",
+    "♣": "#1e293b",
+    "♥": "#dc2626",
+    "♦": "#dc2626",
+  };
 </script>
 
 <div
   class="w-full h-full flex items-end justify-center pb-3 select-none overflow-visible"
-  style="background: transparent;"
+  style="background-color: transparent;"
 >
   {#if !ready || !player}
     <p class="text-xs text-gray-400 pb-4">Chargement...</p>
@@ -123,7 +146,10 @@
     <!-- Fan container -->
     <div
       class="relative flex items-end justify-center"
-      style="width: {Math.max(300, allCards.length * SPREAD_X + 120)}px; height: 260px;"
+      style="width: {Math.max(
+        300,
+        allCards.length * SPREAD_X + 120,
+      )}px; height: 260px;"
     >
       {#each allCards as { card, isCrystallized }, i (card.id)}
         {@const isActive = active?.card.id === card.id}
@@ -137,9 +163,15 @@
             {fanStyle(i, n)}
             margin-left: -40px;
             z-index: {isActive ? 50 : i};
-            filter: {isActive ? 'drop-shadow(0 -8px 12px rgba(99,102,241,0.7))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
+            filter: {isActive
+            ? 'drop-shadow(0 -8px 12px rgba(99,102,241,0.7))'
+            : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
             transform-origin: bottom center;
-            {isActive ? 'transform: ' + fanStyle(i, n).replace('transform:', '').replace(';','') + ' translateY(-28px);' : ''}
+            {isActive
+            ? 'transform: ' +
+              fanStyle(i, n).replace('transform:', '').replace(';', '') +
+              ' translateY(-28px);'
+            : ''}
           "
           onclick={() => toggleActive(card, isCrystallized)}
         >
@@ -148,7 +180,9 @@
             class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
             style="
               background: {isCrystallized ? '#fefce8' : '#ffffff'};
-              border: {isCrystallized ? '2.5px solid #f59e0b' : '1.5px solid #d1d5db'};
+              border: {isCrystallized
+              ? '2.5px solid #f59e0b'
+              : '1.5px solid #d1d5db'};
               color: {SUIT_COLOR[card.suit] ?? '#111827'};
             "
           >
@@ -167,16 +201,24 @@
 
           <!-- Action buttons (shown when card is active) -->
           {#if isActive}
-            <div class="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-1 z-50">
+            <div
+              class="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-1 z-50"
+            >
               <button
-                onclick={(e) => { e.stopPropagation(); discard(card, isCrystallized); }}
+                onclick={(e) => {
+                  e.stopPropagation();
+                  discard(card, isCrystallized);
+                }}
                 class="px-2 py-1 text-[10px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg whitespace-nowrap"
               >
                 🗑
               </button>
               {#if !isCrystallized}
                 <button
-                  onclick={(e) => { e.stopPropagation(); crystallize(card); }}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    crystallize(card);
+                  }}
                   disabled={player.tokens.esprit <= 0}
                   class="px-2 py-1 text-[10px] font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg shadow-lg whitespace-nowrap disabled:opacity-40"
                 >
