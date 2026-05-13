@@ -172,7 +172,7 @@
                 onclick={(e) => { e.stopPropagation(); discard(card, isCrystallized); }}
                 class="px-2 py-1 text-[10px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg whitespace-nowrap"
               >
-                🗑 Défausser
+                🗑
               </button>
               {#if !isCrystallized}
                 <button
@@ -180,7 +180,7 @@
                   disabled={player.tokens.esprit <= 0}
                   class="px-2 py-1 text-[10px] font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg shadow-lg whitespace-nowrap disabled:opacity-40"
                 >
-                  ✦ Cristalliser
+                  ✦
                 </button>
               {/if}
             </div>
