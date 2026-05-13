@@ -28,8 +28,13 @@
   let gmActionCard      = $state(null);
   let gmAcceptExchange  = $state(null);
 
-  // Swap state: { playerId, card } while choosing the source deck
-  let swapTarget = $state(null);
+  // Swap state
+  // step 0 = idle
+  // step 1 = picking source deck (normal | suit symbol)
+  // step 2 = picking specific card from chosen source
+  let swapTarget     = $state(null); // { playerId, card }
+  let swapSource     = $state(null); // 'normal' | '♠' | '♣' | '♥' | '♦'
+  let swapStep       = $state(0);
 
   // Player list: exclude the GM's own OBR ID and the GM character
   let playerIds = $derived(
@@ -168,41 +173,42 @@
   // ── Swap ─────────────────────────────────────────────────────────────
   function startSwap(playerId, card) {
     swapTarget = { playerId, card };
+    swapSource = null;
+    swapStep   = 1;
   }
 
-  function cancelSwap() { swapTarget = null; }
+  function cancelSwap() { swapTarget = null; swapSource = null; swapStep = 0; }
 
-  function swapFromNormal(playerId, oldCard) {
-    if (gameState.normalDeck.length === 0) return;
-    const [newCard, ...rest] = gameState.normalDeck;
+  function pickSwapSource(src) {
+    swapSource = src;
+    swapStep   = 2;
+  }
+
+  function swapPickCard(newCard) {
+    const { playerId, card: oldCard } = swapTarget;
     const p = gameState.players[playerId];
-    onUpdate({
+
+    let update = {
       ...gameState,
-      normalDeck: rest,
       discard: [...gameState.discard, oldCard],
       players: {
         ...gameState.players,
         [playerId]: { ...p, hand: p.hand.map(c => c.id === oldCard.id ? newCard : c) },
       },
-    });
-    swapTarget = null;
-  }
+    };
 
-  function swapFromSpecialized(playerId, oldCard, suit) {
-    const pile = gameState.specializedDecks[suit];
-    if (!pile || pile.length === 0) return;
-    const [newCard, ...rest] = pile;
-    const p = gameState.players[playerId];
-    onUpdate({
-      ...gameState,
-      discard: [...gameState.discard, oldCard],
-      specializedDecks: { ...gameState.specializedDecks, [suit]: rest },
-      players: {
-        ...gameState.players,
-        [playerId]: { ...p, hand: p.hand.map(c => c.id === oldCard.id ? newCard : c) },
-      },
-    });
-    swapTarget = null;
+    if (swapSource === 'normal') {
+      update.normalDeck = gameState.normalDeck.filter(c => c.id !== newCard.id);
+    } else {
+      const suit = swapSource;
+      update.specializedDecks = {
+        ...gameState.specializedDecks,
+        [suit]: gameState.specializedDecks[suit].filter(c => c.id !== newCard.id),
+      };
+    }
+
+    onUpdate(update);
+    cancelSwap();
   }
 
   function gmDiscardFromHand(playerId, card) {
@@ -677,36 +683,57 @@
                 </div>
               {/if}
 
-              <!-- Swap source picker -->
+              <!-- Swap picker -->
               {#if swapTarget?.playerId === id}
                 <div class="mt-2 bg-indigo-900/40 border border-indigo-700 rounded-lg p-2 space-y-2">
                   <div class="flex items-center gap-2">
                     <p class="text-xs text-indigo-200 font-semibold flex-1">
-                      Remplacer <span class="text-white">{swapTarget.card.value}{swapTarget.card.suit}</span> par :
+                      {#if swapStep === 1}
+                        Remplacer <span class="text-white">{swapTarget.card.value}{swapTarget.card.suit}</span> — choisir la source :
+                      {:else}
+                        Choisir la carte de remplacement :
+                      {/if}
                     </p>
                     <button onclick={cancelSwap} class="text-xs text-gray-500 hover:text-gray-300">✕</button>
                   </div>
-                  <button
-                    onclick={() => swapFromNormal(id, swapTarget.card)}
-                    disabled={gameState.normalDeck.length === 0}
-                    class="w-full text-xs py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg disabled:opacity-40"
-                  >
-                    Pioche normale ({gameState.normalDeck.length})
-                  </button>
-                  <div class="grid grid-cols-2 gap-1.5">
-                    {#each SUITS_INFO as s}
-                      {@const count = gameState.specializedDecks[s.symbol]?.length ?? 0}
-                      <button
-                        onclick={() => swapFromSpecialized(id, swapTarget.card, s.symbol)}
-                        disabled={count === 0}
-                        class="text-xs py-1.5 rounded-lg border disabled:opacity-40 font-semibold"
-                        class:text-red-400={s.isRed} class:border-red-800={s.isRed} class:bg-red-950={s.isRed}
-                        class:text-gray-300={!s.isRed} class:border-gray-600={!s.isRed} class:bg-gray-800={!s.isRed}
-                      >
-                        {s.symbol} {s.label} ({count})
-                      </button>
-                    {/each}
-                  </div>
+
+                  <!-- Step 1: pick source -->
+                  {#if swapStep === 1}
+                    <button
+                      onclick={() => pickSwapSource('normal')}
+                      disabled={gameState.normalDeck.length === 0}
+                      class="w-full text-xs py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg disabled:opacity-40"
+                    >
+                      Pioche normale ({gameState.normalDeck.length})
+                    </button>
+                    <div class="grid grid-cols-2 gap-1.5">
+                      {#each SUITS_INFO as s}
+                        {@const count = gameState.specializedDecks[s.symbol]?.length ?? 0}
+                        <button
+                          onclick={() => pickSwapSource(s.symbol)}
+                          disabled={count === 0}
+                          class="text-xs py-1.5 rounded-lg border disabled:opacity-40 font-semibold"
+                          class:text-red-400={s.isRed} class:border-red-800={s.isRed} class:bg-red-950={s.isRed}
+                          class:text-gray-300={!s.isRed} class:border-gray-600={!s.isRed} class:bg-gray-800={!s.isRed}
+                        >
+                          {s.symbol} {s.label} ({count})
+                        </button>
+                      {/each}
+                    </div>
+
+                  <!-- Step 2: pick specific card -->
+                  {:else if swapStep === 2}
+                    {@const pile = swapSource === 'normal' ? gameState.normalDeck : gameState.specializedDecks[swapSource]}
+                    <button onclick={() => swapStep = 1} class="text-xs text-gray-500 hover:text-gray-300 underline">← Retour</button>
+                    <div class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                      {#each pile as card (card.id)}
+                        <CardDisplay
+                          {card}
+                          actions={[{ icon: '⇄', label: 'Utiliser cette carte', onClick: () => swapPickCard(card) }]}
+                        />
+                      {/each}
+                    </div>
+                  {/if}
                 </div>
               {/if}
             </div>
