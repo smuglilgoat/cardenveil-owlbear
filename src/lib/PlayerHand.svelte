@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import CardDisplay from './CardDisplay.svelte';
-  import { initHandScene, renderHand, clearHandItems, repositionHand } from './handScene.js';
+  import { initHandScene, renderHand, clearHandItems } from './handScene.js';
 
   /**
    * @type {{
