@@ -135,7 +135,7 @@
 </script>
 
 <div
-  class="w-full h-full flex items-end justify-center pb-3 select-none overflow-visible"
+  class="magic-hand w-full h-full flex items-end justify-center pb-3 select-none overflow-visible"
   style="background-color: transparent;"
 >
   {#if !ready || !player}

@@ -15,6 +15,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.magic-hand {
+  background-color: transparent !important;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
