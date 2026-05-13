@@ -28,6 +28,9 @@
   let gmActionCard      = $state(null);
   let gmAcceptExchange  = $state(null);
 
+  // Swap state: { playerId, card } while choosing the source deck
+  let swapTarget = $state(null);
+
   // Player list: exclude the GM's own OBR ID and the GM character
   let playerIds = $derived(
     Object.keys(gameState.players).filter(id => id !== myId && id !== GM_CHAR_ID)
@@ -160,6 +163,46 @@
       ...gameState,
       players: { ...gameState.players, [playerId]: { ...p, tokens: { ...p.tokens, [stat]: p.tokens[stat] + 1 } } },
     });
+  }
+
+  // ── Swap ─────────────────────────────────────────────────────────────
+  function startSwap(playerId, card) {
+    swapTarget = { playerId, card };
+  }
+
+  function cancelSwap() { swapTarget = null; }
+
+  function swapFromNormal(playerId, oldCard) {
+    if (gameState.normalDeck.length === 0) return;
+    const [newCard, ...rest] = gameState.normalDeck;
+    const p = gameState.players[playerId];
+    onUpdate({
+      ...gameState,
+      normalDeck: rest,
+      discard: [...gameState.discard, oldCard],
+      players: {
+        ...gameState.players,
+        [playerId]: { ...p, hand: p.hand.map(c => c.id === oldCard.id ? newCard : c) },
+      },
+    });
+    swapTarget = null;
+  }
+
+  function swapFromSpecialized(playerId, oldCard, suit) {
+    const pile = gameState.specializedDecks[suit];
+    if (!pile || pile.length === 0) return;
+    const [newCard, ...rest] = pile;
+    const p = gameState.players[playerId];
+    onUpdate({
+      ...gameState,
+      discard: [...gameState.discard, oldCard],
+      specializedDecks: { ...gameState.specializedDecks, [suit]: rest },
+      players: {
+        ...gameState.players,
+        [playerId]: { ...p, hand: p.hand.map(c => c.id === oldCard.id ? newCard : c) },
+      },
+    });
+    swapTarget = null;
   }
 
   function gmDiscardFromHand(playerId, card) {
@@ -626,8 +669,44 @@
               {:else}
                 <div class="flex flex-wrap gap-1.5 mt-1.5">
                   {#each p.hand as card (card.id)}
-                    <CardDisplay {card} actions={[{ icon: '🗑', label: 'Défausser', onClick: () => gmDiscardFromHand(id, card) }]} />
+                    <CardDisplay {card} actions={[
+                      { icon: '🗑', label: 'Défausser', onClick: () => gmDiscardFromHand(id, card) },
+                      { icon: '⇄', label: 'Échanger',  onClick: () => startSwap(id, card) },
+                    ]} />
                   {/each}
+                </div>
+              {/if}
+
+              <!-- Swap source picker -->
+              {#if swapTarget?.playerId === id}
+                <div class="mt-2 bg-indigo-900/40 border border-indigo-700 rounded-lg p-2 space-y-2">
+                  <div class="flex items-center gap-2">
+                    <p class="text-xs text-indigo-200 font-semibold flex-1">
+                      Remplacer <span class="text-white">{swapTarget.card.value}{swapTarget.card.suit}</span> par :
+                    </p>
+                    <button onclick={cancelSwap} class="text-xs text-gray-500 hover:text-gray-300">✕</button>
+                  </div>
+                  <button
+                    onclick={() => swapFromNormal(id, swapTarget.card)}
+                    disabled={gameState.normalDeck.length === 0}
+                    class="w-full text-xs py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg disabled:opacity-40"
+                  >
+                    Pioche normale ({gameState.normalDeck.length})
+                  </button>
+                  <div class="grid grid-cols-2 gap-1.5">
+                    {#each SUITS_INFO as s}
+                      {@const count = gameState.specializedDecks[s.symbol]?.length ?? 0}
+                      <button
+                        onclick={() => swapFromSpecialized(id, swapTarget.card, s.symbol)}
+                        disabled={count === 0}
+                        class="text-xs py-1.5 rounded-lg border disabled:opacity-40 font-semibold"
+                        class:text-red-400={s.isRed} class:border-red-800={s.isRed} class:bg-red-950={s.isRed}
+                        class:text-gray-300={!s.isRed} class:border-gray-600={!s.isRed} class:bg-gray-800={!s.isRed}
+                      >
+                        {s.symbol} {s.label} ({count})
+                      </button>
+                    {/each}
+                  </div>
                 </div>
               {/if}
             </div>
