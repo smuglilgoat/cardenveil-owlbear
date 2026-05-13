@@ -5,9 +5,9 @@ const NS      = 'com.cardenveil';
 const ITEM_NS = `${NS}/handCard`;
 const MENU_ID = `${NS}/hand-menu`;
 
-const CARD_W    = 60;
-const CARD_H    = 90;
-const CARD_DPI  = 100;
+const CARD_W    = 120;   // PNG pixel width  (2× for sharpness)
+const CARD_H    = 180;   // PNG pixel height
+const CARD_DPI  = 200;   // 2× density → same physical size as the original 60×90 @100dpi
 const SPACING   = 0.85;
 const MAX_ROT   = 14;
 const ARC_DIP   = 0.15;
@@ -134,7 +134,7 @@ export async function renderHand(hand, crystallized) {
       return buildImage(
         {
           url:    cardToSvgUrl(card, isCrystallized),
-          mime:   'image/svg+xml',
+          mime:   'image/png',
           width:  CARD_W,
           height: CARD_H,
         },
