@@ -60,9 +60,11 @@
   let crystalPickOpen = $state(false);
 
   // Player list: exclude the GM's own OBR ID and the GM character
+  let partyIds = $derived(new Set(party.map((/** @type {any} */ p) => p.id)));
+
   let playerIds = $derived(
     Object.keys(gameState.players).filter(
-      (id) => id !== myId && id !== GM_CHAR_ID,
+      (id) => id !== myId && id !== GM_CHAR_ID && partyIds.has(id),
     ),
   );
 
