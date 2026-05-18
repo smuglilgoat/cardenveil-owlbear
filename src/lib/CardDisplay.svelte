@@ -1,5 +1,5 @@
 <script>
-  /** @type {{ card: object, faceDown?: boolean, actions?: Array<{label: string, onClick: () => void}>, crystallized?: boolean }} */
+  /** @type {{ card: object, faceDown?: boolean, actions?: Array<{icon?: string, label: string, onClick: () => void}>, crystallized?: boolean }} */
   let { card, faceDown = false, actions = [], crystallized = false } = $props();
 </script>
 

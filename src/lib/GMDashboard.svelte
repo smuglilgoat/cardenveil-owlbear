@@ -56,6 +56,9 @@
   let swapSource = $state(null); // 'normal' | '♠' | '♣' | '♥' | '♦'
   let swapStep = $state(0);
 
+  // Crystallized card picker
+  let crystalPickOpen = $state(false);
+
   // Player list: exclude the GM's own OBR ID and the GM character
   let playerIds = $derived(
     Object.keys(gameState.players).filter(
@@ -112,8 +115,7 @@
     onUpdate({ ...gameState, players: updatedPlayers });
   }
 
-  function giveCrystallized(toId) {
-    const card = drawNormal();
+  function giveCrystallized(toId, card) {
     const p = gameState.players[toId];
     onUpdate({
       ...gameState,
@@ -122,6 +124,7 @@
         [toId]: { ...p, crystallized: [...p.crystallized, card] },
       },
     });
+    crystalPickOpen = false;
   }
 
   // ── Rest ─────────────────────────────────────────────────────────────
@@ -514,11 +517,27 @@
     </div>
     {#if dealTarget}
       <button
-        onclick={() => giveCrystallized(dealTarget)}
-        class="w-full text-xs py-1.5 bg-red-700 hover:bg-red-600 text-red-100 rounded-lg"
+        onclick={() => { crystalPickOpen = !crystalPickOpen; }}
+        class="w-full text-xs py-1.5 rounded-lg font-semibold"
+        class:bg-red-700={!crystalPickOpen} class:hover:bg-red-600={!crystalPickOpen} class:text-red-100={!crystalPickOpen}
+        class:bg-red-900={crystalPickOpen} class:text-red-300={crystalPickOpen}
       >
-        ✦ Donner 1 carte cristallisée à {getPlayerName(dealTarget)}
+        ✦ {crystalPickOpen ? 'Annuler' : `Donner 1 carte cristallisée à ${getPlayerName(dealTarget)}`}
       </button>
+
+      {#if crystalPickOpen}
+        <div class="bg-gray-900 border border-red-800 rounded-lg p-2 space-y-2">
+          <p class="text-[11px] text-red-300 font-semibold">Choisir la carte à cristalliser :</p>
+          <div class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+            {#each fullDeck() as card (card.id)}
+              <CardDisplay
+                {card}
+                actions={[{ icon: "✦", label: "Donner cristallisée", onClick: () => giveCrystallized(dealTarget, card) }]}
+              />
+            {/each}
+          </div>
+        </div>
+      {/if}
     {/if}
   </div>
 
