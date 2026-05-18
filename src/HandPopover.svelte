@@ -419,338 +419,211 @@
 </script>
 
 <div
-  class="w-full h-full flex flex-col overflow-hidden"
-  style="background: #1a1a2e; color: white; font-family: system-ui, sans-serif;"
+  class="w-full h-full flex flex-row overflow-hidden"
+  style="background: transparent; color: white; font-family: system-ui, sans-serif;"
 >
   {#if !ready || !player}
-    <div class="flex items-center justify-center h-full text-gray-400 text-xs">
-      Chargement…
-    </div>
+    <div class="flex items-center justify-center w-full text-gray-400 text-xs">Chargement…</div>
   {:else}
-    <!-- ── Controls panel (scrollable) ──────────────────────────────── -->
-    <div class="flex-1 overflow-y-auto px-3 pt-2 pb-1 space-y-2 min-h-0">
-      <!-- Header -->
-      <div class="flex items-center justify-between">
-        <span class="text-white font-semibold text-xs"
-          >{player.name ?? myId?.slice(0, 8)}</span
-        >
-        <div class="flex gap-3 text-[10px] text-gray-500">
-          <span>Pioche <span class="text-white">{deckCount}</span></span>
-          <span
-            >Défausse <span class="text-white">{gameState.discard.length}</span
-            ></span
-          >
-        </div>
-      </div>
 
-      <!-- Incoming exchanges -->
-      {#each incomingExchanges as ex (ex.id)}
-        <div
-          class="bg-yellow-900/40 border border-yellow-600 rounded-lg p-2 space-y-1.5"
+    <!-- ── Left: token sidebar ────────────────────────────────────── -->
+    <div
+      class="flex flex-col gap-1 p-1.5 shrink-0"
+      style="width: 72px; background: rgba(15,15,30,0.85); border-right: 1px solid rgba(255,255,255,0.08);"
+    >
+      {#each TOKENS as tok}
+        {@const current = player.tokens[tok.key]}
+        {@const max     = player.maxTokens?.[tok.key] ?? current}
+        {@const busy    = action !== null}
+        <button
+          onclick={tok.use}
+          disabled={tok.disabled() || busy}
+          title="{tok.label} — {tok.desc}"
+          class="flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg border flex-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          style="background:{TOKEN_COLOR[tok.key]}18;border-color:{TOKEN_COLOR[tok.key]}50;color:{TOKEN_COLOR[tok.key]}"
         >
-          <p class="text-[10px] text-yellow-300 font-semibold">
-            Échange de <span class="text-white">{getPlayerName(ex.from)}</span>
-            — carte offerte :
-            <span class="text-white font-bold"
-              >{ex.fromCard.value}{ex.fromCard.suit}</span
-            >
-          </p>
-          {#if action === "accept-exchange" && acceptingExchange?.id === ex.id}
-            <p class="text-[10px] text-yellow-200">
-              Cliquez la carte à donner en retour dans votre main :
-            </p>
-            <button
-              onclick={cancelAction}
-              class="text-[10px] text-gray-500 hover:text-gray-300 underline"
-              >Annuler</button
-            >
-          {:else}
-            <div class="flex gap-2">
-              <button
-                onclick={() => startAccept(ex)}
-                class="flex-1 text-[10px] py-1 bg-green-700 hover:bg-green-600 text-white rounded-lg"
-                >Accepter</button
-              >
-              <button
-                onclick={() => declineExchange(ex)}
-                class="flex-1 text-[10px] py-1 bg-red-800 hover:bg-red-700 text-red-200 rounded-lg"
-                >Refuser</button
-              >
-            </div>
-          {/if}
-        </div>
-      {/each}
-
-      <!-- Outgoing exchange -->
-      {#if outgoingExchange}
-        <div
-          class="bg-indigo-900/30 border border-indigo-700 rounded-lg p-2 text-[10px] text-indigo-300"
-        >
-          En attente de <span class="text-white"
-            >{getPlayerName(outgoingExchange.to)}</span
-          >
-          <span class="text-gray-500 ml-1"
-            >({outgoingExchange.fromCard.value}{outgoingExchange.fromCard
-              .suit})</span
-          >
-        </div>
-      {/if}
-
-      <!-- Action banners (multi-step flows) -->
-      {#if action === "agilite-pick-card"}
-        <div
-          class="bg-green-900/40 border border-green-600 rounded-lg p-2 text-[10px] text-green-200"
-        >
-          Agilité — Cliquez la carte à <strong>défausser</strong> dans votre
-          main
-          <button
-            onclick={cancelAction}
-            class="ml-2 text-gray-500 hover:text-gray-300 underline"
-            >Annuler</button
-          >
-        </div>
-      {:else if action === "agilite-pick-suit"}
-        <div
-          class="bg-green-900/40 border border-green-600 rounded-lg p-2 space-y-1.5"
-        >
-          <p class="text-[10px] text-green-200 font-semibold">
-            Agilité — Choisissez la pile spécialisée
-            <span class="text-gray-400"
-              >(vous défaussez {actionCard.value}{actionCard.suit})</span
-            >
-          </p>
-          <div class="grid grid-cols-4 gap-1">
-            {#each SUITS_INFO as s}
-              {@const count = gameState.specializedDecks[s.symbol]?.length ?? 0}
-              <button
-                onclick={() => agilitePickSuit(s.symbol)}
-                disabled={count === 0}
-                class="flex flex-col items-center py-1 rounded-lg text-xs font-bold border transition-colors disabled:opacity-40"
-                class:text-red-400={s.isRed}
-                class:border-red-700={s.isRed}
-                class:bg-red-950={s.isRed}
-                class:text-gray-300={!s.isRed}
-                class:border-gray-600={!s.isRed}
-                class:bg-gray-800={!s.isRed}
-              >
-                <span class="text-base">{s.symbol}</span>
-                <span class="text-[9px] opacity-70">{count}</span>
-              </button>
+          <span class="text-[11px] font-bold leading-none">{current}/{max}</span>
+          <span class="text-[9px] leading-none opacity-80 truncate w-full text-center">{tok.label}</span>
+          <div class="flex flex-wrap justify-center gap-0.5 mt-0.5">
+            {#each { length: max } as _, i}
+              <div
+                class="w-1.5 h-1.5 rounded-full"
+                style={i < current ? `background:${TOKEN_COLOR[tok.key]}` : `background:#374151`}
+              ></div>
             {/each}
           </div>
-          <button
-            onclick={cancelAction}
-            class="text-[10px] text-gray-500 hover:text-gray-300 underline"
-            >Annuler</button
-          >
+        </button>
+      {/each}
+    </div>
+
+    <!-- ── Right: controls + fan ──────────────────────────────────── -->
+    <div class="flex flex-col flex-1 min-w-0 overflow-hidden">
+
+      <!-- Scrollable controls -->
+      <div
+        class="flex-1 overflow-y-auto px-2 pt-1.5 pb-1 space-y-1.5 min-h-0"
+        style="background: rgba(15,15,30,0.85);"
+      >
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <span class="text-white font-semibold text-[11px]">{player.name ?? myId?.slice(0, 8)}</span>
+          <div class="flex gap-2 text-[9px] text-gray-500">
+            <span>Pioche <span class="text-white">{deckCount}</span></span>
+            <span>Défausse <span class="text-white">{gameState.discard.length}</span></span>
+          </div>
         </div>
-      {:else if action === "esprit"}
-        <div
-          class="bg-blue-900/40 border border-blue-600 rounded-lg p-2 text-[10px] text-blue-200"
-        >
-          Esprit — Cliquez la carte à <strong>cristalliser</strong> dans votre
-          main
-          <button
-            onclick={cancelAction}
-            class="ml-2 text-gray-500 hover:text-gray-300 underline"
-            >Annuler</button
-          >
-        </div>
-      {:else if action === "social-pick-card"}
-        <div
-          class="bg-yellow-900/40 border border-yellow-600 rounded-lg p-2 text-[10px] text-yellow-200"
-        >
-          Social — Cliquez la carte à <strong>offrir</strong> dans votre main
-          <button
-            onclick={cancelAction}
-            class="ml-2 text-gray-500 hover:text-gray-300 underline"
-            >Annuler</button
-          >
-        </div>
-      {:else if action === "social-pick-target"}
-        <div
-          class="bg-yellow-900/40 border border-yellow-600 rounded-lg p-2 space-y-1.5"
-        >
-          <p class="text-[10px] text-yellow-200 font-semibold">
-            Social — Vous offrez <span class="text-white"
-              >{actionCard.value}{actionCard.suit}</span
-            >. À qui ?
-          </p>
-          <div class="flex flex-wrap gap-1">
-            {#each otherPlayerIds as id}
-              <button
-                onclick={() => socialPickTarget(id)}
-                class="text-[10px] px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
-              >
-                {getPlayerName(id)}
-              </button>
-            {/each}
-            {#if otherPlayerIds.length === 0}
-              <p class="text-[10px] text-gray-500 italic">
-                Aucun autre joueur.
-              </p>
+
+        <!-- Incoming exchanges -->
+        {#each incomingExchanges as ex (ex.id)}
+          <div class="bg-yellow-900/40 border border-yellow-600 rounded-lg p-1.5 space-y-1">
+            <p class="text-[10px] text-yellow-300 font-semibold">
+              Échange de <span class="text-white">{getPlayerName(ex.from)}</span>
+              — <span class="text-white font-bold">{ex.fromCard.value}{ex.fromCard.suit}</span>
+            </p>
+            {#if action === "accept-exchange" && acceptingExchange?.id === ex.id}
+              <p class="text-[10px] text-yellow-200">Cliquez une carte dans votre main pour échanger :</p>
+              <button onclick={cancelAction} class="text-[10px] text-gray-500 hover:text-gray-300 underline">Annuler</button>
+            {:else}
+              <div class="flex gap-1">
+                <button onclick={() => startAccept(ex)} class="flex-1 text-[10px] py-0.5 bg-green-700 hover:bg-green-600 text-white rounded">Accepter</button>
+                <button onclick={() => declineExchange(ex)} class="flex-1 text-[10px] py-0.5 bg-red-800 hover:bg-red-700 text-red-200 rounded">Refuser</button>
+              </div>
             {/if}
           </div>
-          <button
-            onclick={cancelAction}
-            class="text-[10px] text-gray-500 hover:text-gray-300 underline"
-            >Annuler</button
-          >
-        </div>
-      {/if}
+        {/each}
 
-      <!-- Token row -->
-      <div class="grid grid-cols-4 gap-1">
-        {#each TOKENS as tok}
-          {@const current = player.tokens[tok.key]}
-          {@const max = player.maxTokens?.[tok.key] ?? current}
-          {@const busy = action !== null}
-          <button
-            onclick={tok.use}
-            disabled={tok.disabled() || busy}
-            title="{tok.label} — {tok.desc}"
-            class="flex flex-col items-center gap-0.5 py-1.5 rounded-lg border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            style="background:{TOKEN_COLOR[
-              tok.key
-            ]}18;border-color:{TOKEN_COLOR[tok.key]}50;color:{TOKEN_COLOR[
-              tok.key
-            ]}"
-          >
-            <span class="text-[11px] font-bold leading-none"
-              >{current}/{max}</span
-            >
-            <span class="text-[9px] leading-none opacity-80">{tok.label}</span>
-            <!-- pip dots -->
-            <div class="flex gap-0.5 mt-0.5">
-              {#each { length: max } as _, i}
-                <div
-                  class="w-1.5 h-1.5 rounded-full"
-                  style={i < current
-                    ? `background:${TOKEN_COLOR[tok.key]}`
-                    : `background:#374151`}
-                ></div>
+        <!-- Outgoing exchange -->
+        {#if outgoingExchange}
+          <div class="bg-indigo-900/30 border border-indigo-700 rounded-lg p-1.5 text-[10px] text-indigo-300">
+            Attente de <span class="text-white">{getPlayerName(outgoingExchange.to)}</span>
+            <span class="text-gray-500"> ({outgoingExchange.fromCard.value}{outgoingExchange.fromCard.suit})</span>
+          </div>
+        {/if}
+
+        <!-- Action banners -->
+        {#if action === "agilite-pick-card"}
+          <div class="bg-green-900/40 border border-green-600 rounded-lg p-1.5 text-[10px] text-green-200 flex items-center justify-between">
+            <span>Agilité — cliquez la carte à <strong>défausser</strong></span>
+            <button onclick={cancelAction} class="text-gray-500 hover:text-gray-300 underline ml-1">✕</button>
+          </div>
+        {:else if action === "agilite-pick-suit"}
+          <div class="bg-green-900/40 border border-green-600 rounded-lg p-1.5 space-y-1">
+            <p class="text-[10px] text-green-200 font-semibold">Pile spécialisée <span class="text-gray-400">(défausse {actionCard.value}{actionCard.suit})</span></p>
+            <div class="grid grid-cols-4 gap-1">
+              {#each SUITS_INFO as s}
+                {@const count = gameState.specializedDecks[s.symbol]?.length ?? 0}
+                <button
+                  onclick={() => agilitePickSuit(s.symbol)}
+                  disabled={count === 0}
+                  class="flex flex-col items-center py-0.5 rounded border text-[11px] font-bold disabled:opacity-40"
+                  class:text-red-400={s.isRed} class:border-red-700={s.isRed} class:bg-red-950={s.isRed}
+                  class:text-gray-300={!s.isRed} class:border-gray-600={!s.isRed} class:bg-gray-800={!s.isRed}
+                >
+                  {s.symbol} <span class="text-[9px] opacity-70">{count}</span>
+                </button>
               {/each}
             </div>
-          </button>
-        {/each}
+            <button onclick={cancelAction} class="text-[10px] text-gray-500 hover:text-gray-300 underline">Annuler</button>
+          </div>
+        {:else if action === "esprit"}
+          <div class="bg-blue-900/40 border border-blue-600 rounded-lg p-1.5 text-[10px] text-blue-200 flex items-center justify-between">
+            <span>Esprit — cliquez la carte à <strong>cristalliser</strong></span>
+            <button onclick={cancelAction} class="text-gray-500 hover:text-gray-300 underline ml-1">✕</button>
+          </div>
+        {:else if action === "social-pick-card"}
+          <div class="bg-yellow-900/40 border border-yellow-600 rounded-lg p-1.5 text-[10px] text-yellow-200 flex items-center justify-between">
+            <span>Social — cliquez la carte à <strong>offrir</strong></span>
+            <button onclick={cancelAction} class="text-gray-500 hover:text-gray-300 underline ml-1">✕</button>
+          </div>
+        {:else if action === "social-pick-target"}
+          <div class="bg-yellow-900/40 border border-yellow-600 rounded-lg p-1.5 space-y-1">
+            <p class="text-[10px] text-yellow-200 font-semibold">Offrir <span class="text-white">{actionCard.value}{actionCard.suit}</span> à :</p>
+            <div class="flex flex-wrap gap-1">
+              {#each otherPlayerIds as id}
+                <button onclick={() => socialPickTarget(id)} class="text-[10px] px-2 py-0.5 bg-gray-700 hover:bg-gray-600 text-white rounded">{getPlayerName(id)}</button>
+              {/each}
+              {#if otherPlayerIds.length === 0}<p class="text-[10px] text-gray-500 italic">Aucun autre joueur.</p>{/if}
+            </div>
+            <button onclick={cancelAction} class="text-[10px] text-gray-500 hover:text-gray-300 underline">Annuler</button>
+          </div>
+        {/if}
+
+        <!-- Draw button -->
+        <button
+          onclick={drawCard}
+          disabled={handFull || deckCount === 0}
+          class="w-full py-1 text-[11px] font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {#if handFull}Main pleine ({player.hand.length}/{player.maxHandSize}){:else if deckCount === 0}Pioche vide{:else}Piocher ({deckCount}){/if}
+        </button>
       </div>
 
-      <!-- Draw button -->
-      <button
-        onclick={drawCard}
-        disabled={handFull || deckCount === 0}
-        class="w-full py-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      <!-- Card fan -->
+      <div
+        class="shrink-0 relative flex items-end justify-center overflow-visible select-none"
+        style="height: 190px; padding-bottom: 6px; background: transparent;"
       >
-        {#if handFull}Main pleine ({player.hand
-            .length}/{player.maxHandSize}){:else if deckCount === 0}Pioche vide{:else}Piocher
-          ({deckCount} restantes){/if}
-      </button>
-    </div>
+        {#if allCards.length === 0}
+          <p class="text-[10px] text-gray-600 pb-3">Aucune carte</p>
+        {:else}
+          <div
+            class="relative flex items-end justify-center"
+            style="width: {Math.max(240, allCards.length * SPREAD_X + 100)}px; height: 184px;"
+          >
+            {#each allCards as { card, isCrystallized }, i (card.id)}
+              {@const isActive     = active?.card.id === card.id}
+              {@const isSelectable = action === "agilite-pick-card" || action === "esprit" || action === "social-pick-card" || (action === "accept-exchange" && !isCrystallized)}
+              {@const n            = allCards.length}
 
-    <!-- ── Card fan ────────────────────────────────────────────────── -->
-    <div
-      class="shrink-0 relative flex items-end justify-center overflow-visible select-none"
-      style="height: 200px; padding-bottom: 8px;"
-    >
-      {#if allCards.length === 0}
-        <p class="text-[10px] text-gray-600 pb-4">Aucune carte en main</p>
-      {:else}
-        <!-- Fan wrapper — horizontally centred, sized to fan spread -->
-        <div
-          class="relative flex items-end justify-center"
-          style="width: {Math.max(
-            260,
-            allCards.length * SPREAD_X + 100,
-          )}px; height: 192px;"
-        >
-          {#each allCards as { card, isCrystallized }, i (card.id)}
-            {@const isActive = active?.card.id === card.id}
-            {@const isSelectable =
-              action === "agilite-pick-card" ||
-              action === "esprit" ||
-              action === "social-pick-card" ||
-              (action === "accept-exchange" && !isCrystallized)}
-            {@const n = allCards.length}
-
-            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-            <div
-              class="absolute bottom-0 left-1/2 cursor-pointer transition-all duration-150"
-              style="
-                {fanStyle(i, n)}
-                margin-left: -40px;
-                z-index: {isActive ? 50 : i};
-                transform-origin: bottom center;
-                filter: {isActive
-                ? 'drop-shadow(0 -8px 14px rgba(99,102,241,0.8))'
-                : isSelectable
-                  ? 'drop-shadow(0 -4px 8px rgba(250,204,21,0.6))'
-                  : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
-                {isActive
-                ? 'transform: ' +
-                  fanStyle(i, n).replace('transform:', '').replace(';', '') +
-                  ' translateY(-32px);'
-                : ''}
-              "
-              onclick={() => fanCardAction(card, isCrystallized)}
-            >
-              <!-- Card face -->
+              <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
               <div
-                class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
+                class="absolute bottom-0 left-1/2 cursor-pointer transition-all duration-150"
                 style="
-                  background: {isCrystallized ? '#fff1f2' : '#ffffff'};
-                  border: {isCrystallized
-                  ? '2.5px solid #ef4444'
-                  : '1.5px solid #d1d5db'};
-                  color: {SUIT_COLOR[card.suit] ?? '#111827'};
+                  {fanStyle(i, n)}
+                  margin-left: -40px;
+                  z-index: {isActive ? 50 : i};
+                  transform-origin: bottom center;
+                  filter: {isActive ? 'drop-shadow(0 -8px 14px rgba(99,102,241,0.8))' : isSelectable ? 'drop-shadow(0 -4px 8px rgba(250,204,21,0.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))'};
+                  {isActive ? 'transform: ' + fanStyle(i, n).replace('transform:', '').replace(';','') + ' translateY(-30px);' : ''}
                 "
+                onclick={() => fanCardAction(card, isCrystallized)}
               >
-                <div class="flex flex-col items-start">
-                  <span>{card.value}</span>
-                  <span class="text-[14px]">{card.suit}</span>
-                </div>
                 <div
-                  class="flex-1 flex items-center justify-center text-[28px]"
+                  class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
+                  style="
+                    background: {isCrystallized ? '#fff1f2' : '#ffffff'};
+                    border: {isCrystallized ? '2.5px solid #ef4444' : '1.5px solid #d1d5db'};
+                    color: {SUIT_COLOR[card.suit] ?? '#111827'};
+                  "
                 >
-                  {card.suit}
+                  <div class="flex flex-col items-start"><span>{card.value}</span><span class="text-[14px]">{card.suit}</span></div>
+                  <div class="flex-1 flex items-center justify-center text-[28px]">{card.suit}</div>
+                  <div class="flex flex-col items-end rotate-180"><span>{card.value}</span><span class="text-[14px]">{card.suit}</span></div>
                 </div>
-                <div class="flex flex-col items-end rotate-180">
-                  <span>{card.value}</span>
-                  <span class="text-[14px]">{card.suit}</span>
-                </div>
-              </div>
 
-              <!-- Action buttons on active card -->
-              {#if isActive && !isSelectable}
-                <div
-                  class="absolute -top-[52px] left-1/2 -translate-x-1/2 flex gap-1 z-50"
-                >
-                  <button
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      isCrystallized
-                        ? discardCrystallized(card)
-                        : discardCard(card);
-                    }}
-                    class="px-2.5 py-1 text-[11px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg"
-                    title="Défausser">▶️</button
-                  >
-                  {#if !isCrystallized}
+                {#if isActive && !isSelectable}
+                  <div class="absolute -top-[50px] left-1/2 -translate-x-1/2 flex gap-1 z-50">
                     <button
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        crystallizeCard(card);
-                      }}
-                      disabled={player.tokens.esprit <= 0}
-                      class="px-2.5 py-1 text-[11px] font-bold bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-lg disabled:opacity-40"
-                      title="Cristalliser (−1 Esprit)">✦</button
-                    >
-                  {/if}
-                </div>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      {/if}
+                      onclick={(e) => { e.stopPropagation(); isCrystallized ? discardCrystallized(card) : discardCard(card); }}
+                      class="px-2.5 py-1 text-[11px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg"
+                      title="Défausser"
+                    >🗑</button>
+                    {#if !isCrystallized}
+                      <button
+                        onclick={(e) => { e.stopPropagation(); crystallizeCard(card); }}
+                        disabled={player.tokens.esprit <= 0}
+                        class="px-2.5 py-1 text-[11px] font-bold bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-lg disabled:opacity-40"
+                        title="Cristalliser (−1 Esprit)"
+                      >✦</button>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
+
     </div>
   {/if}
 </div>
