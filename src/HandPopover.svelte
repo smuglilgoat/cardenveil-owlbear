@@ -196,9 +196,9 @@
             <div
               class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
               style="
-              background: {isCrystallized ? '#fefce8' : '#ffffff'};
+              background: {isCrystallized ? '#ef9b9b' : '#ffffff'};
               border: {isCrystallized
-                ? '2.5px solid #f59e0b'
+                ? '2.5px solid #ef4444'
                 : '1.5px solid #d1d5db'};
               color: {SUIT_COLOR[card.suit] ?? '#111827'};
             "
