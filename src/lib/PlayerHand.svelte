@@ -39,6 +39,15 @@
     acceptingExchange = null;
   }
 
+  // ── Gray out ──────────────────────────────────────────────────────────
+  function toggleGray(card) {
+    const grayed = player.grayedCards ?? [];
+    const next = grayed.includes(card.id)
+      ? grayed.filter((id) => id !== card.id)
+      : [...grayed, card.id];
+    onUpdate({ ...gameState, players: { ...gameState.players, [myId]: { ...player, grayedCards: next } } });
+  }
+
   // ── Normal draw ───────────────────────────────────────────────────────
   function drawCard() {
     if (handFull) return;
@@ -421,16 +430,10 @@
             Agilité — Choisissez la carte à défausser :
           </p>
           <div class="flex flex-wrap gap-2">
-            {#each player.hand as card (card.id)}
+            {#each player.hand.filter(c => !(player.grayedCards ?? []).includes(c.id)) as card (card.id)}
               <CardDisplay
                 {card}
-                actions={[
-                  {
-                    icon: "▶️",
-                    label: "Défausser",
-                    onClick: () => agilitePickCard(card),
-                  },
-                ]}
+                actions={[{ icon: "▶️", label: "Défausser", onClick: () => agilitePickCard(card) }]}
               />
             {/each}
           </div>
@@ -464,16 +467,10 @@
             Esprit — Choisissez la carte à cristalliser :
           </p>
           <div class="flex flex-wrap gap-2">
-            {#each player.hand as card (card.id)}
+            {#each player.hand.filter(c => !(player.grayedCards ?? []).includes(c.id)) as card (card.id)}
               <CardDisplay
                 {card}
-                actions={[
-                  {
-                    icon: "✦",
-                    label: "Cristalliser",
-                    onClick: () => espritPickCard(card),
-                  },
-                ]}
+                actions={[{ icon: "✦", label: "Cristalliser", onClick: () => espritPickCard(card) }]}
               />
             {/each}
           </div>
@@ -482,7 +479,7 @@
             Social — Choisissez votre carte à offrir :
           </p>
           <div class="flex flex-wrap gap-2">
-            {#each player.hand as card (card.id)}
+            {#each player.hand.filter(c => !(player.grayedCards ?? []).includes(c.id)) as card (card.id)}
               <CardDisplay
                 {card}
                 actions={[
@@ -548,24 +545,24 @@
       {:else}
         <div class="flex flex-wrap gap-2">
           {#each player.hand as card (card.id)}
-            <CardDisplay
-              {card}
-              actions={[
-                {
-                  icon: "▶️",
-                  label: "Défausser",
-                  onClick: () => discardCard(card),
-                },
-                {
-                  icon: "✦",
-                  label:
-                    player.tokens.esprit > 0
-                      ? "Cristalliser (−1 Esprit)"
-                      : "Cristalliser (pas de token Esprit)",
-                  onClick: () => crystallizeCard(card),
-                },
-              ]}
-            />
+            {@const isGrayed = (player.grayedCards ?? []).includes(card.id)}
+            <div class="relative">
+              <CardDisplay
+                {card}
+                actions={[
+                  { icon: "▶️", label: "Défausser", onClick: () => discardCard(card) },
+                  {
+                    icon: "✦",
+                    label: player.tokens.esprit > 0 ? "Cristalliser (−1 Esprit)" : "Cristalliser (pas de token Esprit)",
+                    onClick: () => crystallizeCard(card),
+                  },
+                  { icon: isGrayed ? "◐" : "◑", label: isGrayed ? "Dégrisonner" : "Grisonner", onClick: () => toggleGray(card) },
+                ]}
+              />
+              {#if isGrayed}
+                <div class="absolute inset-0 rounded-md pointer-events-none" style="background: rgba(0,0,0,0.55);"></div>
+              {/if}
+            </div>
           {/each}
         </div>
       {/if}

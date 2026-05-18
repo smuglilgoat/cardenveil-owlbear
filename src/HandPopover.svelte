@@ -264,21 +264,24 @@
     }, myId, player.name, `refuse échange de ${getPlayerName(exchange.from)} (${exchange.fromCard.value}${exchange.fromCard.suit})`));
   }
 
+  // ── Gray out ──────────────────────────────────────────────────────────
+  function toggleGray(card) {
+    if (!player) return;
+    const grayed = player.grayedCards ?? [];
+    const next = grayed.includes(card.id)
+      ? grayed.filter((id) => id !== card.id)
+      : [...grayed, card.id];
+    pushState({ ...gameState, players: { ...gameState.players, [myId]: { ...player, grayedCards: next } } });
+    active = null;
+  }
+
   // ── Fan card click — route to action or toggle ─────────────────────────
   function onCardClick(card, isCrystallized) {
-    if (action === "agilite-pick-card" && !isCrystallized) {
-      agilitePickCard(card);
-      return;
-    }
-    if (action === "esprit" && !isCrystallized) {
-      espritPickCard(card);
-      return;
-    }
-    if (action === "social-pick-card" && !isCrystallized) {
-      socialPickCard(card);
-      return;
-    }
-    if (action) return; // block card toggle during other actions
+    const isGrayed = (player?.grayedCards ?? []).includes(card.id);
+    if (action === "agilite-pick-card" && !isCrystallized && !isGrayed) { agilitePickCard(card); return; }
+    if (action === "esprit"            && !isCrystallized && !isGrayed) { espritPickCard(card);   return; }
+    if (action === "social-pick-card"  && !isCrystallized && !isGrayed) { socialPickCard(card);   return; }
+    if (action) return;
     active = active?.card.id === card.id ? null : { card, isCrystallized };
   }
 
@@ -522,12 +525,13 @@
           )}px; height: 200px;"
         >
           {#each allCards as { card, isCrystallized }, i (card.id)}
-            {@const isActive = active?.card.id === card.id}
+            {@const isActive   = active?.card.id === card.id}
+            {@const isGrayed   = (player.grayedCards ?? []).includes(card.id)}
             {@const isSelectable =
               (action === "agilite-pick-card" ||
                 action === "esprit" ||
                 action === "social-pick-card") &&
-              !isCrystallized}
+              !isCrystallized && !isGrayed}
             {@const n = allCards.length}
 
             <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -552,56 +556,47 @@
               onclick={() => onCardClick(card, isCrystallized)}
             >
               <div
-                class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
+                class="relative w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
                 style="
                   background: {isCrystallized ? '#ef9b9b' : '#ffffff'};
-                  border: {isCrystallized
-                  ? '2.5px solid #ef4444'
-                  : '1.5px solid #d1d5db'};
+                  border: {isCrystallized ? '2.5px solid #ef4444' : '1.5px solid #d1d5db'};
                   color: {SUIT_COLOR[card.suit] ?? '#111827'};
                 "
               >
                 <div class="flex flex-col items-start">
-                  <span>{card.value}</span><span class="text-[14px]"
-                    >{card.suit}</span
-                  >
+                  <span>{card.value}</span><span class="text-[14px]">{card.suit}</span>
                 </div>
-                <div
-                  class="flex-1 flex items-center justify-center text-[28px]"
-                >
-                  {card.suit}
-                </div>
+                <div class="flex-1 flex items-center justify-center text-[28px]">{card.suit}</div>
                 <div class="flex flex-col items-end rotate-180">
-                  <span>{card.value}</span><span class="text-[14px]"
-                    >{card.suit}</span
-                  >
+                  <span>{card.value}</span><span class="text-[14px]">{card.suit}</span>
                 </div>
+                <!-- Gray overlay -->
+                {#if isGrayed}
+                  <div class="absolute inset-0 rounded-lg" style="background: rgba(0,0,0,0.55);"></div>
+                {/if}
               </div>
 
               <!-- Per-card action buttons when active -->
               {#if isActive && !action}
-                <div
-                  class="absolute -top-[52px] left-1/2 -translate-x-1/2 flex gap-1 z-50"
-                >
+                <div class="absolute -top-[52px] left-1/2 -translate-x-1/2 flex gap-1 z-50">
                   <button
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      discard(card, isCrystallized);
-                    }}
+                    onclick={(e) => { e.stopPropagation(); discard(card, isCrystallized); }}
                     class="px-2.5 py-1 text-[11px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg"
-                    title="Défausser">▶️</button
-                  >
+                    title="Défausser">▶️</button>
                   {#if !isCrystallized}
                     <button
-                      onclick={(e) => {
-                        e.stopPropagation();
-                        crystallize(card);
-                      }}
+                      onclick={(e) => { e.stopPropagation(); crystallize(card); }}
                       disabled={player.tokens.esprit <= 0}
                       class="px-2.5 py-1 text-[11px] font-bold bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-lg disabled:opacity-40"
-                      title="Cristalliser (−1 Esprit)">✦</button
-                    >
+                      title="Cristalliser (−1 Esprit)">✦</button>
                   {/if}
+                  <button
+                    onclick={(e) => { e.stopPropagation(); toggleGray(card); }}
+                    class="px-2.5 py-1 text-[11px] font-bold rounded-lg shadow-lg"
+                    class:bg-gray-600={!isGrayed} class:hover:bg-gray-500={!isGrayed}
+                    class:bg-gray-400={isGrayed}  class:hover:bg-gray-300={isGrayed}
+                    class:text-white={!isGrayed}   class:text-gray-800={isGrayed}
+                    title="{isGrayed ? 'Dégrisonner' : 'Grisonner'}">◑</button>
                 </div>
               {/if}
             </div>

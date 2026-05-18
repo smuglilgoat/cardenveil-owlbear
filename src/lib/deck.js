@@ -142,8 +142,9 @@ export function createEmptyPlayer(name = '') {
     maxHandSize: 3,
     tokens:       { force: 3, agilite: 3, esprit: 3, social: 3 },
     maxTokens:    { force: 3, agilite: 3, esprit: 3, social: 3 },
-    minDrawValue: 1,
-    maxDrawValue: 13,
+    minDrawValue:  1,
+    maxDrawValue:  13,
+    grayedCards:   [],
   };
 }
 
@@ -198,6 +199,7 @@ export function hydrateState(raw) {
       maxTokens:    p.maxTokens ?? { force: 3, agilite: 3, esprit: 3, social: 3 },
       minDrawValue: p.minDrawValue ?? 1,
       maxDrawValue: p.maxDrawValue ?? 13,
+      grayedCards:  p.grayedCards  ?? [],
     };
   }
 
