@@ -60,7 +60,16 @@
   // ── Derived ───────────────────────────────────────────────────────────
   let player = $derived(gameState?.players?.[myId] ?? null);
   let handFull = $derived(
-    player ? player.hand.length >= player.maxHandSize : false,
+    player
+      ? player.hand.length >= player.maxHandSize + (player.spiritBounds ?? 0)
+      : false,
+  );
+
+  let mustCrystallize = $derived(
+    player
+      ? (player.spiritBounds ?? 0) > 0 &&
+          player.hand.length >= player.maxHandSize + (player.spiritBounds ?? 0)
+      : false,
   );
 
   let allCards = $derived(
@@ -80,7 +89,10 @@
   let otherPlayerIds = $derived(
     gameState
       ? Object.keys(gameState.players).filter(
-          (id) => id !== myId && id !== gameState.gmId && (id === GM_CHAR_ID || partyIds.has(id)),
+          (id) =>
+            id !== myId &&
+            id !== gameState.gmId &&
+            (id === GM_CHAR_ID || partyIds.has(id)),
         )
       : [],
   );
@@ -98,56 +110,103 @@
   // ── Card actions ──────────────────────────────────────────────────────
   function discard(card, isCrystallized) {
     if (!player) return;
-    pushState(addLog({
-      ...gameState,
-      discard: [...gameState.discard, card],
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        hand: isCrystallized ? player.hand : player.hand.filter((c) => c.id !== card.id),
-        crystallized: isCrystallized ? player.crystallized.filter((c) => c.id !== card.id) : player.crystallized,
-      }},
-    }, myId, player.name, `défausse ${card.value}${card.suit}${isCrystallized ? ' (cristallisée)' : ''}`));
+    pushState(
+      addLog(
+        {
+          ...gameState,
+          discard: [...gameState.discard, card],
+          players: {
+            ...gameState.players,
+            [myId]: {
+              ...player,
+              hand: isCrystallized
+                ? player.hand
+                : player.hand.filter((c) => c.id !== card.id),
+              crystallized: isCrystallized
+                ? player.crystallized.filter((c) => c.id !== card.id)
+                : player.crystallized,
+            },
+          },
+        },
+        myId,
+        player.name,
+        `défausse ${card.value}${card.suit}${isCrystallized ? " (cristallisée)" : ""}`,
+      ),
+    );
     active = null;
   }
 
   function crystallize(card) {
-    if (!player || player.tokens.esprit <= 0) return;
-    pushState(addLog({
-      ...gameState,
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        hand: player.hand.filter((c) => c.id !== card.id),
-        crystallized: [...player.crystallized, card],
-        tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
-      }},
-    }, myId, player.name, `cristallise ${card.value}${card.suit} (−1 Esprit)`));
+    if (!player || (player.spiritBounds ?? 0) <= 0) return;
+    pushState(
+      addLog(
+        {
+          ...gameState,
+          players: {
+            ...gameState.players,
+            [myId]: {
+              ...player,
+              hand: player.hand.filter((c) => c.id !== card.id),
+              crystallized: [...player.crystallized, card],
+              spiritBounds: (player.spiritBounds ?? 0) - 1,
+            },
+          },
+        },
+        myId,
+        player.name,
+        `cristallise ${card.value}${card.suit} (−1 Spirit Bound)`,
+      ),
+    );
     active = null;
   }
 
   // ── Draw ──────────────────────────────────────────────────────────────
   function drawCard() {
-    if (!player || handFull) return;
-    const mn = player.minDrawValue ?? 1, mx = player.maxDrawValue ?? 13;
+    if (!player || handFull || mustCrystallize) return;
+    const mn = player.minDrawValue ?? 1,
+      mx = player.maxDrawValue ?? 13;
     const card = drawNormal(mn, mx);
-    pushState(addLog({
-      ...gameState,
-      players: { ...gameState.players, [myId]: { ...player, hand: [...player.hand, card] } },
-    }, myId, player.name, `pioche ${card.value}${card.suit}`));
+    pushState(
+      addLog(
+        {
+          ...gameState,
+          players: {
+            ...gameState.players,
+            [myId]: { ...player, hand: [...player.hand, card] },
+          },
+        },
+        myId,
+        player.name,
+        `pioche ${card.value}${card.suit}`,
+      ),
+    );
   }
 
   // ── Token: Force ──────────────────────────────────────────────────────
   function useForce() {
-    if (!player || player.tokens.force <= 0 || handFull) return;
-    const mn = player.minDrawValue ?? 1, mx = player.maxDrawValue ?? 13;
+    if (!player || player.tokens.force <= 0 || handFull || mustCrystallize)
+      return;
+    const mn = player.minDrawValue ?? 1,
+      mx = player.maxDrawValue ?? 13;
     const card = drawNormal(mn, mx);
-    pushState(addLog({
-      ...gameState,
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        tokens: { ...player.tokens, force: player.tokens.force - 1 },
-        hand: [...player.hand, card],
-      }},
-    }, myId, player.name, `token Force : pioche ${card.value}${card.suit}`));
+    pushState(
+      addLog(
+        {
+          ...gameState,
+          players: {
+            ...gameState.players,
+            [myId]: {
+              ...player,
+              tokens: { ...player.tokens, force: player.tokens.force - 1 },
+              hand: [...player.hand, card],
+            },
+          },
+        },
+        myId,
+        player.name,
+        `token Force : pioche ${card.value}${card.suit}`,
+      ),
+    );
   }
 
   // ── Token: Agilité ────────────────────────────────────────────────────
@@ -164,38 +223,57 @@
   }
 
   function agilitePickSuit(suit) {
-    const card = drawSpecialized(suit, player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
-    pushState(addLog({
-      ...gameState,
-      discard: [...gameState.discard, actionCard],
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
-        hand: [...player.hand.filter((c) => c.id !== actionCard.id), card],
-      }},
-    }, myId, player.name, `token Agilité : défausse ${actionCard.value}${actionCard.suit}, pioche ${card.value}${card.suit} (${suit})`));
+    const card = drawSpecialized(
+      suit,
+      player.minDrawValue ?? 1,
+      player.maxDrawValue ?? 13,
+    );
+    pushState(
+      addLog(
+        {
+          ...gameState,
+          discard: [...gameState.discard, actionCard],
+          players: {
+            ...gameState.players,
+            [myId]: {
+              ...player,
+              tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
+              hand: [
+                ...player.hand.filter((c) => c.id !== actionCard.id),
+                card,
+              ],
+            },
+          },
+        },
+        myId,
+        player.name,
+        `token Agilité : défausse ${actionCard.value}${actionCard.suit}, pioche ${card.value}${card.suit} (${suit})`,
+      ),
+    );
     cancelAction();
   }
 
-  // ── Token: Esprit ─────────────────────────────────────────────────────
-  function startEsprit() {
-    if (!player || player.tokens.esprit <= 0 || player.hand.length === 0)
-      return;
-    action = "esprit";
-    active = null;
-  }
-
-  function espritPickCard(card) {
-    pushState(addLog({
-      ...gameState,
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
-        hand: player.hand.filter((c) => c.id !== card.id),
-        crystallized: [...player.crystallized, card],
-      }},
-    }, myId, player.name, `token Esprit : cristallise ${card.value}${card.suit}`));
-    cancelAction();
+  // ── Token: Esprit → ajoute 1 Spirit Bound ────────────────────────────
+  function useEsprit() {
+    if (!player || player.tokens.esprit <= 0) return;
+    pushState(
+      addLog(
+        {
+          ...gameState,
+          players: {
+            ...gameState.players,
+            [myId]: {
+              ...player,
+              tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
+              spiritBounds: (player.spiritBounds ?? 0) + 1,
+            },
+          },
+        },
+        myId,
+        player.name,
+        `token Esprit : +1 Spirit Bound (total ${(player.spiritBounds ?? 0) + 1})`,
+      ),
+    );
   }
 
   // ── Token: Social ─────────────────────────────────────────────────────
@@ -212,16 +290,31 @@
   }
 
   function socialPickTarget(targetId) {
-    const exchange = { id: `${myId}-${Date.now()}`, from: myId, fromCard: actionCard, to: targetId };
-    pushState(addLog({
-      ...gameState,
-      pendingExchanges: [...(gameState.pendingExchanges ?? []), exchange],
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        tokens: { ...player.tokens, social: player.tokens.social - 1 },
-        hand: player.hand.filter((c) => c.id !== actionCard.id),
-      }},
-    }, myId, player.name, `token Social : propose échange ${actionCard.value}${actionCard.suit} → ${getPlayerName(targetId)}`));
+    const exchange = {
+      id: `${myId}-${Date.now()}`,
+      from: myId,
+      fromCard: actionCard,
+      to: targetId,
+    };
+    pushState(
+      addLog(
+        {
+          ...gameState,
+          pendingExchanges: [...(gameState.pendingExchanges ?? []), exchange],
+          players: {
+            ...gameState.players,
+            [myId]: {
+              ...player,
+              tokens: { ...player.tokens, social: player.tokens.social - 1 },
+              hand: player.hand.filter((c) => c.id !== actionCard.id),
+            },
+          },
+        },
+        myId,
+        player.name,
+        `token Social : propose échange ${actionCard.value}${actionCard.suit} → ${getPlayerName(targetId)}`,
+      ),
+    );
     cancelAction();
   }
 
@@ -234,34 +327,61 @@
   // ── Exchange acceptance ───────────────────────────────────────────────
   function startAccept(exchange) {
     acceptingExchange = exchange;
-    action = 'accept-exchange';
+    action = "accept-exchange";
   }
 
   function completeAccept(myCard) {
     const ex = acceptingExchange;
     const fromPlayer = gameState.players[ex.from];
-    pushState(addLog({
-      ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== ex.id),
-      players: {
-        ...gameState.players,
-        [ex.from]: { ...fromPlayer, hand: [...fromPlayer.hand, myCard] },
-        [myId]: { ...player, hand: [...player.hand.filter((c) => c.id !== myCard.id), ex.fromCard] },
-      },
-    }, myId, player.name, `accepte échange avec ${getPlayerName(ex.from)} : donne ${myCard.value}${myCard.suit}, reçoit ${ex.fromCard.value}${ex.fromCard.suit}`));
+    pushState(
+      addLog(
+        {
+          ...gameState,
+          pendingExchanges: gameState.pendingExchanges.filter(
+            (e) => e.id !== ex.id,
+          ),
+          players: {
+            ...gameState.players,
+            [ex.from]: { ...fromPlayer, hand: [...fromPlayer.hand, myCard] },
+            [myId]: {
+              ...player,
+              hand: [
+                ...player.hand.filter((c) => c.id !== myCard.id),
+                ex.fromCard,
+              ],
+            },
+          },
+        },
+        myId,
+        player.name,
+        `accepte échange avec ${getPlayerName(ex.from)} : donne ${myCard.value}${myCard.suit}, reçoit ${ex.fromCard.value}${ex.fromCard.suit}`,
+      ),
+    );
     cancelAction();
   }
 
   function declineExchange(exchange) {
     const fromPlayer = gameState.players[exchange.from];
-    pushState(addLog({
-      ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== exchange.id),
-      players: {
-        ...gameState.players,
-        [exchange.from]: { ...fromPlayer, hand: [...fromPlayer.hand, exchange.fromCard] },
-      },
-    }, myId, player.name, `refuse échange de ${getPlayerName(exchange.from)} (${exchange.fromCard.value}${exchange.fromCard.suit})`));
+    pushState(
+      addLog(
+        {
+          ...gameState,
+          pendingExchanges: gameState.pendingExchanges.filter(
+            (e) => e.id !== exchange.id,
+          ),
+          players: {
+            ...gameState.players,
+            [exchange.from]: {
+              ...fromPlayer,
+              hand: [...fromPlayer.hand, exchange.fromCard],
+            },
+          },
+        },
+        myId,
+        player.name,
+        `refuse échange de ${getPlayerName(exchange.from)} (${exchange.fromCard.value}${exchange.fromCard.suit})`,
+      ),
+    );
   }
 
   // ── Gray out ──────────────────────────────────────────────────────────
@@ -271,16 +391,27 @@
     const next = grayed.includes(card.id)
       ? grayed.filter((id) => id !== card.id)
       : [...grayed, card.id];
-    pushState({ ...gameState, players: { ...gameState.players, [myId]: { ...player, grayedCards: next } } });
+    pushState({
+      ...gameState,
+      players: {
+        ...gameState.players,
+        [myId]: { ...player, grayedCards: next },
+      },
+    });
     active = null;
   }
 
   // ── Fan card click — route to action or toggle ─────────────────────────
   function onCardClick(card, isCrystallized) {
     const isGrayed = (player?.grayedCards ?? []).includes(card.id);
-    if (action === "agilite-pick-card" && !isCrystallized && !isGrayed) { agilitePickCard(card); return; }
-    if (action === "esprit"            && !isCrystallized && !isGrayed) { espritPickCard(card);   return; }
-    if (action === "social-pick-card"  && !isCrystallized && !isGrayed) { socialPickCard(card);   return; }
+    if (action === "agilite-pick-card" && !isCrystallized && !isGrayed) {
+      agilitePickCard(card);
+      return;
+    }
+    if (action === "social-pick-card" && !isCrystallized && !isGrayed) {
+      socialPickCard(card);
+      return;
+    }
     if (action) return;
     active = active?.card.id === card.id ? null : { card, isCrystallized };
   }
@@ -311,7 +442,8 @@
     {
       key: "force",
       label: "Force",
-      disabled: () => !player || player.tokens.force <= 0 || handFull,
+      disabled: () =>
+        !player || player.tokens.force <= 0 || handFull || mustCrystallize,
       use: useForce,
     },
     {
@@ -324,9 +456,8 @@
     {
       key: "esprit",
       label: "Esprit",
-      disabled: () =>
-        !player || player.tokens.esprit <= 0 || player.hand.length === 0,
-      use: startEsprit,
+      disabled: () => !player || player.tokens.esprit <= 0,
+      use: useEsprit,
     },
     {
       key: "social",
@@ -371,16 +502,13 @@
     <div
       class="flex-1 flex flex-col items-center justify-end pb-1 overflow-visible pointer-events-none relative bottom-[-70px]"
     >
-      {#if action === "agilite-pick-card" || action === "esprit" || action === "social-pick-card"}
+      {#if action === "agilite-pick-card" || action === "social-pick-card"}
         <div
           class="pointer-events-auto px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white mb-1"
           style="background: rgba(30,30,50,0.92); border: 1px solid rgba(255,255,255,0.15);"
         >
           {#if action === "agilite-pick-card"}Agilité — cliquez la carte à <strong
               >défausser</strong
-            >
-          {:else if action === "esprit"}Esprit — cliquez la carte à <strong
-              >cristalliser</strong
             >
           {:else}Social — cliquez la carte à <strong>offrir</strong>{/if}
           <button
@@ -449,7 +577,6 @@
             >Annuler</button
           >
         </div>
-
       {:else if action === "accept-exchange"}
         <div
           class="pointer-events-auto flex flex-col items-center gap-1 px-3 py-2 rounded-lg mb-1 w-full max-w-xs"
@@ -462,19 +589,28 @@
             {#each player.hand as card (card.id)}
               <div
                 class="w-[56px] h-[84px] rounded cursor-pointer hover:ring-2 hover:ring-green-400 flex flex-col p-1 text-[10px] font-bold"
-                style="background: #fff; border: 1.5px solid #d1d5db; color: {SUIT_COLOR[card.suit] ?? '#111827'};"
-                role="button" tabindex="0"
+                style="background: #fff; border: 1.5px solid #d1d5db; color: {SUIT_COLOR[
+                  card.suit
+                ] ?? '#111827'};"
+                role="button"
+                tabindex="0"
                 onclick={() => completeAccept(card)}
-                onkeydown={(e) => e.key === 'Enter' && completeAccept(card)}
+                onkeydown={(e) => e.key === "Enter" && completeAccept(card)}
               >
                 <span>{card.value}{card.suit}</span>
-                <span class="flex-1 flex items-center justify-center text-[20px]">{card.suit}</span>
+                <span
+                  class="flex-1 flex items-center justify-center text-[20px]"
+                  >{card.suit}</span
+                >
               </div>
             {/each}
           </div>
-          <button onclick={cancelAction} class="text-[10px] text-gray-500 hover:text-gray-300 underline">Annuler</button>
+          <button
+            onclick={cancelAction}
+            class="text-[10px] text-gray-500 hover:text-gray-300 underline"
+            >Annuler</button
+          >
         </div>
-
       {:else if incomingExchanges.length > 0}
         <div class="pointer-events-auto flex flex-col gap-1.5 w-full px-2 mb-1">
           {#each incomingExchanges as ex (ex.id)}
@@ -482,29 +618,39 @@
               class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px]"
               style="background: rgba(30,30,10,0.92); border: 1px solid rgba(234,179,8,0.4);"
             >
-              <span class="text-yellow-300 font-semibold shrink-0">{getPlayerName(ex.from)} →</span>
-              <span class="text-white font-bold shrink-0">{ex.fromCard.value}{ex.fromCard.suit}</span>
+              <span class="text-yellow-300 font-semibold shrink-0"
+                >{getPlayerName(ex.from)} →</span
+              >
+              <span class="text-white font-bold shrink-0"
+                >{ex.fromCard.value}{ex.fromCard.suit}</span
+              >
               <div class="flex gap-1 ml-auto shrink-0">
                 <button
                   onclick={() => startAccept(ex)}
                   class="px-2 py-0.5 bg-green-700 hover:bg-green-600 text-white rounded text-[10px] font-bold"
-                >Accepter</button>
+                  >Accepter</button
+                >
                 <button
                   onclick={() => declineExchange(ex)}
                   class="px-2 py-0.5 bg-red-800 hover:bg-red-700 text-red-200 rounded text-[10px] font-bold"
-                >Refuser</button>
+                  >Refuser</button
+                >
               </div>
             </div>
           {/each}
         </div>
-
       {:else if outgoingExchange}
         <div
           class="pointer-events-auto px-3 py-1.5 rounded-lg text-[11px] text-indigo-300 mb-1"
           style="background: rgba(30,30,50,0.92); border: 1px solid rgba(99,102,241,0.3);"
         >
-          Échange en attente avec <span class="text-white">{getPlayerName(outgoingExchange.to)}</span>
-          <span class="text-gray-500 ml-1">({outgoingExchange.fromCard.value}{outgoingExchange.fromCard.suit})</span>
+          Échange en attente avec <span class="text-white"
+            >{getPlayerName(outgoingExchange.to)}</span
+          >
+          <span class="text-gray-500 ml-1"
+            >({outgoingExchange.fromCard.value}{outgoingExchange.fromCard
+              .suit})</span
+          >
         </div>
       {/if}
     </div>
@@ -525,13 +671,13 @@
           )}px; height: 200px;"
         >
           {#each allCards as { card, isCrystallized }, i (card.id)}
-            {@const isActive   = active?.card.id === card.id}
-            {@const isGrayed   = (player.grayedCards ?? []).includes(card.id)}
+            {@const isActive = active?.card.id === card.id}
+            {@const isGrayed = (player.grayedCards ?? []).includes(card.id)}
             {@const isSelectable =
               (action === "agilite-pick-card" ||
-                action === "esprit" ||
                 action === "social-pick-card") &&
-              !isCrystallized && !isGrayed}
+              !isCrystallized &&
+              !isGrayed}
             {@const n = allCards.length}
 
             <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -559,44 +705,74 @@
                 class="relative w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
                 style="
                   background: {isCrystallized ? '#ef9b9b' : '#ffffff'};
-                  border: {isCrystallized ? '2.5px solid #ef4444' : '1.5px solid #d1d5db'};
+                  border: {isCrystallized
+                  ? '2.5px solid #ef4444'
+                  : '1.5px solid #d1d5db'};
                   color: {SUIT_COLOR[card.suit] ?? '#111827'};
                 "
               >
                 <div class="flex flex-col items-start">
-                  <span>{card.value}</span><span class="text-[14px]">{card.suit}</span>
+                  <span>{card.value}</span><span class="text-[14px]"
+                    >{card.suit}</span
+                  >
                 </div>
-                <div class="flex-1 flex items-center justify-center text-[28px]">{card.suit}</div>
+                <div
+                  class="flex-1 flex items-center justify-center text-[28px]"
+                >
+                  {card.suit}
+                </div>
                 <div class="flex flex-col items-end rotate-180">
-                  <span>{card.value}</span><span class="text-[14px]">{card.suit}</span>
+                  <span>{card.value}</span><span class="text-[14px]"
+                    >{card.suit}</span
+                  >
                 </div>
                 <!-- Gray overlay -->
                 {#if isGrayed}
-                  <div class="absolute inset-0 rounded-lg" style="background: rgba(0,0,0,0.55);"></div>
+                  <div
+                    class="absolute inset-0 rounded-lg"
+                    style="background: rgba(0,0,0,0.55);"
+                  ></div>
                 {/if}
               </div>
 
               <!-- Per-card action buttons when active -->
               {#if isActive && !action}
-                <div class="absolute -top-[52px] left-1/2 -translate-x-1/2 flex gap-1 z-50">
+                <div
+                  class="absolute -top-[52px] left-1/2 -translate-x-1/2 flex gap-1 z-50"
+                >
                   <button
-                    onclick={(e) => { e.stopPropagation(); discard(card, isCrystallized); }}
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      discard(card, isCrystallized);
+                    }}
                     class="px-2.5 py-1 text-[11px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg"
-                    title="Défausser">▶️</button>
+                    title="Défausser">▶️</button
+                  >
                   {#if !isCrystallized}
                     <button
-                      onclick={(e) => { e.stopPropagation(); crystallize(card); }}
-                      disabled={player.tokens.esprit <= 0}
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        crystallize(card);
+                      }}
+                      disabled={(player.spiritBounds ?? 0) <= 0}
                       class="px-2.5 py-1 text-[11px] font-bold bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-lg disabled:opacity-40"
-                      title="Cristalliser (−1 Esprit)">✦</button>
+                      title="Cristalliser (−1 Spirit Bound)">✦</button
+                    >
                   {/if}
                   <button
-                    onclick={(e) => { e.stopPropagation(); toggleGray(card); }}
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      toggleGray(card);
+                    }}
                     class="px-2.5 py-1 text-[11px] font-bold rounded-lg shadow-lg"
-                    class:bg-gray-600={!isGrayed} class:hover:bg-gray-500={!isGrayed}
-                    class:bg-gray-400={isGrayed}  class:hover:bg-gray-300={isGrayed}
-                    class:text-white={!isGrayed}   class:text-gray-800={isGrayed}
-                    title="{isGrayed ? 'Dégrisonner' : 'Grisonner'}">◑</button>
+                    class:bg-gray-600={!isGrayed}
+                    class:hover:bg-gray-500={!isGrayed}
+                    class:bg-gray-400={isGrayed}
+                    class:hover:bg-gray-300={isGrayed}
+                    class:text-white={!isGrayed}
+                    class:text-gray-800={isGrayed}
+                    title={isGrayed ? "Dégrisonner" : "Grisonner"}>◑</button
+                  >
                 </div>
               {/if}
             </div>
@@ -613,14 +789,24 @@
       <!-- Draw button -->
       <button
         onclick={drawCard}
-        disabled={handFull}
+        disabled={handFull || mustCrystallize}
         class="text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        style="background: #4f46e5; white-space: nowrap; flex-shrink: 0;"
+        style="background: {mustCrystallize
+          ? '#b45309'
+          : '#4f46e5'}; white-space: nowrap; flex-shrink: 0;"
       >
-        {handFull
-          ? `Pleine ${player.hand.length}/${player.maxHandSize}`
-          : `Piocher ${player.hand.length}/${player.maxHandSize}`}
+        {mustCrystallize
+          ? `Cristalliser d'abord !`
+          : handFull
+            ? `Pleine ${player.hand.length}/${player.maxHandSize + (player.spiritBounds ?? 0)}`
+            : `Piocher ${player.hand.length}/${player.maxHandSize + (player.spiritBounds ?? 0)}`}
       </button>
+      {#if (player.spiritBounds ?? 0) > 0}
+        <span
+          class="text-[18px] text-blue-400 font-semibold ml-2 shrink-0"
+          title="Spirit Bounds actifs">✦×{player.spiritBounds}</span
+        >
+      {/if}
     </div>
     <div
       class="shrink-0 flex items-center justify-center px-2 py-1.5 relative bottom-[-60px]"

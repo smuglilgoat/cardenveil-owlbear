@@ -14,7 +14,14 @@
   let { gameState, myId, myName, party, onUpdate } = $props();
 
   let player = $derived(gameState.players[myId]);
-  let handFull = $derived(player && player.hand.length >= player.maxHandSize);
+  let handFull = $derived(
+    player ? player.hand.length >= player.maxHandSize + (player.spiritBounds ?? 0) : false,
+  );
+  let mustCrystallize = $derived(
+    player
+      ? (player.spiritBounds ?? 0) > 0 && player.hand.length >= player.maxHandSize + (player.spiritBounds ?? 0)
+      : false,
+  );
 
   /** Exchanges from other players targeting me */
   let incomingExchanges = $derived(
@@ -50,7 +57,7 @@
 
   // ── Normal draw ───────────────────────────────────────────────────────
   function drawCard() {
-    if (handFull) return;
+    if (handFull || mustCrystallize) return;
     const card = drawNormal(player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
     onUpdate(addLog({
       ...gameState,
@@ -68,16 +75,16 @@
   }
 
   function crystallizeCard(card) {
-    if (player.tokens.esprit <= 0) return;
+    if ((player.spiritBounds ?? 0) <= 0) return;
     onUpdate(addLog({
       ...gameState,
       players: { ...gameState.players, [myId]: {
         ...player,
         hand: player.hand.filter((c) => c.id !== card.id),
         crystallized: [...player.crystallized, card],
-        tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
+        spiritBounds: (player.spiritBounds ?? 0) - 1,
       }},
-    }, myId, myName, `cristallise ${card.value}${card.suit} (−1 Esprit)`));
+    }, myId, myName, `cristallise ${card.value}${card.suit} (−1 Spirit Bound)`));
   }
 
   function discardCrystallized(card) {
@@ -90,7 +97,7 @@
 
   // ── Token: Force ──────────────────────────────────────────────────────
   function useForce() {
-    if (player.tokens.force <= 0 || handFull) return;
+    if (player.tokens.force <= 0 || handFull || mustCrystallize) return;
     const card = drawNormal(player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
     onUpdate(addLog({
       ...gameState,
@@ -127,23 +134,17 @@
     cancelAction();
   }
 
-  // ── Token: Esprit ─────────────────────────────────────────────────────
-  function startEsprit() {
-    if (player.tokens.esprit <= 0 || player.hand.length === 0) return;
-    action = "esprit";
-  }
-
-  function espritPickCard(card) {
+  // ── Token: Esprit → ajoute 1 Spirit Bound ────────────────────────────
+  function useEsprit() {
+    if (player.tokens.esprit <= 0) return;
     onUpdate(addLog({
       ...gameState,
       players: { ...gameState.players, [myId]: {
         ...player,
         tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
-        hand: player.hand.filter((c) => c.id !== card.id),
-        crystallized: [...player.crystallized, card],
+        spiritBounds: (player.spiritBounds ?? 0) + 1,
       }},
-    }, myId, myName, `token Esprit : cristallise ${card.value}${card.suit}`));
-    cancelAction();
+    }, myId, myName, `token Esprit : +1 Spirit Bound (total ${(player.spiritBounds ?? 0) + 1})`));
   }
 
   // ── Token: Social ─────────────────────────────────────────────────────
@@ -231,7 +232,7 @@
       key: "force",
       label: "Force",
       desc: "Piocher (pile normale)",
-      disabled: () => player.tokens.force <= 0 || handFull,
+      disabled: () => player.tokens.force <= 0 || handFull || mustCrystallize,
       use: useForce,
     },
     {
@@ -244,9 +245,9 @@
     {
       key: "esprit",
       label: "Esprit",
-      desc: "Cristalliser une carte",
-      disabled: () => player.tokens.esprit <= 0 || player.hand.length === 0,
-      use: startEsprit,
+      desc: "+1 Spirit Bound (slot de main)",
+      disabled: () => player.tokens.esprit <= 0,
+      use: useEsprit,
     },
     {
       key: "social",
@@ -462,18 +463,6 @@
               </button>
             {/each}
           </div>
-        {:else if action === "esprit"}
-          <p class="text-xs text-indigo-200 font-semibold">
-            Esprit — Choisissez la carte à cristalliser :
-          </p>
-          <div class="flex flex-wrap gap-2">
-            {#each player.hand.filter(c => !(player.grayedCards ?? []).includes(c.id)) as card (card.id)}
-              <CardDisplay
-                {card}
-                actions={[{ icon: "✦", label: "Cristalliser", onClick: () => espritPickCard(card) }]}
-              />
-            {/each}
-          </div>
         {:else if action === "social-pick-card"}
           <p class="text-xs text-indigo-200 font-semibold">
             Social — Choisissez votre carte à offrir :
@@ -535,9 +524,11 @@
         <span
           class="text-xs"
           class:text-red-400={handFull}
-          class:text-gray-500={!handFull}
+          class:text-amber-400={mustCrystallize && !handFull}
+          class:text-gray-500={!handFull && !mustCrystallize}
         >
-          {player.hand.length} / {player.maxHandSize}
+          {player.hand.length} / {player.maxHandSize + (player.spiritBounds ?? 0)}
+          {#if (player.spiritBounds ?? 0) > 0}<span class="text-blue-400 ml-1" title="Spirit Bounds">✦×{player.spiritBounds}</span>{/if}
         </span>
       </div>
       {#if player.hand.length === 0}
@@ -553,7 +544,7 @@
                   { icon: "▶️", label: "Défausser", onClick: () => discardCard(card) },
                   {
                     icon: "✦",
-                    label: player.tokens.esprit > 0 ? "Cristalliser (−1 Esprit)" : "Cristalliser (pas de token Esprit)",
+                    label: (player.spiritBounds ?? 0) > 0 ? "Cristalliser (−1 Spirit Bound)" : "Cristalliser (aucun Spirit Bound)",
                     onClick: () => crystallizeCard(card),
                   },
                   { icon: isGrayed ? "◐" : "◑", label: isGrayed ? "Dégrisonner" : "Grisonner", onClick: () => toggleGray(card) },
@@ -571,10 +562,14 @@
     <!-- ── Draw button ─────────────────────────────────────────────── -->
     <button
       onclick={drawCard}
-      disabled={handFull}
-      class="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      disabled={handFull || mustCrystallize}
+      class="w-full py-2 text-sm font-medium text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      class:bg-amber-700={mustCrystallize}
+      class:hover:bg-amber-800={mustCrystallize}
+      class:bg-indigo-600={!mustCrystallize}
+      class:hover:bg-indigo-700={!mustCrystallize}
     >
-      {#if handFull}Main pleine{:else}Piocher{/if}
+      {#if mustCrystallize}Cristalliser d'abord !{:else if handFull}Main pleine{:else}Piocher{/if}
     </button>
 
     <!-- ── Crystallized ────────────────────────────────────────────── -->

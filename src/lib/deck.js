@@ -145,6 +145,7 @@ export function createEmptyPlayer(name = '') {
     minDrawValue:  1,
     maxDrawValue:  13,
     grayedCards:   [],
+    spiritBounds:  0,
   };
 }
 
@@ -200,6 +201,7 @@ export function hydrateState(raw) {
       minDrawValue: p.minDrawValue ?? 1,
       maxDrawValue: p.maxDrawValue ?? 13,
       grayedCards:  p.grayedCards  ?? [],
+      spiritBounds: p.spiritBounds ?? 0,
     };
   }
 
