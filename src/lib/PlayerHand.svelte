@@ -477,7 +477,7 @@
                 {card}
                 actions={[
                   {
-                    icon: "🗑",
+                    icon: "▶️",
                     label: "Défausser",
                     onClick: () => agilitePickCard(card),
                   },
@@ -606,7 +606,7 @@
               {card}
               actions={[
                 {
-                  icon: "🗑",
+                  icon: "▶️",
                   label: "Défausser",
                   onClick: () => discardCard(card),
                 },

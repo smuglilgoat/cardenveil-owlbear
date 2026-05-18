@@ -126,6 +126,24 @@
     active = { card, isCrystallized };
   }
 
+  let handFull = $derived(
+    player ? player.hand.length >= player.maxHandSize : false,
+  );
+  let deckCount = $derived(gameState?.normalDeck?.length ?? 0);
+
+  function drawCard() {
+    if (!player || handFull || deckCount === 0) return;
+    const [card, ...rest] = gameState.normalDeck;
+    pushState({
+      ...gameState,
+      normalDeck: rest,
+      players: {
+        ...gameState.players,
+        [myId]: { ...player, hand: [...player.hand, card] },
+      },
+    });
+  }
+
   const SUIT_COLOR = {
     "♠": "#1e293b",
     "♣": "#1e293b",
@@ -140,95 +158,109 @@
 >
   {#if !ready || !player}
     <p class="text-xs text-gray-400 pb-4">Chargement...</p>
-  {:else if allCards.length === 0}
-    <p class="text-xs text-gray-500 pb-4">Aucune carte</p>
   {:else}
-    <!-- Fan container -->
-    <div
-      class="relative flex items-end justify-center"
-      style="width: {Math.max(
-        300,
-        allCards.length * SPREAD_X + 120,
-      )}px; height: 260px;"
-    >
-      {#each allCards as { card, isCrystallized }, i (card.id)}
-        {@const isActive = active?.card.id === card.id}
-        {@const n = allCards.length}
+    {#if allCards.length > 0}
+      <!-- Fan container -->
+      <div
+        class="relative flex items-end justify-center"
+        style="width: {Math.max(
+          300,
+          allCards.length * SPREAD_X + 120,
+        )}px; height: 260px;"
+      >
+        {#each allCards as { card, isCrystallized }, i (card.id)}
+          {@const isActive = active?.card.id === card.id}
+          {@const n = allCards.length}
 
-        <!-- Card -->
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-        <div
-          class="absolute bottom-0 left-1/2 cursor-pointer transition-all duration-150"
-          style="
+          <!-- Card -->
+          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+          <div
+            class="absolute bottom-0 left-1/2 cursor-pointer transition-all duration-150"
+            style="
             {fanStyle(i, n)}
             margin-left: -40px;
             z-index: {isActive ? 50 : i};
             filter: {isActive
-            ? 'drop-shadow(0 -8px 12px rgba(99,102,241,0.7))'
-            : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
+              ? 'drop-shadow(0 -8px 12px rgba(99,102,241,0.7))'
+              : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
             transform-origin: bottom center;
             {isActive
-            ? 'transform: ' +
-              fanStyle(i, n).replace('transform:', '').replace(';', '') +
-              ' translateY(-28px);'
-            : ''}
+              ? 'transform: ' +
+                fanStyle(i, n).replace('transform:', '').replace(';', '') +
+                ' translateY(-28px);'
+              : ''}
           "
-          onclick={() => toggleActive(card, isCrystallized)}
-        >
-          <!-- Card face -->
-          <div
-            class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
-            style="
+            onclick={() => toggleActive(card, isCrystallized)}
+          >
+            <!-- Card face -->
+            <div
+              class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
+              style="
               background: {isCrystallized ? '#fefce8' : '#ffffff'};
               border: {isCrystallized
-              ? '2.5px solid #f59e0b'
-              : '1.5px solid #d1d5db'};
+                ? '2.5px solid #f59e0b'
+                : '1.5px solid #d1d5db'};
               color: {SUIT_COLOR[card.suit] ?? '#111827'};
             "
-          >
-            <div class="flex flex-col items-start">
-              <span>{card.value}</span>
-              <span class="text-[14px]">{card.suit}</span>
-            </div>
-            <div class="flex-1 flex items-center justify-center text-[28px]">
-              {card.suit}
-            </div>
-            <div class="flex flex-col items-end rotate-180">
-              <span>{card.value}</span>
-              <span class="text-[14px]">{card.suit}</span>
-            </div>
-          </div>
-
-          <!-- Action buttons (shown when card is active) -->
-          {#if isActive}
-            <div
-              class="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-1 z-50"
             >
-              <button
-                onclick={(e) => {
-                  e.stopPropagation();
-                  discard(card, isCrystallized);
-                }}
-                class="px-2 py-1 text-[10px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg whitespace-nowrap"
+              <div class="flex flex-col items-start">
+                <span>{card.value}</span>
+                <span class="text-[14px]">{card.suit}</span>
+              </div>
+              <div class="flex-1 flex items-center justify-center text-[28px]">
+                {card.suit}
+              </div>
+              <div class="flex flex-col items-end rotate-180">
+                <span>{card.value}</span>
+                <span class="text-[14px]">{card.suit}</span>
+              </div>
+            </div>
+
+            <!-- Action buttons (shown when card is active) -->
+            {#if isActive}
+              <div
+                class="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-1 z-50"
               >
-                🗑
-              </button>
-              {#if !isCrystallized}
                 <button
                   onclick={(e) => {
                     e.stopPropagation();
-                    crystallize(card);
+                    discard(card, isCrystallized);
                   }}
-                  disabled={player.tokens.esprit <= 0}
-                  class="px-2 py-1 text-[10px] font-bold bg-amber-600 hover:bg-amber-500 text-white rounded-lg shadow-lg whitespace-nowrap disabled:opacity-40"
+                  class="px-2 py-1 text-[10px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg whitespace-nowrap"
                 >
-                  ✦
+                  ▶️
                 </button>
-              {/if}
-            </div>
-          {/if}
-        </div>
-      {/each}
-    </div>
+                {#if !isCrystallized}
+                  <button
+                    onclick={(e) => {
+                      e.stopPropagation();
+                      crystallize(card);
+                    }}
+                    disabled={player.tokens.esprit <= 0}
+                    class="px-2 py-1 text-[10px] font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg whitespace-nowrap disabled:opacity-40"
+                  >
+                    ✦
+                  </button>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+    <button
+      onclick={drawCard}
+      disabled={handFull || deckCount === 0}
+      style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:100;background:#4f46e5;color:white;border:none;border-radius:8px;padding:4px 14px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;opacity:{handFull ||
+      deckCount === 0
+        ? 0.4
+        : 1};"
+    >
+      {handFull
+        ? "Main pleine"
+        : deckCount === 0
+          ? "Vide"
+          : `Piocher (${deckCount})`}
+    </button>
   {/if}
 </div>
