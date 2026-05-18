@@ -40,10 +40,27 @@
   /** exchange the player chose to accept (needs a card selection) */
   let acceptingExchange = $state(null);
 
+  let choosingToken = /** @type {string | null} */ ($state(null));
+
   function cancelAction() {
     action = null;
     actionCard = null;
     acceptingExchange = null;
+    choosingToken = null;
+  }
+
+  /** @param {string} tokenKey @param {string} label */
+  function useCombat(tokenKey, label) {
+    const tokens = /** @type {any} */ (player.tokens);
+    if (tokens[tokenKey] <= 0) return;
+    onUpdate(addLog({
+      ...gameState,
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        tokens: { ...tokens, [tokenKey]: tokens[tokenKey] - 1 },
+      }},
+    }, myId, myName, `token ${label} : usage combat`));
+    choosingToken = null;
   }
 
   // ── Gray out ──────────────────────────────────────────────────────────
@@ -221,12 +238,12 @@
     { symbol: "♦", label: "Carreaux", isRed: true },
   ];
 
-  const TOKEN_COLOR = {
+  const TOKEN_COLOR = /** @type {{ [key: string]: string }} */ ({
     force: "#ef4444",
     agilite: "#22c55e",
     esprit: "#3b82f6",
     social: "#eab308",
-  };
+  });
   const TOKENS = [
     {
       key: "force",
@@ -421,6 +438,34 @@
       </div>
     {/if}
 
+    <!-- ── Token choice: Carte vs Combat ────────────────────────── -->
+    {#if choosingToken !== null}
+      {@const ctok = TOKENS.find(t => t.key === choosingToken)}
+      <div class="bg-gray-900/80 border rounded-xl p-3 space-y-2" style="border-color: {TOKEN_COLOR[choosingToken ?? '']}55;">
+        <p class="text-xs font-semibold" style="color: {TOKEN_COLOR[choosingToken ?? '']}">
+          Token {ctok?.label} — usage :
+        </p>
+        <div class="flex gap-2">
+          <button
+            onclick={() => { ctok?.use(); choosingToken = null; }}
+            class="flex-1 py-2 rounded-lg text-xs font-semibold text-white text-center"
+            style="background: {TOKEN_COLOR[choosingToken ?? '']}30; border: 1px solid {TOKEN_COLOR[choosingToken ?? '']};"
+          >
+            <div>Carte</div>
+            <div class="text-[10px] opacity-60 mt-0.5">{ctok?.desc ?? ''}</div>
+          </button>
+          <button
+            onclick={() => useCombat(choosingToken ?? '', ctok?.label ?? choosingToken ?? '')}
+            class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-semibold text-gray-200 text-center border border-gray-600"
+          >
+            <div>Combat</div>
+            <div class="text-[10px] opacity-60 mt-0.5">Dépenser sans effet</div>
+          </button>
+        </div>
+        <button onclick={() => choosingToken = null} class="text-xs text-gray-500 hover:text-gray-300 underline">Annuler</button>
+      </div>
+    {/if}
+
     <!-- ── Action banner ──────────────────────────────────────────── -->
     {#if action && action !== "accept-exchange"}
       <div
@@ -609,7 +654,7 @@
         {#each TOKENS as tok}
           {@const current = player.tokens[tok.key]}
           {@const max = player.maxTokens[tok.key]}
-          {@const busy = action !== null}
+          {@const busy = action !== null || choosingToken !== null}
           <div class="flex items-center gap-2">
             <!-- Dots -->
             <div class="flex gap-1 w-24 shrink-0">
@@ -634,7 +679,7 @@
               </div>
             </div>
             <button
-              onclick={tok.use}
+              onclick={() => choosingToken = tok.key}
               disabled={tok.disabled() || busy}
               class="text-[10px] px-2 py-1 rounded-lg font-semibold shrink-0 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               style="background:{TOKEN_COLOR[tok.key]}20;color:{TOKEN_COLOR[
