@@ -1,6 +1,7 @@
 <script>
   import CardDisplay from "./CardDisplay.svelte";
   import TokenPanel from "./TokenPanel.svelte";
+  import ActionLog from "./ActionLog.svelte";
   import {
     createEmptyPlayer,
     createInitialGameState,
@@ -12,6 +13,7 @@
     fullDeck,
     fullSuit,
     GM_CHAR_ID,
+    addLog,
   } from "./deck.js";
 
   /** @type {{ gameState: object, party: object[], myId: string, onUpdate: (s: object) => void }} */
@@ -100,36 +102,33 @@
     if (!target) return;
     const { minDrawValue: mn = 1, maxDrawValue: mx = 13 } = target;
     const cards = Array.from({ length: dealCount }, () => drawNormal(mn, mx));
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [dealTarget]: { ...target, hand: [...target.hand, ...cards] },
-      },
-    });
+      players: { ...gameState.players, [dealTarget]: { ...target, hand: [...target.hand, ...cards] } },
+    }, 'gm', 'MJ', `distribue ${cards.length} carte(s) à ${getPlayerName(dealTarget)} : ${cards.map(c => c.value + c.suit).join(', ')}`));
   }
 
   function dealOneToAll() {
     const updatedPlayers = { ...gameState.players };
+    const dealtTo = [];
     for (const [id, p] of Object.entries(gameState.players)) {
       if (id === myId) continue;
       if (p.hand.length < p.maxHandSize) {
         const { minDrawValue: mn = 1, maxDrawValue: mx = 13 } = p;
-        updatedPlayers[id] = { ...p, hand: [...p.hand, drawNormal(mn, mx)] };
+        const card = drawNormal(mn, mx);
+        updatedPlayers[id] = { ...p, hand: [...p.hand, card] };
+        dealtTo.push(getPlayerName(id));
       }
     }
-    onUpdate({ ...gameState, players: updatedPlayers });
+    onUpdate(addLog({ ...gameState, players: updatedPlayers }, 'gm', 'MJ', `distribue 1 carte à tous (${dealtTo.join(', ') || 'aucun'})`));
   }
 
   function giveCrystallized(toId, card) {
     const p = gameState.players[toId];
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [toId]: { ...p, crystallized: [...p.crystallized, card] },
-      },
-    });
+      players: { ...gameState.players, [toId]: { ...p, crystallized: [...p.crystallized, card] } },
+    }, 'gm', 'MJ', `donne carte cristallisée ${card.value}${card.suit} à ${getPlayerName(toId)}`));
     crystalPickOpen = false;
   }
 
@@ -239,58 +238,44 @@
     const p = gameState.players[playerId];
     const prefix = swapSource === "normal" ? "n" : "s";
     const newCard = makeCard(pickedCard.suit, pickedCard.value, prefix);
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
       discard: [...gameState.discard, oldCard],
       players: {
         ...gameState.players,
-        [playerId]: {
-          ...p,
-          hand: p.hand.map((c) => (c.id === oldCard.id ? newCard : c)),
-        },
+        [playerId]: { ...p, hand: p.hand.map((c) => (c.id === oldCard.id ? newCard : c)) },
       },
-    });
+    }, 'gm', 'MJ', `remplace ${oldCard.value}${oldCard.suit} → ${newCard.value}${newCard.suit} dans la main de ${getPlayerName(playerId)}`));
     cancelSwap();
   }
 
   function gmDiscardFromHand(playerId, card) {
     const p = gameState.players[playerId];
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
       discard: [...gameState.discard, card],
-      players: {
-        ...gameState.players,
-        [playerId]: { ...p, hand: p.hand.filter((c) => c.id !== card.id) },
-      },
-    });
+      players: { ...gameState.players, [playerId]: { ...p, hand: p.hand.filter((c) => c.id !== card.id) } },
+    }, 'gm', 'MJ', `défausse ${card.value}${card.suit} de la main de ${getPlayerName(playerId)}`));
   }
 
   function gmDiscardCrystallized(playerId, card) {
     const p = gameState.players[playerId];
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
       discard: [...gameState.discard, card],
-      players: {
-        ...gameState.players,
-        [playerId]: {
-          ...p,
-          crystallized: p.crystallized.filter((c) => c.id !== card.id),
-        },
-      },
-    });
+      players: { ...gameState.players, [playerId]: { ...p, crystallized: p.crystallized.filter((c) => c.id !== card.id) } },
+    }, 'gm', 'MJ', `défausse cristallisée ${card.value}${card.suit} de ${getPlayerName(playerId)}`));
   }
 
   function gmDrawForPlayer(playerId) {
     const p = gameState.players[playerId];
     if (p.hand.length >= p.maxHandSize) return;
     const { minDrawValue: mn = 1, maxDrawValue: mx = 13 } = p;
-    onUpdate({
+    const card = drawNormal(mn, mx);
+    onUpdate(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [playerId]: { ...p, hand: [...p.hand, drawNormal(mn, mx)] },
-      },
-    });
+      players: { ...gameState.players, [playerId]: { ...p, hand: [...p.hand, card] } },
+    }, 'gm', 'MJ', `pioche ${card.value}${card.suit} pour ${getPlayerName(playerId)}`));
   }
 
   // ── GM Character ─────────────────────────────────────────────────────
@@ -334,7 +319,7 @@
       fromCard: gmActionCard,
       to: targetId,
     };
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
       pendingExchanges: [...(gameState.pendingExchanges ?? []), exchange],
       players: {
@@ -345,7 +330,7 @@
           hand: gmChar.hand.filter((c) => c.id !== gmActionCard.id),
         },
       },
-    });
+    }, GM_CHAR_ID, getPlayerName(GM_CHAR_ID), `token Social : propose échange ${gmActionCard.value}${gmActionCard.suit} → ${getPlayerName(targetId)}`));
     cancelGmAction();
   }
 
@@ -357,11 +342,9 @@
   function gmCharCompleteAccept(myCard) {
     const ex = gmAcceptExchange;
     const fromPlayer = gameState.players[ex.from];
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter(
-        (e) => e.id !== ex.id,
-      ),
+      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== ex.id),
       players: {
         ...gameState.players,
         [ex.from]: { ...fromPlayer, hand: [...fromPlayer.hand, myCard] },
@@ -370,25 +353,20 @@
           hand: [...gmChar.hand.filter((c) => c.id !== myCard.id), ex.fromCard],
         },
       },
-    });
+    }, GM_CHAR_ID, getPlayerName(GM_CHAR_ID), `accepte échange avec ${getPlayerName(ex.from)} : donne ${myCard.value}${myCard.suit}, reçoit ${ex.fromCard.value}${ex.fromCard.suit}`));
     cancelGmAction();
   }
 
   function gmCharDecline(exchange) {
     const fromPlayer = gameState.players[exchange.from];
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter(
-        (e) => e.id !== exchange.id,
-      ),
+      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== exchange.id),
       players: {
         ...gameState.players,
-        [exchange.from]: {
-          ...fromPlayer,
-          hand: [...fromPlayer.hand, exchange.fromCard],
-        },
+        [exchange.from]: { ...fromPlayer, hand: [...fromPlayer.hand, exchange.fromCard] },
       },
-    });
+    }, GM_CHAR_ID, getPlayerName(GM_CHAR_ID), `refuse échange de ${getPlayerName(exchange.from)} (${exchange.fromCard.value}${exchange.fromCard.suit})`));
   }
 
   function cancelGmAction() {
@@ -1106,6 +1084,9 @@
       </label>
     </div>
   </div>
+
+  <!-- ── Action log ───────────────────────────────────────────────────── -->
+  <ActionLog logs={gameState.logs ?? []} {myId} isGM={true} />
 
   <!-- ── Hard reset ─────────────────────────────────────────────────── -->
   <div class="border-t border-gray-700 pt-4 space-y-2">

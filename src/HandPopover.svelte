@@ -7,6 +7,7 @@
     drawNormal,
     drawSpecialized,
     GM_CHAR_ID,
+    addLog,
   } from "./lib/deck.js";
 
   const METADATA_KEY = "com.cardenveil/gameState";
@@ -97,39 +98,29 @@
   // ── Card actions ──────────────────────────────────────────────────────
   function discard(card, isCrystallized) {
     if (!player) return;
-    pushState({
+    pushState(addLog({
       ...gameState,
       discard: [...gameState.discard, card],
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          hand: isCrystallized
-            ? player.hand
-            : player.hand.filter((c) => c.id !== card.id),
-          crystallized: isCrystallized
-            ? player.crystallized.filter((c) => c.id !== card.id)
-            : player.crystallized,
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        hand: isCrystallized ? player.hand : player.hand.filter((c) => c.id !== card.id),
+        crystallized: isCrystallized ? player.crystallized.filter((c) => c.id !== card.id) : player.crystallized,
+      }},
+    }, myId, player.name, `défausse ${card.value}${card.suit}${isCrystallized ? ' (cristallisée)' : ''}`));
     active = null;
   }
 
   function crystallize(card) {
     if (!player || player.tokens.esprit <= 0) return;
-    pushState({
+    pushState(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          hand: player.hand.filter((c) => c.id !== card.id),
-          crystallized: [...player.crystallized, card],
-          tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        hand: player.hand.filter((c) => c.id !== card.id),
+        crystallized: [...player.crystallized, card],
+        tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
+      }},
+    }, myId, player.name, `cristallise ${card.value}${card.suit} (−1 Esprit)`));
     active = null;
   }
 
@@ -137,30 +128,26 @@
   function drawCard() {
     if (!player || handFull) return;
     const mn = player.minDrawValue ?? 1, mx = player.maxDrawValue ?? 13;
-    pushState({
+    const card = drawNormal(mn, mx);
+    pushState(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [myId]: { ...player, hand: [...player.hand, drawNormal(mn, mx)] },
-      },
-    });
+      players: { ...gameState.players, [myId]: { ...player, hand: [...player.hand, card] } },
+    }, myId, player.name, `pioche ${card.value}${card.suit}`));
   }
 
   // ── Token: Force ──────────────────────────────────────────────────────
   function useForce() {
     if (!player || player.tokens.force <= 0 || handFull) return;
     const mn = player.minDrawValue ?? 1, mx = player.maxDrawValue ?? 13;
-    pushState({
+    const card = drawNormal(mn, mx);
+    pushState(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          tokens: { ...player.tokens, force: player.tokens.force - 1 },
-          hand: [...player.hand, drawNormal(mn, mx)],
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        tokens: { ...player.tokens, force: player.tokens.force - 1 },
+        hand: [...player.hand, card],
+      }},
+    }, myId, player.name, `token Force : pioche ${card.value}${card.suit}`));
   }
 
   // ── Token: Agilité ────────────────────────────────────────────────────
@@ -177,21 +164,16 @@
   }
 
   function agilitePickSuit(suit) {
-    pushState({
+    const card = drawSpecialized(suit, player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
+    pushState(addLog({
       ...gameState,
       discard: [...gameState.discard, actionCard],
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
-          hand: [
-            ...player.hand.filter((c) => c.id !== actionCard.id),
-            drawSpecialized(suit, player.minDrawValue ?? 1, player.maxDrawValue ?? 13),
-          ],
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
+        hand: [...player.hand.filter((c) => c.id !== actionCard.id), card],
+      }},
+    }, myId, player.name, `token Agilité : défausse ${actionCard.value}${actionCard.suit}, pioche ${card.value}${card.suit} (${suit})`));
     cancelAction();
   }
 
@@ -204,18 +186,15 @@
   }
 
   function espritPickCard(card) {
-    pushState({
+    pushState(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
-          hand: player.hand.filter((c) => c.id !== card.id),
-          crystallized: [...player.crystallized, card],
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
+        hand: player.hand.filter((c) => c.id !== card.id),
+        crystallized: [...player.crystallized, card],
+      }},
+    }, myId, player.name, `token Esprit : cristallise ${card.value}${card.suit}`));
     cancelAction();
   }
 
@@ -233,26 +212,16 @@
   }
 
   function socialPickTarget(targetId) {
-    pushState({
+    const exchange = { id: `${myId}-${Date.now()}`, from: myId, fromCard: actionCard, to: targetId };
+    pushState(addLog({
       ...gameState,
-      pendingExchanges: [
-        ...(gameState.pendingExchanges ?? []),
-        {
-          id: `${myId}-${Date.now()}`,
-          from: myId,
-          fromCard: actionCard,
-          to: targetId,
-        },
-      ],
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          tokens: { ...player.tokens, social: player.tokens.social - 1 },
-          hand: player.hand.filter((c) => c.id !== actionCard.id),
-        },
-      },
-    });
+      pendingExchanges: [...(gameState.pendingExchanges ?? []), exchange],
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        tokens: { ...player.tokens, social: player.tokens.social - 1 },
+        hand: player.hand.filter((c) => c.id !== actionCard.id),
+      }},
+    }, myId, player.name, `token Social : propose échange ${actionCard.value}${actionCard.suit} → ${getPlayerName(targetId)}`));
     cancelAction();
   }
 
@@ -271,7 +240,7 @@
   function completeAccept(myCard) {
     const ex = acceptingExchange;
     const fromPlayer = gameState.players[ex.from];
-    pushState({
+    pushState(addLog({
       ...gameState,
       pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== ex.id),
       players: {
@@ -279,20 +248,20 @@
         [ex.from]: { ...fromPlayer, hand: [...fromPlayer.hand, myCard] },
         [myId]: { ...player, hand: [...player.hand.filter((c) => c.id !== myCard.id), ex.fromCard] },
       },
-    });
+    }, myId, player.name, `accepte échange avec ${getPlayerName(ex.from)} : donne ${myCard.value}${myCard.suit}, reçoit ${ex.fromCard.value}${ex.fromCard.suit}`));
     cancelAction();
   }
 
   function declineExchange(exchange) {
     const fromPlayer = gameState.players[exchange.from];
-    pushState({
+    pushState(addLog({
       ...gameState,
       pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== exchange.id),
       players: {
         ...gameState.players,
         [exchange.from]: { ...fromPlayer, hand: [...fromPlayer.hand, exchange.fromCard] },
       },
-    });
+    }, myId, player.name, `refuse échange de ${getPlayerName(exchange.from)} (${exchange.fromCard.value}${exchange.fromCard.suit})`));
   }
 
   // ── Fan card click — route to action or toggle ─────────────────────────

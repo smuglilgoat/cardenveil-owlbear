@@ -2,7 +2,8 @@
   import { onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
-  import { drawNormal, drawSpecialized, GM_CHAR_ID } from "./deck.js";
+  import ActionLog from "./ActionLog.svelte";
+  import { drawNormal, drawSpecialized, GM_CHAR_ID, addLog } from "./deck.js";
 
   /**
    * @type {{
@@ -41,77 +42,55 @@
   // ── Normal draw ───────────────────────────────────────────────────────
   function drawCard() {
     if (handFull) return;
-    onUpdate({
+    const card = drawNormal(player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
+    onUpdate(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [myId]: { ...player, hand: [...player.hand, drawNormal()] },
-      },
-    });
+      players: { ...gameState.players, [myId]: { ...player, hand: [...player.hand, card] } },
+    }, myId, myName, `pioche ${card.value}${card.suit}`));
   }
 
   // ── Card actions ──────────────────────────────────────────────────────
   function discardCard(card) {
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
       discard: [...gameState.discard, card],
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          hand: player.hand.filter((c) => c.id !== card.id),
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: { ...player, hand: player.hand.filter((c) => c.id !== card.id) } },
+    }, myId, myName, `défausse ${card.value}${card.suit}`));
   }
 
   function crystallizeCard(card) {
-    if (player.tokens.esprit <= 0) {
-      // No Esprit token available — surface this via the token action flow instead
-      return;
-    }
-    onUpdate({
+    if (player.tokens.esprit <= 0) return;
+    onUpdate(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          hand: player.hand.filter((c) => c.id !== card.id),
-          crystallized: [...player.crystallized, card],
-          tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        hand: player.hand.filter((c) => c.id !== card.id),
+        crystallized: [...player.crystallized, card],
+        tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
+      }},
+    }, myId, myName, `cristallise ${card.value}${card.suit} (−1 Esprit)`));
   }
 
   function discardCrystallized(card) {
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
       discard: [...gameState.discard, card],
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          crystallized: player.crystallized.filter((c) => c.id !== card.id),
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: { ...player, crystallized: player.crystallized.filter((c) => c.id !== card.id) } },
+    }, myId, myName, `joue/défausse cristallisée ${card.value}${card.suit}`));
   }
 
   // ── Token: Force ──────────────────────────────────────────────────────
   function useForce() {
     if (player.tokens.force <= 0 || handFull) return;
-    onUpdate({
+    const card = drawNormal(player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
+    onUpdate(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          tokens: { ...player.tokens, force: player.tokens.force - 1 },
-          hand: [...player.hand, drawNormal()],
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        tokens: { ...player.tokens, force: player.tokens.force - 1 },
+        hand: [...player.hand, card],
+      }},
+    }, myId, myName, `token Force : pioche ${card.value}${card.suit}`));
   }
 
   // ── Token: Agilité ────────────────────────────────────────────────────
@@ -126,21 +105,16 @@
   }
 
   function agilitePickSuit(suit) {
-    onUpdate({
+    const card = drawSpecialized(suit, player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
+    onUpdate(addLog({
       ...gameState,
       discard: [...gameState.discard, actionCard],
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
-          hand: [
-            ...player.hand.filter((c) => c.id !== actionCard.id),
-            drawSpecialized(suit),
-          ],
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
+        hand: [...player.hand.filter((c) => c.id !== actionCard.id), card],
+      }},
+    }, myId, myName, `token Agilité : défausse ${actionCard.value}${actionCard.suit}, pioche ${card.value}${card.suit} (${suit})`));
     cancelAction();
   }
 
@@ -151,18 +125,15 @@
   }
 
   function espritPickCard(card) {
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
-          hand: player.hand.filter((c) => c.id !== card.id),
-          crystallized: [...player.crystallized, card],
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
+        hand: player.hand.filter((c) => c.id !== card.id),
+        crystallized: [...player.crystallized, card],
+      }},
+    }, myId, myName, `token Esprit : cristallise ${card.value}${card.suit}`));
     cancelAction();
   }
 
@@ -178,24 +149,16 @@
   }
 
   function socialPickTarget(targetId) {
-    const exchange = {
-      id: `${myId}-${Date.now()}`,
-      from: myId,
-      fromCard: actionCard,
-      to: targetId,
-    };
-    onUpdate({
+    const exchange = { id: `${myId}-${Date.now()}`, from: myId, fromCard: actionCard, to: targetId };
+    onUpdate(addLog({
       ...gameState,
       pendingExchanges: [...(gameState.pendingExchanges ?? []), exchange],
-      players: {
-        ...gameState.players,
-        [myId]: {
-          ...player,
-          tokens: { ...player.tokens, social: player.tokens.social - 1 },
-          hand: player.hand.filter((c) => c.id !== actionCard.id),
-        },
-      },
-    });
+      players: { ...gameState.players, [myId]: {
+        ...player,
+        tokens: { ...player.tokens, social: player.tokens.social - 1 },
+        hand: player.hand.filter((c) => c.id !== actionCard.id),
+      }},
+    }, myId, myName, `token Social : propose échange ${actionCard.value}${actionCard.suit} → ${getPlayerName(targetId)}`));
     cancelAction();
   }
 
@@ -208,38 +171,28 @@
   function completeAccept(myCard) {
     const ex = acceptingExchange;
     const fromPlayer = gameState.players[ex.from];
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter(
-        (e) => e.id !== ex.id,
-      ),
+      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== ex.id),
       players: {
         ...gameState.players,
         [ex.from]: { ...fromPlayer, hand: [...fromPlayer.hand, myCard] },
-        [myId]: {
-          ...player,
-          hand: [...player.hand.filter((c) => c.id !== myCard.id), ex.fromCard],
-        },
+        [myId]: { ...player, hand: [...player.hand.filter((c) => c.id !== myCard.id), ex.fromCard] },
       },
-    });
+    }, myId, myName, `accepte échange avec ${getPlayerName(ex.from)} : donne ${myCard.value}${myCard.suit}, reçoit ${ex.fromCard.value}${ex.fromCard.suit}`));
     cancelAction();
   }
 
   function declineExchange(exchange) {
     const fromPlayer = gameState.players[exchange.from];
-    onUpdate({
+    onUpdate(addLog({
       ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter(
-        (e) => e.id !== exchange.id,
-      ),
+      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== exchange.id),
       players: {
         ...gameState.players,
-        [exchange.from]: {
-          ...fromPlayer,
-          hand: [...fromPlayer.hand, exchange.fromCard],
-        },
+        [exchange.from]: { ...fromPlayer, hand: [...fromPlayer.hand, exchange.fromCard] },
       },
-    });
+    }, myId, myName, `refuse échange de ${getPlayerName(exchange.from)} (${exchange.fromCard.value}${exchange.fromCard.suit})`));
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────
@@ -702,5 +655,8 @@
         {/each}
       </div>
     </div>
+
+    <!-- ── Action log ──────────────────────────────────────────────── -->
+    <ActionLog logs={gameState.logs ?? []} {myId} isGM={false} />
   </div>
 {/if}

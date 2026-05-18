@@ -154,7 +154,23 @@ export function createInitialGameState() {
     gmId:             null,
     gmCharacterId:    null,
     players:          {},
+    logs:             [],
   };
+}
+
+const LOG_LIMIT = 200;
+
+/**
+ * Append a log entry to state. Trims to the last LOG_LIMIT entries.
+ * @param {object} state
+ * @param {string} playerId
+ * @param {string} playerName
+ * @param {string} msg
+ */
+export function addLog(state, playerId, playerName, msg) {
+  const entry = { id: uid(), ts: Date.now(), playerId, playerName, msg };
+  const logs = [...(state.logs ?? []), entry];
+  return { ...state, logs: logs.length > LOG_LIMIT ? logs.slice(-LOG_LIMIT) : logs };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,6 +212,7 @@ export function hydrateState(raw) {
     gmId:             raw.gmId          ?? null,
     gmCharacterId:    raw.gmCharacterId ?? null,
     players,
+    logs:             raw.logs ?? [],
   };
 }
 
@@ -221,5 +238,6 @@ export function dehydrateState(state) {
     gmId:             state.gmId,
     gmCharacterId:    state.gmCharacterId,
     players,
+    logs:             state.logs ?? [],
   };
 }
