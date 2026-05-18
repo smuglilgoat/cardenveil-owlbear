@@ -317,8 +317,8 @@
 
   async function openPopover() {
     const n = cardCount();
-    const width = Math.max(300, n * 64 + 120);
-    const height = 300;
+    const width = Math.max(420, n * 64 + 120);
+    const height = 520;
     const vw = await OBR.viewport.getWidth();
     const vh = await OBR.viewport.getHeight();
     await OBR.popover.open({
@@ -477,7 +477,7 @@
                 {card}
                 actions={[
                   {
-                    icon: "🗑",
+                    icon: "▶️",
                     label: "Défausser",
                     onClick: () => agilitePickCard(card),
                   },
@@ -606,7 +606,7 @@
               {card}
               actions={[
                 {
-                  icon: "🗑",
+                  icon: "▶️",
                   label: "Défausser",
                   onClick: () => discardCard(card),
                 },
