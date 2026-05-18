@@ -4,7 +4,7 @@ const SUITS = [
   { symbol: '♥', isRed: true,  id: 'H' },
   { symbol: '♦', isRed: true,  id: 'D' },
 ];
-const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
 const SUIT_BY_ID = {
   S: { symbol: '♠', isRed: false },
@@ -34,17 +34,21 @@ export function makeCard(suitSymbol, value, prefix = 'n') {
 }
 
 /** Draw one random card from the full 52-card set (normal pool, infinite). */
-export function drawNormal() {
+export function drawNormal(min = 1, max = 13) {
+  const pool   = VALUES.filter((_, i) => i + 1 >= min && i + 1 <= max);
+  const arr    = pool.length > 0 ? pool : VALUES;
   const suit   = SUITS[Math.floor(Math.random() * SUITS.length)];
-  const value  = VALUES[Math.floor(Math.random() * VALUES.length)];
+  const value  = arr[Math.floor(Math.random() * arr.length)];
   const i      = VALUES.indexOf(value);
   return { id: `n-${suit.id}-${value}-${uid()}`, suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed };
 }
 
 /** Draw one random card from the 13 cards of the given suit (specialized pool, infinite). */
-export function drawSpecialized(suitSymbol) {
+export function drawSpecialized(suitSymbol, min = 1, max = 13) {
+  const pool   = VALUES.filter((_, i) => i + 1 >= min && i + 1 <= max);
+  const arr    = pool.length > 0 ? pool : VALUES;
   const suit   = SUITS.find(s => s.symbol === suitSymbol);
-  const value  = VALUES[Math.floor(Math.random() * VALUES.length)];
+  const value  = arr[Math.floor(Math.random() * arr.length)];
   const i      = VALUES.indexOf(value);
   return { id: `s-${suit.id}-${value}-${uid()}`, suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed };
 }
@@ -136,8 +140,10 @@ export function createEmptyPlayer(name = '') {
     hand: [],
     crystallized: [],
     maxHandSize: 3,
-    tokens:    { force: 3, agilite: 3, esprit: 3, social: 3 },
-    maxTokens: { force: 3, agilite: 3, esprit: 3, social: 3 },
+    tokens:       { force: 3, agilite: 3, esprit: 3, social: 3 },
+    maxTokens:    { force: 3, agilite: 3, esprit: 3, social: 3 },
+    minDrawValue: 1,
+    maxDrawValue: 13,
   };
 }
 
@@ -169,11 +175,13 @@ export function hydrateState(raw) {
   for (const [id, p] of Object.entries(raw.players ?? {})) {
     players[id] = {
       ...p,
-      maxHandSize: p.maxHandSize ?? 3,
-      hand:        (p.hand        ?? []).map(toCard),
-      crystallized:(p.crystallized ?? []).map(toCard),
-      tokens:      p.tokens    ?? { force: 3, agilite: 3, esprit: 3, social: 3 },
-      maxTokens:   p.maxTokens ?? { force: 3, agilite: 3, esprit: 3, social: 3 },
+      maxHandSize:  p.maxHandSize  ?? 3,
+      hand:         (p.hand        ?? []).map(toCard),
+      crystallized: (p.crystallized ?? []).map(toCard),
+      tokens:       p.tokens    ?? { force: 3, agilite: 3, esprit: 3, social: 3 },
+      maxTokens:    p.maxTokens ?? { force: 3, agilite: 3, esprit: 3, social: 3 },
+      minDrawValue: p.minDrawValue ?? 1,
+      maxDrawValue: p.maxDrawValue ?? 13,
     };
   }
 

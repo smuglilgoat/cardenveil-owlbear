@@ -68,6 +68,8 @@
     ),
   );
 
+  const DRAW_VALUES = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+
   const SUITS_INFO = [
     { symbol: "♠", label: "Piques", isRed: false },
     { symbol: "♣", label: "Trèfles", isRed: false },
@@ -96,7 +98,8 @@
     if (!dealTarget || dealCount <= 0) return;
     const target = gameState.players[dealTarget];
     if (!target) return;
-    const cards = Array.from({ length: dealCount }, drawNormal);
+    const { minDrawValue: mn = 1, maxDrawValue: mx = 13 } = target;
+    const cards = Array.from({ length: dealCount }, () => drawNormal(mn, mx));
     onUpdate({
       ...gameState,
       players: {
@@ -111,7 +114,8 @@
     for (const [id, p] of Object.entries(gameState.players)) {
       if (id === myId) continue;
       if (p.hand.length < p.maxHandSize) {
-        updatedPlayers[id] = { ...p, hand: [...p.hand, drawNormal()] };
+        const { minDrawValue: mn = 1, maxDrawValue: mx = 13 } = p;
+        updatedPlayers[id] = { ...p, hand: [...p.hand, drawNormal(mn, mx)] };
       }
     }
     onUpdate({ ...gameState, players: updatedPlayers });
@@ -150,6 +154,19 @@
           ...p,
           maxHandSize: Math.max(0, Math.min(15, Number(val))),
         },
+      },
+    });
+  }
+
+  function setDrawRange(playerId, field, val) {
+    const p = gameState.players[playerId];
+    if (!p) return;
+    const clamped = Math.max(1, Math.min(13, Number(val)));
+    onUpdate({
+      ...gameState,
+      players: {
+        ...gameState.players,
+        [playerId]: { ...p, [field]: clamped },
       },
     });
   }
@@ -266,11 +283,12 @@
   function gmDrawForPlayer(playerId) {
     const p = gameState.players[playerId];
     if (p.hand.length >= p.maxHandSize) return;
+    const { minDrawValue: mn = 1, maxDrawValue: mx = 13 } = p;
     onUpdate({
       ...gameState,
       players: {
         ...gameState.players,
-        [playerId]: { ...p, hand: [...p.hand, drawNormal()] },
+        [playerId]: { ...p, hand: [...p.hand, drawNormal(mn, mx)] },
       },
     });
   }
@@ -886,6 +904,31 @@
                 oninput={(e) => setHandSize(id, e.currentTarget.value)}
                 class="w-14 text-xs bg-gray-700 border border-gray-600 rounded text-center text-gray-200 py-0.5"
               />
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400 shrink-0">Valeur piochable :</span>
+              <select
+                value={p.minDrawValue ?? 1}
+                onchange={(e) => setDrawRange(id, 'minDrawValue', e.currentTarget.value)}
+                class="text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-gray-200"
+                title="Min"
+              >
+                {#each DRAW_VALUES as v, i}
+                  <option value={i + 1}>{v}</option>
+                {/each}
+              </select>
+              <span class="text-xs text-gray-500">–</span>
+              <select
+                value={p.maxDrawValue ?? 13}
+                onchange={(e) => setDrawRange(id, 'maxDrawValue', e.currentTarget.value)}
+                class="text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-gray-200"
+                title="Max"
+              >
+                {#each DRAW_VALUES as v, i}
+                  <option value={i + 1}>{v}</option>
+                {/each}
+              </select>
             </div>
 
             <div>

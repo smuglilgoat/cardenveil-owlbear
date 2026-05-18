@@ -2,7 +2,7 @@
   import { onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
-  import { drawNormal, drawSpecialized } from "./deck.js";
+  import { drawNormal, drawSpecialized, GM_CHAR_ID } from "./deck.js";
 
   /**
    * @type {{
@@ -296,9 +296,11 @@
   ];
 
   // Other players available for social trade (exclude self and the GM's real OBR ID)
+  let partyIds = $derived(new Set(party.map((/** @type {any} */ p) => p.id)));
+
   let otherPlayerIds = $derived(
     Object.keys(gameState.players).filter(
-      (id) => id !== myId && id !== gameState.gmId,
+      (id) => id !== myId && id !== gameState.gmId && (id === GM_CHAR_ID || partyIds.has(id)),
     ),
   );
 
@@ -312,7 +314,7 @@
 
   async function openPopover() {
     const n = cardCount();
-    const width = Math.max(300, n * 64 + 120);
+    const width = Math.max(400, n * 64 + 120);
     const height = 400;
     const vw = await OBR.viewport.getWidth();
     const vh = await OBR.viewport.getHeight();

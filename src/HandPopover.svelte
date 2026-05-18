@@ -6,6 +6,7 @@
     dehydrateState,
     drawNormal,
     drawSpecialized,
+    GM_CHAR_ID,
   } from "./lib/deck.js";
 
   const METADATA_KEY = "com.cardenveil/gameState";
@@ -73,13 +74,25 @@
       : [],
   );
 
+  let partyIds = $derived(new Set(party.map((p) => p.id)));
+
   let otherPlayerIds = $derived(
     gameState
       ? Object.keys(gameState.players).filter(
-          (id) => id !== myId && id !== gameState.gmId,
+          (id) => id !== myId && id !== gameState.gmId && (id === GM_CHAR_ID || partyIds.has(id)),
         )
       : [],
   );
+
+  let incomingExchanges = $derived(
+    (gameState?.pendingExchanges ?? []).filter((e) => e.to === myId),
+  );
+
+  let outgoingExchange = $derived(
+    (gameState?.pendingExchanges ?? []).find((e) => e.from === myId) ?? null,
+  );
+
+  let acceptingExchange = $state(null);
 
   // ── Card actions ──────────────────────────────────────────────────────
   function discard(card, isCrystallized) {
@@ -123,11 +136,12 @@
   // ── Draw ──────────────────────────────────────────────────────────────
   function drawCard() {
     if (!player || handFull) return;
+    const mn = player.minDrawValue ?? 1, mx = player.maxDrawValue ?? 13;
     pushState({
       ...gameState,
       players: {
         ...gameState.players,
-        [myId]: { ...player, hand: [...player.hand, drawNormal()] },
+        [myId]: { ...player, hand: [...player.hand, drawNormal(mn, mx)] },
       },
     });
   }
@@ -135,6 +149,7 @@
   // ── Token: Force ──────────────────────────────────────────────────────
   function useForce() {
     if (!player || player.tokens.force <= 0 || handFull) return;
+    const mn = player.minDrawValue ?? 1, mx = player.maxDrawValue ?? 13;
     pushState({
       ...gameState,
       players: {
@@ -142,7 +157,7 @@
         [myId]: {
           ...player,
           tokens: { ...player.tokens, force: player.tokens.force - 1 },
-          hand: [...player.hand, drawNormal()],
+          hand: [...player.hand, drawNormal(mn, mx)],
         },
       },
     });
@@ -172,7 +187,7 @@
           tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
           hand: [
             ...player.hand.filter((c) => c.id !== actionCard.id),
-            drawSpecialized(suit),
+            drawSpecialized(suit, player.minDrawValue ?? 1, player.maxDrawValue ?? 13),
           ],
         },
       },
@@ -244,6 +259,40 @@
   function cancelAction() {
     action = null;
     actionCard = null;
+    acceptingExchange = null;
+  }
+
+  // ── Exchange acceptance ───────────────────────────────────────────────
+  function startAccept(exchange) {
+    acceptingExchange = exchange;
+    action = 'accept-exchange';
+  }
+
+  function completeAccept(myCard) {
+    const ex = acceptingExchange;
+    const fromPlayer = gameState.players[ex.from];
+    pushState({
+      ...gameState,
+      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== ex.id),
+      players: {
+        ...gameState.players,
+        [ex.from]: { ...fromPlayer, hand: [...fromPlayer.hand, myCard] },
+        [myId]: { ...player, hand: [...player.hand.filter((c) => c.id !== myCard.id), ex.fromCard] },
+      },
+    });
+    cancelAction();
+  }
+
+  function declineExchange(exchange) {
+    const fromPlayer = gameState.players[exchange.from];
+    pushState({
+      ...gameState,
+      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== exchange.id),
+      players: {
+        ...gameState.players,
+        [exchange.from]: { ...fromPlayer, hand: [...fromPlayer.hand, exchange.fromCard] },
+      },
+    });
   }
 
   // ── Fan card click — route to action or toggle ─────────────────────────
@@ -338,7 +387,7 @@
 </script>
 
 <div
-  class="magic-hand w-full h-full flex flex-col select-none overflow-visible"
+  class="magic-hand w-full h-full flex flex-col select-none overflow-visible flex-wrap"
   style="background: transparent;"
 >
   {#if !ready || !player}
@@ -427,6 +476,63 @@
             class="text-[10px] text-gray-500 hover:text-gray-300 underline"
             >Annuler</button
           >
+        </div>
+
+      {:else if action === "accept-exchange"}
+        <div
+          class="pointer-events-auto flex flex-col items-center gap-1 px-3 py-2 rounded-lg mb-1 w-full max-w-xs"
+          style="background: rgba(30,30,50,0.92); border: 1px solid rgba(255,255,255,0.15);"
+        >
+          <p class="text-[11px] text-green-300 font-semibold">
+            Choisissez la carte à donner en retour :
+          </p>
+          <div class="flex flex-wrap gap-1.5 justify-center">
+            {#each player.hand as card (card.id)}
+              <div
+                class="w-[56px] h-[84px] rounded cursor-pointer hover:ring-2 hover:ring-green-400 flex flex-col p-1 text-[10px] font-bold"
+                style="background: #fff; border: 1.5px solid #d1d5db; color: {SUIT_COLOR[card.suit] ?? '#111827'};"
+                role="button" tabindex="0"
+                onclick={() => completeAccept(card)}
+                onkeydown={(e) => e.key === 'Enter' && completeAccept(card)}
+              >
+                <span>{card.value}{card.suit}</span>
+                <span class="flex-1 flex items-center justify-center text-[20px]">{card.suit}</span>
+              </div>
+            {/each}
+          </div>
+          <button onclick={cancelAction} class="text-[10px] text-gray-500 hover:text-gray-300 underline">Annuler</button>
+        </div>
+
+      {:else if incomingExchanges.length > 0}
+        <div class="pointer-events-auto flex flex-col gap-1.5 w-full px-2 mb-1">
+          {#each incomingExchanges as ex (ex.id)}
+            <div
+              class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px]"
+              style="background: rgba(30,30,10,0.92); border: 1px solid rgba(234,179,8,0.4);"
+            >
+              <span class="text-yellow-300 font-semibold shrink-0">{getPlayerName(ex.from)} →</span>
+              <span class="text-white font-bold shrink-0">{ex.fromCard.value}{ex.fromCard.suit}</span>
+              <div class="flex gap-1 ml-auto shrink-0">
+                <button
+                  onclick={() => startAccept(ex)}
+                  class="px-2 py-0.5 bg-green-700 hover:bg-green-600 text-white rounded text-[10px] font-bold"
+                >Accepter</button>
+                <button
+                  onclick={() => declineExchange(ex)}
+                  class="px-2 py-0.5 bg-red-800 hover:bg-red-700 text-red-200 rounded text-[10px] font-bold"
+                >Refuser</button>
+              </div>
+            </div>
+          {/each}
+        </div>
+
+      {:else if outgoingExchange}
+        <div
+          class="pointer-events-auto px-3 py-1.5 rounded-lg text-[11px] text-indigo-300 mb-1"
+          style="background: rgba(30,30,50,0.92); border: 1px solid rgba(99,102,241,0.3);"
+        >
+          Échange en attente avec <span class="text-white">{getPlayerName(outgoingExchange.to)}</span>
+          <span class="text-gray-500 ml-1">({outgoingExchange.fromCard.value}{outgoingExchange.fromCard.suit})</span>
         </div>
       {/if}
     </div>
@@ -552,7 +658,9 @@
           : `Piocher ${player.hand.length}/${player.maxHandSize}`}
       </button>
     </div>
-    <div class="shrink-0 flex items-center px-2 py-1.5 relative bottom-[-60px]">
+    <div
+      class="shrink-0 flex items-center justify-center px-2 py-1.5 relative bottom-[-60px]"
+    >
       <!-- Token buttons -->
       {#each TOKENS as tok}
         {@const current = player.tokens[tok.key]}
@@ -564,11 +672,9 @@
           title={tok.label}
           class="flex-1 flex flex-col items-center py-1 mx-1 border text-[9px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           style="
-            background: {active_tok
-            ? TOKEN_COLOR[tok.key]
-            : TOKEN_COLOR[tok.key]};
+            background: #213547;
             border-color: {TOKEN_COLOR[tok.key] + (active_tok ? 'cc' : '50')};
-            color: white;
+            color: {TOKEN_COLOR[tok.key]}
           "
         >
           <span class="text-[11px] leading-none font-bold">{current}/{max}</span
