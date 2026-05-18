@@ -326,7 +326,7 @@
       url: `${window.location.origin}/hand.html`,
       width,
       height,
-      anchorPosition: { left: vw / 2, top: vh },
+      anchorPosition: { left: vw / 2, top: vh - 56 },
       anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
       transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
       disableClickAway: true,
