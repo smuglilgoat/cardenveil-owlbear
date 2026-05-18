@@ -2,11 +2,13 @@
   import CardDisplay from "./CardDisplay.svelte";
   import TokenPanel from "./TokenPanel.svelte";
   import {
-    createNormalDeck,
-    createSpecializedDecks,
     createEmptyPlayer,
     createInitialGameState,
-    shuffle,
+    drawNormal,
+    drawSpecialized,
+    makeCard,
+    fullDeck,
+    fullSuit,
     GM_CHAR_ID,
   } from "./deck.js";
 
@@ -82,78 +84,37 @@
     expandedPlayers = s;
   }
 
-  // ── Deck management ──────────────────────────────────────────────────
-  function shuffleNormal() {
-    onUpdate({ ...gameState, normalDeck: shuffle(gameState.normalDeck) });
-  }
-
-  function reshuffleDiscard() {
-    onUpdate({
-      ...gameState,
-      normalDeck: shuffle([...gameState.normalDeck, ...gameState.discard]),
-      discard: [],
-    });
-  }
-
-  function resetAll() {
-    onUpdate({
-      ...gameState,
-      normalDeck: createNormalDeck(),
-      specializedDecks: createSpecializedDecks(),
-      discard: [],
-    });
-  }
-
-  function reshuffleSpecialized(suit) {
-    onUpdate({
-      ...gameState,
-      specializedDecks: {
-        ...gameState.specializedDecks,
-        [suit]: shuffle([...gameState.specializedDecks[suit]]),
-      },
-    });
-  }
-
   // ── Deal ─────────────────────────────────────────────────────────────
   function dealToPlayer() {
     if (!dealTarget || dealCount <= 0) return;
     const target = gameState.players[dealTarget];
     if (!target) return;
-    const available = Math.min(dealCount, gameState.normalDeck.length);
-    if (available === 0) return;
-    const dealt = gameState.normalDeck.slice(0, available);
-    const newDeck = gameState.normalDeck.slice(available);
+    const cards = Array.from({ length: dealCount }, drawNormal);
     onUpdate({
       ...gameState,
-      normalDeck: newDeck,
       players: {
         ...gameState.players,
-        [dealTarget]: { ...target, hand: [...target.hand, ...dealt] },
+        [dealTarget]: { ...target, hand: [...target.hand, ...cards] },
       },
     });
   }
 
   function dealOneToAll() {
-    let deck = [...gameState.normalDeck];
     const updatedPlayers = { ...gameState.players };
     for (const [id, p] of Object.entries(gameState.players)) {
-      if (id === myId) continue; // skip GM's real entry (shouldn't exist but safety)
-      if (p.hand.length < p.maxHandSize && deck.length > 0) {
-        const [card, ...rest] = deck;
-        deck = rest;
-        updatedPlayers[id] = { ...p, hand: [...p.hand, card] };
+      if (id === myId) continue;
+      if (p.hand.length < p.maxHandSize) {
+        updatedPlayers[id] = { ...p, hand: [...p.hand, drawNormal()] };
       }
     }
-    onUpdate({ ...gameState, normalDeck: deck, players: updatedPlayers });
+    onUpdate({ ...gameState, players: updatedPlayers });
   }
 
   function giveCrystallized(toId) {
-    if (gameState.normalDeck.length === 0) return;
-    const [card, ...rest] = gameState.normalDeck;
+    const card = drawNormal();
     const p = gameState.players[toId];
     onUpdate({
       ...gameState,
-      normalDeck: rest,
       players: {
         ...gameState.players,
         [toId]: { ...p, crystallized: [...p.crystallized, card] },
@@ -249,37 +210,19 @@
     swapStep = 2;
   }
 
-  function swapPickCard(newCard) {
+  function swapPickCard(pickedCard) {
     const { playerId, card: oldCard } = swapTarget;
     const p = gameState.players[playerId];
-
-    let update = {
+    const prefix = swapSource === "normal" ? "n" : "s";
+    const newCard = makeCard(pickedCard.suit, pickedCard.value, prefix);
+    onUpdate({
       ...gameState,
       discard: [...gameState.discard, oldCard],
       players: {
         ...gameState.players,
-        [playerId]: {
-          ...p,
-          hand: p.hand.map((c) => (c.id === oldCard.id ? newCard : c)),
-        },
+        [playerId]: { ...p, hand: p.hand.map((c) => (c.id === oldCard.id ? newCard : c)) },
       },
-    };
-
-    if (swapSource === "normal") {
-      update.normalDeck = gameState.normalDeck.filter(
-        (c) => c.id !== newCard.id,
-      );
-    } else {
-      const suit = swapSource;
-      update.specializedDecks = {
-        ...gameState.specializedDecks,
-        [suit]: gameState.specializedDecks[suit].filter(
-          (c) => c.id !== newCard.id,
-        ),
-      };
-    }
-
-    onUpdate(update);
+    });
     cancelSwap();
   }
 
@@ -311,16 +254,13 @@
   }
 
   function gmDrawForPlayer(playerId) {
-    if (gameState.normalDeck.length === 0) return;
     const p = gameState.players[playerId];
     if (p.hand.length >= p.maxHandSize) return;
-    const [card, ...rest] = gameState.normalDeck;
     onUpdate({
       ...gameState,
-      normalDeck: rest,
       players: {
         ...gameState.players,
-        [playerId]: { ...p, hand: [...p.hand, card] },
+        [playerId]: { ...p, hand: [...p.hand, drawNormal()] },
       },
     });
   }
@@ -475,87 +415,17 @@
 </script>
 
 <div class="flex flex-col h-full overflow-y-auto p-3 gap-4">
-  <!-- ── Pioche normale ─────────────────────────────────────────────── -->
-  <div class="bg-gray-800 rounded-xl p-3 space-y-3">
-    <h2 class="text-xs font-semibold text-gray-300 uppercase tracking-wide">
-      Pioche Normale
-    </h2>
-    <div class="flex gap-4 text-xs text-gray-400">
-      <span
-        ><span class="text-white font-bold text-sm"
-          >{gameState.normalDeck.length}</span
-        > / 156</span
-      >
-      <span
-        >Défausse : <span class="text-white font-bold"
-          >{gameState.discard.length}</span
-        ></span
-      >
-    </div>
-    <div class="flex gap-2 flex-wrap">
-      <button
-        onclick={shuffleNormal}
-        class="flex-1 text-xs py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg"
-        >Mélanger</button
-      >
-      <button
-        onclick={reshuffleDiscard}
-        disabled={gameState.discard.length === 0}
-        class="flex-1 text-xs py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg disabled:opacity-40"
-      >
-        Récupérer défausse
-      </button>
-    </div>
-    <button
-      onclick={resetAll}
-      class="w-full text-xs py-1.5 bg-red-900 hover:bg-red-800 text-red-200 rounded-lg"
-    >
-      Réinitialiser les deux pioches
-    </button>
-  </div>
-
-  <!-- ── Pioches spécialisées ───────────────────────────────────────── -->
-  <div class="bg-gray-800 rounded-xl p-3 space-y-2">
-    <h2 class="text-xs font-semibold text-gray-300 uppercase tracking-wide">
-      Pioche Spécialisée
-    </h2>
-    <div class="grid grid-cols-2 gap-2">
-      {#each SUITS_INFO as s}
-        {@const count = gameState.specializedDecks[s.symbol]?.length ?? 0}
-        <div
-          class="flex items-center justify-between px-2 py-1.5 rounded-lg border"
-          class:border-red-800={s.isRed}
-          class:bg-red-950={s.isRed}
-          class:border-gray-700={!s.isRed}
-          class:bg-gray-900={!s.isRed}
-        >
-          <span
-            class="text-sm font-bold"
-            class:text-red-400={s.isRed}
-            class:text-gray-300={!s.isRed}
-          >
-            {s.symbol}
-            {s.label}
-          </span>
-          <div class="flex items-center gap-1.5">
-            <span class="text-xs text-gray-400">{count}/39</span>
-            <button
-              onclick={() => reshuffleSpecialized(s.symbol)}
-              class="text-[10px] px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
-              >⟳</button
-            >
-          </div>
-        </div>
-      {/each}
-    </div>
+  <!-- ── Défausse ──────────────────────────────────────────────────── -->
+  <div class="flex gap-4 text-xs text-gray-400 px-1">
+    <span>Défausse : <span class="text-white font-bold">{gameState.discard.length}</span></span>
+    <span class="text-gray-600 italic">Pioches infinies (52 cartes standard)</span>
   </div>
 
   <!-- ── Repos + Deal to all ────────────────────────────────────────── -->
   <div class="flex gap-2">
     <button
       onclick={dealOneToAll}
-      disabled={gameState.normalDeck.length === 0}
-      class="flex-1 text-xs py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg disabled:opacity-40 font-semibold"
+      class="flex-1 text-xs py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg font-semibold"
     >
       Distribuer 1 à tous
     </button>
@@ -594,7 +464,7 @@
       />
       <button
         onclick={dealToPlayer}
-        disabled={!dealTarget || gameState.normalDeck.length === 0}
+        disabled={!dealTarget}
         class="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg disabled:opacity-40 shrink-0"
       >
         Donner
@@ -603,8 +473,7 @@
     {#if dealTarget}
       <button
         onclick={() => giveCrystallized(dealTarget)}
-        disabled={gameState.normalDeck.length === 0}
-        class="w-full text-xs py-1.5 bg-red-700 hover:bg-red-600 text-red-100 rounded-lg disabled:opacity-40"
+        class="w-full text-xs py-1.5 bg-red-700 hover:bg-red-600 text-red-100 rounded-lg"
       >
         ✦ Donner 1 carte cristallisée à {getPlayerName(dealTarget)}
       </button>
@@ -651,8 +520,7 @@
           />
           <button
             onclick={() => gmDrawForPlayer(GM_CHAR_ID)}
-            disabled={gameState.normalDeck.length === 0 ||
-              gmChar.hand.length >= gmChar.maxHandSize}
+            disabled={gmChar.hand.length >= gmChar.maxHandSize}
             class="ml-auto text-xs px-2 py-1 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg disabled:opacity-40"
           >
             Piocher ({gmChar.hand.length}/{gmChar.maxHandSize})
@@ -1013,19 +881,15 @@
                   {#if swapStep === 1}
                     <button
                       onclick={() => pickSwapSource("normal")}
-                      disabled={gameState.normalDeck.length === 0}
-                      class="w-full text-xs py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg disabled:opacity-40"
+                      class="w-full text-xs py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg"
                     >
-                      Pioche normale ({gameState.normalDeck.length})
+                      Pioche normale
                     </button>
                     <div class="grid grid-cols-2 gap-1.5">
                       {#each SUITS_INFO as s}
-                        {@const count =
-                          gameState.specializedDecks[s.symbol]?.length ?? 0}
                         <button
                           onclick={() => pickSwapSource(s.symbol)}
-                          disabled={count === 0}
-                          class="text-xs py-1.5 rounded-lg border disabled:opacity-40 font-semibold"
+                          class="text-xs py-1.5 rounded-lg border font-semibold"
                           class:text-red-400={s.isRed}
                           class:border-red-800={s.isRed}
                           class:bg-red-950={s.isRed}
@@ -1033,36 +897,24 @@
                           class:border-gray-600={!s.isRed}
                           class:bg-gray-800={!s.isRed}
                         >
-                          {s.symbol}
-                          {s.label} ({count})
+                          {s.symbol} {s.label}
                         </button>
                       {/each}
                     </div>
 
                     <!-- Step 2: pick specific card -->
                   {:else if swapStep === 2}
-                    {@const pile =
-                      swapSource === "normal"
-                        ? gameState.normalDeck
-                        : gameState.specializedDecks[swapSource]}
+                    {@const pile = swapSource === "normal" ? fullDeck() : fullSuit(swapSource)}
                     <button
                       onclick={() => (swapStep = 1)}
                       class="text-xs text-gray-500 hover:text-gray-300 underline"
                       >← Retour</button
                     >
-                    <div
-                      class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto"
-                    >
+                    <div class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
                       {#each pile as card (card.id)}
                         <CardDisplay
                           {card}
-                          actions={[
-                            {
-                              icon: "⇄",
-                              label: "Utiliser cette carte",
-                              onClick: () => swapPickCard(card),
-                            },
-                          ]}
+                          actions={[{ icon: "⇄", label: "Utiliser cette carte", onClick: () => swapPickCard(card) }]}
                         />
                       {/each}
                     </div>

@@ -3,7 +3,6 @@
   import OBR from '@owlbear-rodeo/sdk';
   import {
     createInitialGameState, createEmptyPlayer,
-    createNormalDeck, createSpecializedDecks,
     hydrateState, dehydrateState,
     GM_CHAR_ID,
   } from './deck.js';

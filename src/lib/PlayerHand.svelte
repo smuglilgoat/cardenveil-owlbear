@@ -2,6 +2,7 @@
   import { onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
+  import { drawNormal, drawSpecialized } from "./deck.js";
 
   /**
    * @type {{
@@ -12,7 +13,6 @@
   let { gameState, myId, myName, party, onUpdate } = $props();
 
   let player = $derived(gameState.players[myId]);
-  let deckCount = $derived(gameState.normalDeck.length);
   let handFull = $derived(player && player.hand.length >= player.maxHandSize);
 
   /** Exchanges from other players targeting me */
@@ -40,14 +40,12 @@
 
   // ── Normal draw ───────────────────────────────────────────────────────
   function drawCard() {
-    if (handFull || deckCount === 0) return;
-    const [card, ...rest] = gameState.normalDeck;
+    if (handFull) return;
     onUpdate({
       ...gameState,
-      normalDeck: rest,
       players: {
         ...gameState.players,
-        [myId]: { ...player, hand: [...player.hand, card] },
+        [myId]: { ...player, hand: [...player.hand, drawNormal()] },
       },
     });
   }
@@ -102,17 +100,15 @@
 
   // ── Token: Force ──────────────────────────────────────────────────────
   function useForce() {
-    if (player.tokens.force <= 0 || handFull || deckCount === 0) return;
-    const [card, ...rest] = gameState.normalDeck;
+    if (player.tokens.force <= 0 || handFull) return;
     onUpdate({
       ...gameState,
-      normalDeck: rest,
       players: {
         ...gameState.players,
         [myId]: {
           ...player,
           tokens: { ...player.tokens, force: player.tokens.force - 1 },
-          hand: [...player.hand, card],
+          hand: [...player.hand, drawNormal()],
         },
       },
     });
@@ -130,19 +126,15 @@
   }
 
   function agilitePickSuit(suit) {
-    const pile = gameState.specializedDecks[suit];
-    if (!pile || pile.length === 0) return;
-    const [newCard, ...rest] = pile;
     onUpdate({
       ...gameState,
       discard: [...gameState.discard, actionCard],
-      specializedDecks: { ...gameState.specializedDecks, [suit]: rest },
       players: {
         ...gameState.players,
         [myId]: {
           ...player,
           tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
-          hand: [...player.hand.filter((c) => c.id !== actionCard.id), newCard],
+          hand: [...player.hand.filter((c) => c.id !== actionCard.id), drawSpecialized(suit)],
         },
       },
     });
@@ -274,7 +266,7 @@
       key: "force",
       label: "Force",
       desc: "Piocher (pile normale)",
-      disabled: () => player.tokens.force <= 0 || handFull || deckCount === 0,
+      disabled: () => player.tokens.force <= 0 || handFull,
       use: useForce,
     },
     {
@@ -369,7 +361,6 @@
     <div class="flex justify-between items-center">
       <h2 class="text-white font-semibold text-sm">{myName}</h2>
       <div class="flex gap-3 text-xs text-gray-500">
-        <span>Pioche: <span class="text-white">{deckCount}</span></span>
         <span
           >Défausse: <span class="text-white">{gameState.discard.length}</span
           ></span
@@ -494,22 +485,19 @@
           </p>
           <div class="grid grid-cols-2 gap-2">
             {#each SUITS_INFO as s}
-              {@const count = gameState.specializedDecks[s.symbol]?.length ?? 0}
               <button
                 onclick={() => agilitePickSuit(s.symbol)}
-                disabled={count === 0}
-                class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold border transition-colors disabled:opacity-40"
+                class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold border transition-colors"
                 class:text-red-400={s.isRed}
                 class:border-red-800={s.isRed}
                 class:bg-red-950={s.isRed}
-                class:hover:bg-red-900={s.isRed && count > 0}
+                class:hover:bg-red-900={s.isRed}
                 class:text-gray-300={!s.isRed}
                 class:border-gray-600={!s.isRed}
                 class:bg-gray-800={!s.isRed}
-                class:hover:bg-gray-700={!s.isRed && count > 0}
+                class:hover:bg-gray-700={!s.isRed}
               >
                 <span>{s.symbol} {s.label}</span>
-                <span class="text-xs font-normal opacity-70">{count}</span>
               </button>
             {/each}
           </div>
@@ -628,11 +616,10 @@
     <!-- ── Draw button ─────────────────────────────────────────────── -->
     <button
       onclick={drawCard}
-      disabled={handFull || deckCount === 0}
+      disabled={handFull}
       class="w-full py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
     >
-      {#if handFull}Main pleine{:else if deckCount === 0}Pioche vide{:else}Piocher
-        ({deckCount}){/if}
+      {#if handFull}Main pleine{:else}Piocher{/if}
     </button>
 
     <!-- ── Crystallized ────────────────────────────────────────────── -->

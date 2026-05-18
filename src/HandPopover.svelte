@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
-  import { hydrateState, dehydrateState } from "./lib/deck.js";
+  import { hydrateState, dehydrateState, drawNormal } from "./lib/deck.js";
 
   const METADATA_KEY = "com.cardenveil/gameState";
 
@@ -129,17 +129,13 @@
   let handFull = $derived(
     player ? player.hand.length >= player.maxHandSize : false,
   );
-  let deckCount = $derived(gameState?.normalDeck?.length ?? 0);
-
   function drawCard() {
-    if (!player || handFull || deckCount === 0) return;
-    const [card, ...rest] = gameState.normalDeck;
+    if (!player || handFull) return;
     pushState({
       ...gameState,
-      normalDeck: rest,
       players: {
         ...gameState.players,
-        [myId]: { ...player, hand: [...player.hand, card] },
+        [myId]: { ...player, hand: [...player.hand, drawNormal()] },
       },
     });
   }
@@ -175,7 +171,7 @@
           <!-- Card -->
           <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
           <div
-            class="absolute bottom-0 left-1/2 cursor-pointer transition-all duration-150"
+            class="absolute bottom-4 left-1/2 cursor-pointer transition-all duration-150"
             style="
             {fanStyle(i, n)}
             margin-left: -40px;
@@ -250,17 +246,14 @@
     {/if}
     <button
       onclick={drawCard}
-      disabled={handFull || deckCount === 0}
-      style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:100;background:#4f46e5;color:white;border:none;border-radius:8px;padding:4px 14px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;opacity:{handFull ||
-      deckCount === 0
+      disabled={handFull}
+      style="position:absolute;bottom:0px;left:50%;transform:translateX(-50%);z-index:100;background:#242424;color:white;border:none;border-radius:8px;padding:4px 14px;font-size:18px;font-weight:600;cursor:pointer;white-space:nowrap;opacity:{handFull
         ? 0.4
         : 1};"
     >
       {handFull
-        ? "Main pleine"
-        : deckCount === 0
-          ? "Vide"
-          : `Piocher (${deckCount})`}
+        ? `Main pleine ${player.hand.length}/${player.maxHandSize}`
+        : `Piocher ${player.hand.length}/${player.maxHandSize}`}
     </button>
   {/if}
 </div>

@@ -22,6 +22,52 @@ export function shuffle(arr) {
   return a;
 }
 
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+}
+
+/** Create a specific card (by suit symbol + value) with a fresh unique ID. */
+export function makeCard(suitSymbol, value, prefix = 'n') {
+  const suit = SUITS.find(s => s.symbol === suitSymbol);
+  const i    = VALUES.indexOf(value);
+  return { id: `${prefix}-${suit.id}-${value}-${uid()}`, suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed };
+}
+
+/** Draw one random card from the full 52-card set (normal pool, infinite). */
+export function drawNormal() {
+  const suit   = SUITS[Math.floor(Math.random() * SUITS.length)];
+  const value  = VALUES[Math.floor(Math.random() * VALUES.length)];
+  const i      = VALUES.indexOf(value);
+  return { id: `n-${suit.id}-${value}-${uid()}`, suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed };
+}
+
+/** Draw one random card from the 13 cards of the given suit (specialized pool, infinite). */
+export function drawSpecialized(suitSymbol) {
+  const suit   = SUITS.find(s => s.symbol === suitSymbol);
+  const value  = VALUES[Math.floor(Math.random() * VALUES.length)];
+  const i      = VALUES.indexOf(value);
+  return { id: `s-${suit.id}-${value}-${uid()}`, suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed };
+}
+
+/** All 52 cards of the standard deck (for swap picker UI). */
+export function fullDeck() {
+  return SUITS.flatMap(suit =>
+    VALUES.map((value, i) => ({
+      id: `pick-${suit.id}-${value}`,
+      suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed,
+    }))
+  );
+}
+
+/** All 13 cards of a given suit (for swap picker UI). */
+export function fullSuit(suitSymbol) {
+  const suit = SUITS.find(s => s.symbol === suitSymbol);
+  return VALUES.map((value, i) => ({
+    id: `pick-${suit.id}-${value}`,
+    suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed,
+  }));
+}
+
 /** Reconstruct a full card object from its ID string. */
 export function cardFromId(id) {
   // id format: "{prefix}-{suitId}-{value}-{copy}"  e.g. "n-S-10-1"
@@ -97,8 +143,6 @@ export function createEmptyPlayer(name = '') {
 
 export function createInitialGameState() {
   return {
-    normalDeck:       createNormalDeck(),
-    specializedDecks: createSpecializedDecks(),
     discard:          [],
     pendingExchanges: [],
     gmId:             null,
@@ -121,19 +165,6 @@ export function createInitialGameState() {
  * (full card objects). Also handles legacy formats where full objects were stored.
  */
 export function hydrateState(raw) {
-  // v1 schema used 'deck' key; v2 uses 'normalDeck'
-  const normalDeck = (raw.normalDeck ?? raw.deck ?? []).map(toCard);
-
-  const specializedDecks = {};
-  if (raw.specializedDecks) {
-    for (const [suit, pile] of Object.entries(raw.specializedDecks)) {
-      specializedDecks[suit] = pile.map(toCard);
-    }
-  } else {
-    // Missing specialized decks — generate fresh ones
-    Object.assign(specializedDecks, createSpecializedDecks());
-  }
-
   const players = {};
   for (const [id, p] of Object.entries(raw.players ?? {})) {
     players[id] = {
@@ -152,8 +183,6 @@ export function hydrateState(raw) {
   }));
 
   return {
-    normalDeck,
-    specializedDecks,
     discard:          (raw.discard ?? []).map(toCard),
     pendingExchanges,
     gmId:             raw.gmId          ?? null,
@@ -178,14 +207,7 @@ export function dehydrateState(state) {
     };
   }
 
-  const specializedDecks = {};
-  for (const [suit, pile] of Object.entries(state.specializedDecks)) {
-    specializedDecks[suit] = pile.map(toId);
-  }
-
   return {
-    normalDeck:       state.normalDeck.map(toId),
-    specializedDecks,
     discard:          state.discard.map(toId),
     pendingExchanges: state.pendingExchanges.map(ex => ({ ...ex, fromCard: ex.fromCard.id })),
     gmId:             state.gmId,
