@@ -3,7 +3,7 @@
  * Run via: node scripts/generate-cards.js
  * Also called automatically at Vite build start.
  */
-import fs   from 'fs';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
@@ -20,8 +20,8 @@ export const PNG_H = 180;
 const SUITS = [
   { symbol: '♠', id: 'S', isRed: false },
   { symbol: '♣', id: 'C', isRed: false },
-  { symbol: '♥', id: 'H', isRed: true  },
-  { symbol: '♦', id: 'D', isRed: true  },
+  { symbol: '♥', id: 'H', isRed: true },
+  { symbol: '♦', id: 'D', isRed: true },
 ];
 const VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
@@ -30,11 +30,11 @@ function esc(s) {
 }
 
 function makeSvg(suit, value, isRed, crystallized) {
-  const color  = isRed ? '#dc2626' : '#111827';
-  const bg     = crystallized ? '#fefce8' : '#ffffff';
-  const stroke = crystallized ? '#f59e0b' : '#d1d5db';
-  const sw     = crystallized ? 3 : 1.5;
-  const val    = esc(value);
+  const color = isRed ? '#dc2626' : '#111827';
+  const bg = crystallized ? '#fefce8' : '#ffffff';
+  const stroke = crystallized ? '#dc2626' : '#d1d5db';
+  const sw = crystallized ? 3 : 1.5;
+  const val = esc(value);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 90">
@@ -56,8 +56,8 @@ for (const suit of SUITS) {
   for (const value of VALUES) {
     for (const crystallized of [false, true]) {
       const suffix = crystallized ? '-c' : '';
-      const name   = `${suit.id}-${value}${suffix}.png`;
-      const svg    = Buffer.from(makeSvg(suit.symbol, value, suit.isRed, crystallized));
+      const name = `${suit.id}-${value}${suffix}.png`;
+      const svg = Buffer.from(makeSvg(suit.symbol, value, suit.isRed, crystallized));
 
       promises.push(
         sharp(svg)

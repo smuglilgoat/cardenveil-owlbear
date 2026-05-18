@@ -13,7 +13,7 @@
   <div
     class="relative w-12 h-[4.5rem] rounded-md bg-white select-none shrink-0 shadow-sm group"
     class:ring-2={crystallized}
-    class:ring-amber-400={crystallized}
+    class:ring-red-500={crystallized}
     class:cursor-pointer={actions.length > 0}
   >
     <!-- Card border -->

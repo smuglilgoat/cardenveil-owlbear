@@ -639,7 +639,7 @@
     {#if player.crystallized.length > 0}
       <div>
         <h3
-          class="text-[11px] font-semibold text-amber-400 uppercase tracking-wide mb-2"
+          class="text-[11px] font-semibold text-red-400 uppercase tracking-wide mb-2"
         >
           Cristallisées ({player.crystallized.length})
         </h3>
