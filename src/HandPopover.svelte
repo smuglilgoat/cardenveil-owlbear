@@ -1,18 +1,27 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
-  import { hydrateState, dehydrateState, drawNormal } from "./lib/deck.js";
+  import {
+    hydrateState,
+    dehydrateState,
+    drawNormal,
+    drawSpecialized,
+  } from "./lib/deck.js";
 
   const METADATA_KEY = "com.cardenveil/gameState";
 
   let ready = $state(false);
   let myId = $state(null);
+  let party = $state([]);
   let gameState = $state(null);
+  let active = $state(null); // { card, isCrystallized } | null
 
-  // Which card is being actioned: { card, isCrystallized } | null
-  let active = $state(null);
+  // Token action state
+  let action = $state(null); // 'force'|'agilite-pick-card'|'agilite-pick-suit'|'esprit'|'social-pick-card'|'social-pick-target'
+  let actionCard = $state(null);
 
   let unsubMeta = null;
+  let unsubParty = null;
 
   async function pushState(newState) {
     const plain = $state.snapshot(newState);
@@ -24,26 +33,33 @@
   onMount(() => {
     OBR.onReady(async () => {
       myId = await OBR.player.getId();
+      party = await OBR.party.getPlayers();
 
       const meta = await OBR.room.getMetadata();
       const raw = meta[METADATA_KEY];
       if (raw) gameState = hydrateState(raw);
-
       ready = true;
 
       unsubMeta = OBR.room.onMetadataChange((m) => {
-        const raw = m[METADATA_KEY];
-        if (raw) gameState = hydrateState(raw);
+        const r = m[METADATA_KEY];
+        if (r) gameState = hydrateState(r);
+      });
+      unsubParty = OBR.party.onChange((p) => {
+        party = p;
       });
     });
   });
 
   onDestroy(() => {
     unsubMeta?.();
+    unsubParty?.();
   });
 
-  // ── Derived ────────────────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────
   let player = $derived(gameState?.players?.[myId] ?? null);
+  let handFull = $derived(
+    player ? player.hand.length >= player.maxHandSize : false,
+  );
 
   let allCards = $derived(
     player
@@ -57,47 +73,33 @@
       : [],
   );
 
-  // ── Fan geometry ──────────────────────────────────────────────────────
-  const MAX_ROT = 20; // degrees at edges
-  const SPREAD_X = 64; // px between card centres
-  const ARC_Y = 22; // px dip at edges vs centre
+  let otherPlayerIds = $derived(
+    gameState
+      ? Object.keys(gameState.players).filter(
+          (id) => id !== myId && id !== gameState.gmId,
+        )
+      : [],
+  );
 
-  function fanStyle(i, n) {
-    const t = n > 1 ? i / (n - 1) - 0.5 : 0;
-    const rot = t * MAX_ROT * 2;
-    const tx = t * SPREAD_X * (n - 1);
-    const ty = Math.abs(t) * ARC_Y * 2;
-    return `transform: translateX(${tx}px) translateY(${ty}px) rotate(${rot}deg);`;
-  }
-
-  // ── Actions ───────────────────────────────────────────────────────────
+  // ── Card actions ──────────────────────────────────────────────────────
   function discard(card, isCrystallized) {
     if (!player) return;
-    if (isCrystallized) {
-      pushState({
-        ...gameState,
-        discard: [...gameState.discard, card],
-        players: {
-          ...gameState.players,
-          [myId]: {
-            ...player,
-            crystallized: player.crystallized.filter((c) => c.id !== card.id),
-          },
+    pushState({
+      ...gameState,
+      discard: [...gameState.discard, card],
+      players: {
+        ...gameState.players,
+        [myId]: {
+          ...player,
+          hand: isCrystallized
+            ? player.hand
+            : player.hand.filter((c) => c.id !== card.id),
+          crystallized: isCrystallized
+            ? player.crystallized.filter((c) => c.id !== card.id)
+            : player.crystallized,
         },
-      });
-    } else {
-      pushState({
-        ...gameState,
-        discard: [...gameState.discard, card],
-        players: {
-          ...gameState.players,
-          [myId]: {
-            ...player,
-            hand: player.hand.filter((c) => c.id !== card.id),
-          },
-        },
-      });
-    }
+      },
+    });
     active = null;
   }
 
@@ -118,17 +120,7 @@
     active = null;
   }
 
-  function toggleActive(card, isCrystallized) {
-    if (active?.card.id === card.id) {
-      active = null;
-      return;
-    }
-    active = { card, isCrystallized };
-  }
-
-  let handFull = $derived(
-    player ? player.hand.length >= player.maxHandSize : false,
-  );
+  // ── Draw ──────────────────────────────────────────────────────────────
   function drawCard() {
     if (!player || handFull) return;
     pushState({
@@ -140,6 +132,203 @@
     });
   }
 
+  // ── Token: Force ──────────────────────────────────────────────────────
+  function useForce() {
+    if (!player || player.tokens.force <= 0 || handFull) return;
+    pushState({
+      ...gameState,
+      players: {
+        ...gameState.players,
+        [myId]: {
+          ...player,
+          tokens: { ...player.tokens, force: player.tokens.force - 1 },
+          hand: [...player.hand, drawNormal()],
+        },
+      },
+    });
+  }
+
+  // ── Token: Agilité ────────────────────────────────────────────────────
+  function startAgilite() {
+    if (!player || player.tokens.agilite <= 0 || player.hand.length === 0)
+      return;
+    action = "agilite-pick-card";
+    active = null;
+  }
+
+  function agilitePickCard(card) {
+    actionCard = card;
+    action = "agilite-pick-suit";
+  }
+
+  function agilitePickSuit(suit) {
+    pushState({
+      ...gameState,
+      discard: [...gameState.discard, actionCard],
+      players: {
+        ...gameState.players,
+        [myId]: {
+          ...player,
+          tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
+          hand: [
+            ...player.hand.filter((c) => c.id !== actionCard.id),
+            drawSpecialized(suit),
+          ],
+        },
+      },
+    });
+    cancelAction();
+  }
+
+  // ── Token: Esprit ─────────────────────────────────────────────────────
+  function startEsprit() {
+    if (!player || player.tokens.esprit <= 0 || player.hand.length === 0)
+      return;
+    action = "esprit";
+    active = null;
+  }
+
+  function espritPickCard(card) {
+    pushState({
+      ...gameState,
+      players: {
+        ...gameState.players,
+        [myId]: {
+          ...player,
+          tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
+          hand: player.hand.filter((c) => c.id !== card.id),
+          crystallized: [...player.crystallized, card],
+        },
+      },
+    });
+    cancelAction();
+  }
+
+  // ── Token: Social ─────────────────────────────────────────────────────
+  function startSocial() {
+    if (!player || player.tokens.social <= 0 || player.hand.length === 0)
+      return;
+    action = "social-pick-card";
+    active = null;
+  }
+
+  function socialPickCard(card) {
+    actionCard = card;
+    action = "social-pick-target";
+  }
+
+  function socialPickTarget(targetId) {
+    pushState({
+      ...gameState,
+      pendingExchanges: [
+        ...(gameState.pendingExchanges ?? []),
+        {
+          id: `${myId}-${Date.now()}`,
+          from: myId,
+          fromCard: actionCard,
+          to: targetId,
+        },
+      ],
+      players: {
+        ...gameState.players,
+        [myId]: {
+          ...player,
+          tokens: { ...player.tokens, social: player.tokens.social - 1 },
+          hand: player.hand.filter((c) => c.id !== actionCard.id),
+        },
+      },
+    });
+    cancelAction();
+  }
+
+  function cancelAction() {
+    action = null;
+    actionCard = null;
+  }
+
+  // ── Fan card click — route to action or toggle ─────────────────────────
+  function onCardClick(card, isCrystallized) {
+    if (action === "agilite-pick-card" && !isCrystallized) {
+      agilitePickCard(card);
+      return;
+    }
+    if (action === "esprit" && !isCrystallized) {
+      espritPickCard(card);
+      return;
+    }
+    if (action === "social-pick-card" && !isCrystallized) {
+      socialPickCard(card);
+      return;
+    }
+    if (action) return; // block card toggle during other actions
+    active = active?.card.id === card.id ? null : { card, isCrystallized };
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+  function getPlayerName(id) {
+    return (
+      party.find((p) => p.id === id)?.name ??
+      gameState?.players[id]?.name ??
+      id.slice(0, 8)
+    );
+  }
+
+  const SUITS_INFO = [
+    { symbol: "♠", label: "Piques", isRed: false },
+    { symbol: "♣", label: "Trèfles", isRed: false },
+    { symbol: "♥", label: "Cœurs", isRed: true },
+    { symbol: "♦", label: "Carreaux", isRed: true },
+  ];
+
+  const TOKEN_COLOR = {
+    force: "#ef4444",
+    agilite: "#22c55e",
+    esprit: "#3b82f6",
+    social: "#eab308",
+  };
+  const TOKENS = [
+    {
+      key: "force",
+      label: "Force",
+      disabled: () => !player || player.tokens.force <= 0 || handFull,
+      use: useForce,
+    },
+    {
+      key: "agilite",
+      label: "Agilité",
+      disabled: () =>
+        !player || player.tokens.agilite <= 0 || player.hand.length === 0,
+      use: startAgilite,
+    },
+    {
+      key: "esprit",
+      label: "Esprit",
+      disabled: () =>
+        !player || player.tokens.esprit <= 0 || player.hand.length === 0,
+      use: startEsprit,
+    },
+    {
+      key: "social",
+      label: "Social",
+      disabled: () =>
+        !player || player.tokens.social <= 0 || player.hand.length === 0,
+      use: startSocial,
+    },
+  ];
+
+  // ── Fan geometry ──────────────────────────────────────────────────────
+  const MAX_ROT = 20;
+  const SPREAD_X = 64;
+  const ARC_Y = 22;
+
+  function fanStyle(i, n) {
+    const t = n > 1 ? i / (n - 1) - 0.5 : 0;
+    const rot = t * MAX_ROT * 2;
+    const tx = t * SPREAD_X * (n - 1);
+    const ty = Math.abs(t) * ARC_Y * 2;
+    return `transform: translateX(${tx}px) translateY(${ty}px) rotate(${rot}deg);`;
+  }
+
   const SUIT_COLOR = {
     "♠": "#1e293b",
     "♣": "#1e293b",
@@ -149,111 +338,244 @@
 </script>
 
 <div
-  class="magic-hand w-full h-full flex items-end justify-center pb-3 select-none overflow-visible"
-  style="background-color: transparent;"
+  class="magic-hand w-full h-full flex flex-col select-none overflow-visible"
+  style="background: transparent;"
 >
   {#if !ready || !player}
-    <p class="text-xs text-gray-400 pb-4">Chargement...</p>
+    <div class="flex-1 flex items-center justify-center">
+      <p class="text-xs text-gray-400">Chargement...</p>
+    </div>
   {:else}
-    {#if allCards.length > 0}
-      <!-- Fan container -->
-      <div
-        class="relative flex items-end justify-center"
-        style="width: {Math.max(
-          300,
-          allCards.length * SPREAD_X + 120,
-        )}px; height: 260px;"
-      >
-        {#each allCards as { card, isCrystallized }, i (card.id)}
-          {@const isActive = active?.card.id === card.id}
-          {@const n = allCards.length}
-
-          <!-- Card -->
-          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <div
-            class="absolute bottom-4 left-1/2 cursor-pointer transition-all duration-150"
-            style="
-            {fanStyle(i, n)}
-            margin-left: -40px;
-            z-index: {isActive ? 50 : i};
-            filter: {isActive
-              ? 'drop-shadow(0 -8px 12px rgba(99,102,241,0.7))'
-              : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
-            transform-origin: bottom center;
-            {isActive
-              ? 'transform: ' +
-                fanStyle(i, n).replace('transform:', '').replace(';', '') +
-                ' translateY(-28px);'
-              : ''}
-          "
-            onclick={() => toggleActive(card, isCrystallized)}
-          >
-            <!-- Card face -->
-            <div
-              class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
-              style="
-              background: {isCrystallized ? '#ef9b9b' : '#ffffff'};
-              border: {isCrystallized
-                ? '2.5px solid #ef4444'
-                : '1.5px solid #d1d5db'};
-              color: {SUIT_COLOR[card.suit] ?? '#111827'};
-            "
+    <!-- ── Popup area: token mechanic prompts above the cards ─────────── -->
+    <div
+      class="flex-1 flex flex-col items-center justify-end pb-1 overflow-visible pointer-events-none relative bottom-[-70px]"
+    >
+      {#if action === "agilite-pick-card" || action === "esprit" || action === "social-pick-card"}
+        <div
+          class="pointer-events-auto px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white mb-1"
+          style="background: rgba(30,30,50,0.92); border: 1px solid rgba(255,255,255,0.15);"
+        >
+          {#if action === "agilite-pick-card"}Agilité — cliquez la carte à <strong
+              >défausser</strong
             >
-              <div class="flex flex-col items-start">
-                <span>{card.value}</span>
-                <span class="text-[14px]">{card.suit}</span>
-              </div>
-              <div class="flex-1 flex items-center justify-center text-[28px]">
-                {card.suit}
-              </div>
-              <div class="flex flex-col items-end rotate-180">
-                <span>{card.value}</span>
-                <span class="text-[14px]">{card.suit}</span>
-              </div>
-            </div>
-
-            <!-- Action buttons (shown when card is active) -->
-            {#if isActive}
-              <div
-                class="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-1 z-50"
+          {:else if action === "esprit"}Esprit — cliquez la carte à <strong
+              >cristalliser</strong
+            >
+          {:else}Social — cliquez la carte à <strong>offrir</strong>{/if}
+          <button
+            onclick={cancelAction}
+            class="ml-2 opacity-60 hover:opacity-100">✕</button
+          >
+        </div>
+      {:else if action === "agilite-pick-suit"}
+        <div
+          class="pointer-events-auto flex flex-col items-center gap-1.5 px-3 py-2 rounded-lg mb-1"
+          style="background: rgba(30,30,50,0.92); border: 1px solid rgba(255,255,255,0.15);"
+        >
+          <p class="text-[11px] text-green-300 font-semibold">
+            Pioche spécialisée — défausse <span class="text-white"
+              >{actionCard.value}{actionCard.suit}</span
+            >
+          </p>
+          <div class="grid grid-cols-4 gap-1">
+            {#each SUITS_INFO as s}
+              <button
+                onclick={() => agilitePickSuit(s.symbol)}
+                class="flex flex-col items-center py-1 px-2 rounded border text-xs font-bold"
+                class:text-red-400={s.isRed}
+                class:border-red-700={s.isRed}
+                class:bg-red-950={s.isRed}
+                class:text-gray-200={!s.isRed}
+                class:border-gray-600={!s.isRed}
+                class:bg-gray-800={!s.isRed}>{s.symbol}</button
               >
-                <button
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    discard(card, isCrystallized);
-                  }}
-                  class="px-2 py-1 text-[10px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg whitespace-nowrap"
+            {/each}
+          </div>
+          <button
+            onclick={cancelAction}
+            class="text-[10px] text-gray-500 hover:text-gray-300 underline"
+            >Annuler</button
+          >
+        </div>
+      {:else if action === "social-pick-target"}
+        <div
+          class="pointer-events-auto flex flex-col items-center gap-1 px-3 py-2 rounded-lg mb-1"
+          style="background: rgba(30,30,50,0.92); border: 1px solid rgba(255,255,255,0.15);"
+        >
+          <p class="text-[11px] text-yellow-300 font-semibold">
+            Offrir <span class="text-white"
+              >{actionCard.value}{actionCard.suit}</span
+            > à :
+          </p>
+          <div class="flex flex-wrap gap-1 justify-center">
+            {#each otherPlayerIds as id}
+              <button
+                onclick={() => socialPickTarget(id)}
+                class="text-[10px] px-2 py-0.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+              >
+                {getPlayerName(id)}
+              </button>
+            {/each}
+            {#if otherPlayerIds.length === 0}
+              <p class="text-[10px] text-gray-500 italic">
+                Aucun autre joueur.
+              </p>
+            {/if}
+          </div>
+          <button
+            onclick={cancelAction}
+            class="text-[10px] text-gray-500 hover:text-gray-300 underline"
+            >Annuler</button
+          >
+        </div>
+      {/if}
+    </div>
+
+    <!-- ── Card fan ────────────────────────────────────────────────────── -->
+    <div
+      class="shrink-0 relative flex items-end justify-center overflow-visible bottom-[-40px]"
+      style="height: 200px;"
+    >
+      {#if allCards.length === 0}
+        <p class="text-[10px] text-gray-600 pb-2">Aucune carte</p>
+      {:else}
+        <div
+          class="relative flex items-end justify-center"
+          style="width: {Math.max(
+            300,
+            allCards.length * SPREAD_X + 120,
+          )}px; height: 200px;"
+        >
+          {#each allCards as { card, isCrystallized }, i (card.id)}
+            {@const isActive = active?.card.id === card.id}
+            {@const isSelectable =
+              (action === "agilite-pick-card" ||
+                action === "esprit" ||
+                action === "social-pick-card") &&
+              !isCrystallized}
+            {@const n = allCards.length}
+
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <div
+              class="absolute bottom-0 left-1/2 cursor-pointer transition-all duration-150"
+              style="
+                {fanStyle(i, n)}
+                margin-left: -40px;
+                z-index: {isActive ? 50 : i};
+                transform-origin: bottom center;
+                filter: {isActive
+                ? 'drop-shadow(0 -8px 12px rgba(99,102,241,0.8))'
+                : isSelectable
+                  ? 'drop-shadow(0 0 8px rgba(250,204,21,0.7))'
+                  : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
+                {isActive
+                ? 'transform: ' +
+                  fanStyle(i, n).replace('transform:', '').replace(';', '') +
+                  ' translateY(-28px);'
+                : ''}
+              "
+              onclick={() => onCardClick(card, isCrystallized)}
+            >
+              <div
+                class="w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
+                style="
+                  background: {isCrystallized ? '#ef9b9b' : '#ffffff'};
+                  border: {isCrystallized
+                  ? '2.5px solid #ef4444'
+                  : '1.5px solid #d1d5db'};
+                  color: {SUIT_COLOR[card.suit] ?? '#111827'};
+                "
+              >
+                <div class="flex flex-col items-start">
+                  <span>{card.value}</span><span class="text-[14px]"
+                    >{card.suit}</span
+                  >
+                </div>
+                <div
+                  class="flex-1 flex items-center justify-center text-[28px]"
                 >
-                  ▶️
-                </button>
-                {#if !isCrystallized}
+                  {card.suit}
+                </div>
+                <div class="flex flex-col items-end rotate-180">
+                  <span>{card.value}</span><span class="text-[14px]"
+                    >{card.suit}</span
+                  >
+                </div>
+              </div>
+
+              <!-- Per-card action buttons when active -->
+              {#if isActive && !action}
+                <div
+                  class="absolute -top-[52px] left-1/2 -translate-x-1/2 flex gap-1 z-50"
+                >
                   <button
                     onclick={(e) => {
                       e.stopPropagation();
-                      crystallize(card);
+                      discard(card, isCrystallized);
                     }}
-                    disabled={player.tokens.esprit <= 0}
-                    class="px-2 py-1 text-[10px] font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg shadow-lg whitespace-nowrap disabled:opacity-40"
+                    class="px-2.5 py-1 text-[11px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg"
+                    title="Défausser">▶️</button
                   >
-                    ✦
-                  </button>
-                {/if}
-              </div>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {/if}
-    <button
-      onclick={drawCard}
-      disabled={handFull}
-      style="position:absolute;bottom:0px;left:50%;transform:translateX(-50%);z-index:100;background:#242424;color:white;border:none;border-radius:8px;padding:4px 14px;font-size:18px;font-weight:600;cursor:pointer;white-space:nowrap;opacity:{handFull
-        ? 0.4
-        : 1};"
+                  {#if !isCrystallized}
+                    <button
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        crystallize(card);
+                      }}
+                      disabled={player.tokens.esprit <= 0}
+                      class="px-2.5 py-1 text-[11px] font-bold bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-lg disabled:opacity-40"
+                      title="Cristalliser (−1 Esprit)">✦</button
+                    >
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+
+    <!-- ── Bottom bar: Draw + Token buttons ──────────────────────────── -->
+    <div
+      class="shrink-0 flex items-center justify-center px-2 py-1.5 relative bottom-[-50px]"
+      style="z-index: 100;"
     >
-      {handFull
-        ? `Main pleine ${player.hand.length}/${player.maxHandSize}`
-        : `Piocher ${player.hand.length}/${player.maxHandSize}`}
-    </button>
+      <!-- Draw button -->
+      <button
+        onclick={drawCard}
+        disabled={handFull}
+        class="text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        style="background: #4f46e5; white-space: nowrap; flex-shrink: 0;"
+      >
+        {handFull
+          ? `Pleine ${player.hand.length}/${player.maxHandSize}`
+          : `Piocher ${player.hand.length}/${player.maxHandSize}`}
+      </button>
+    </div>
+    <div class="shrink-0 flex items-center px-2 py-1.5 relative bottom-[-60px]">
+      <!-- Token buttons -->
+      {#each TOKENS as tok}
+        {@const current = player.tokens[tok.key]}
+        {@const max = player.maxTokens?.[tok.key] ?? current}
+        {@const active_tok = action?.startsWith(tok.key)}
+        <button
+          onclick={tok.use}
+          disabled={tok.disabled() || (action !== null && !active_tok)}
+          title={tok.label}
+          class="flex-1 flex flex-col items-center py-1 mx-1 border text-[9px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          style="
+            background: {active_tok
+            ? TOKEN_COLOR[tok.key]
+            : TOKEN_COLOR[tok.key]};
+            border-color: {TOKEN_COLOR[tok.key] + (active_tok ? 'cc' : '50')};
+            color: white;
+          "
+        >
+          <span class="text-[11px] leading-none font-bold">{current}/{max}</span
+          >
+          <span class="leading-none mt-0.5 opacity-80">{tok.label}</span>
+        </button>
+      {/each}
+    </div>
   {/if}
 </div>

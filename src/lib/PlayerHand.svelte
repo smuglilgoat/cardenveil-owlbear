@@ -134,7 +134,10 @@
         [myId]: {
           ...player,
           tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
-          hand: [...player.hand.filter((c) => c.id !== actionCard.id), drawSpecialized(suit)],
+          hand: [
+            ...player.hand.filter((c) => c.id !== actionCard.id),
+            drawSpecialized(suit),
+          ],
         },
       },
     });
@@ -310,7 +313,7 @@
   async function openPopover() {
     const n = cardCount();
     const width = Math.max(300, n * 64 + 120);
-    const height = 300;
+    const height = 400;
     const vw = await OBR.viewport.getWidth();
     const vh = await OBR.viewport.getHeight();
     await OBR.popover.open({
