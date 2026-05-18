@@ -4,6 +4,8 @@
   import {
     createEmptyPlayer,
     createInitialGameState,
+    hydrateState,
+    dehydrateState,
     drawNormal,
     drawSpecialized,
     makeCard,
@@ -220,7 +222,10 @@
       discard: [...gameState.discard, oldCard],
       players: {
         ...gameState.players,
-        [playerId]: { ...p, hand: p.hand.map((c) => (c.id === oldCard.id ? newCard : c)) },
+        [playerId]: {
+          ...p,
+          hand: p.hand.map((c) => (c.id === oldCard.id ? newCard : c)),
+        },
       },
     });
     cancelSwap();
@@ -369,6 +374,37 @@
     gmAcceptExchange = null;
   }
 
+  // ── Import / Export ───────────────────────────────────────────────────────
+  function exportState() {
+    const plain = $state.snapshot(gameState);
+    const dehydrated = dehydrateState(plain);
+    const blob = new Blob([JSON.stringify(dehydrated, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cardenveil-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importState(e) {
+    const file = e.currentTarget.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const raw = JSON.parse(ev.target.result);
+        onUpdate(hydrateState(raw));
+      } catch (err) {
+        console.error("Import failed:", err);
+      }
+    };
+    reader.readAsText(file);
+    e.currentTarget.value = "";
+  }
+
   // Hard reset — wipe everything back to a fresh game state (in-UI two-step)
   function hardReset() {
     if (resetStep === 0) {
@@ -417,8 +453,14 @@
 <div class="flex flex-col h-full overflow-y-auto p-3 gap-4">
   <!-- ── Défausse ──────────────────────────────────────────────────── -->
   <div class="flex gap-4 text-xs text-gray-400 px-1">
-    <span>Défausse : <span class="text-white font-bold">{gameState.discard.length}</span></span>
-    <span class="text-gray-600 italic">Pioches infinies (52 cartes standard)</span>
+    <span
+      >Défausse : <span class="text-white font-bold"
+        >{gameState.discard.length}</span
+      ></span
+    >
+    <span class="text-gray-600 italic"
+      >Pioches infinies (52 cartes standard)</span
+    >
   </div>
 
   <!-- ── Repos + Deal to all ────────────────────────────────────────── -->
@@ -897,24 +939,36 @@
                           class:border-gray-600={!s.isRed}
                           class:bg-gray-800={!s.isRed}
                         >
-                          {s.symbol} {s.label}
+                          {s.symbol}
+                          {s.label}
                         </button>
                       {/each}
                     </div>
 
                     <!-- Step 2: pick specific card -->
                   {:else if swapStep === 2}
-                    {@const pile = swapSource === "normal" ? fullDeck() : fullSuit(swapSource)}
+                    {@const pile =
+                      swapSource === "normal"
+                        ? fullDeck()
+                        : fullSuit(swapSource)}
                     <button
                       onclick={() => (swapStep = 1)}
                       class="text-xs text-gray-500 hover:text-gray-300 underline"
                       >← Retour</button
                     >
-                    <div class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                    <div
+                      class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto"
+                    >
                       {#each pile as card (card.id)}
                         <CardDisplay
                           {card}
-                          actions={[{ icon: "⇄", label: "Utiliser cette carte", onClick: () => swapPickCard(card) }]}
+                          actions={[
+                            {
+                              icon: "⇄",
+                              label: "Utiliser cette carte",
+                              onClick: () => swapPickCard(card),
+                            },
+                          ]}
                         />
                       {/each}
                     </div>
@@ -960,6 +1014,33 @@
     {#if playerIds.length === 0}
       <p class="text-xs text-gray-600 italic">Aucun joueur enregistré.</p>
     {/if}
+  </div>
+
+  <!-- ── Import / Export ─────────────────────────────────────────────── -->
+  <div class="bg-gray-800 rounded-xl p-3 space-y-2">
+    <h2 class="text-xs font-semibold text-gray-300 uppercase tracking-wide">
+      Import / Export
+    </h2>
+    <div class="flex gap-2">
+      <button
+        onclick={exportState}
+        class="flex-1 text-xs py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg font-semibold"
+      >
+        ↓ Exporter JSON
+      </button>
+      <!-- label wraps hidden file input so no ref needed -->
+      <label
+        class="flex-1 text-s py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg font-semibold text-center cursor-pointer"
+      >
+        ↑ Importer JSON
+        <input
+          type="file"
+          accept=".json"
+          class="hidden"
+          onchange={importState}
+        />
+      </label>
+    </div>
   </div>
 
   <!-- ── Hard reset ─────────────────────────────────────────────────── -->
