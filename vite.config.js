@@ -36,8 +36,12 @@ function buildManifest(mode) {
   const isDev = mode === 'development';
   return {
     name: isDev ? 'Cardenveil (Dev)' : 'Cardenveil',
-    version: '0.0.1',
+    version: '0.1.0',
     manifest_version: 1,
+    author: "Ahmed MOUSSAOUI",
+    homepage_url: "https://github.com/smuglilgoat/cardenveil-owlbear",
+    icon: "/cardenveil.svg",
+    description: "A card-based RPG system and tool",
     action: {
       title: isDev ? 'Cardenveil (Dev)' : 'Cardenveil',
       icon: '/cardenveil.svg',

@@ -280,7 +280,7 @@
 
   let otherPlayerIds = $derived(
     Object.keys(gameState.players).filter(
-      (id) => id !== myId && id !== gameState.gmId && (id === GM_CHAR_ID || partyIds.has(id)),
+      (id) => id !== myId && id !== gameState.gmId && (id === GM_CHAR_ID ? (/** @type {any} */ (gameState)).gmCharacterId != null : partyIds.has(id)),
     ),
   );
 
