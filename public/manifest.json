@@ -1,9 +1,9 @@
 {
-  "name": "Cardenveil",
+  "name": "Cardenveil Test",
   "version": "0.0.1",
   "manifest_version": 1,
   "action": {
-    "title": "Cardenveil",
+    "title": "Cardenveil Test",
     "icon": "/cardenveil.svg",
     "popover": "/",
     "height": 800,
