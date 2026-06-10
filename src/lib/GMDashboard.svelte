@@ -364,7 +364,11 @@
       pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== exchange.id),
       players: {
         ...gameState.players,
-        [exchange.from]: { ...fromPlayer, hand: [...fromPlayer.hand, exchange.fromCard] },
+        [exchange.from]: { 
+          ...fromPlayer, 
+          hand: [...fromPlayer.hand, exchange.fromCard],
+          tokens: { ...fromPlayer.tokens, social: fromPlayer.tokens.social + 1 }
+        },
       },
     }, GM_CHAR_ID, getPlayerName(GM_CHAR_ID), `refuse échange de ${getPlayerName(exchange.from)} (${exchange.fromCard.value}${exchange.fromCard.suit})`));
   }

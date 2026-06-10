@@ -391,6 +391,7 @@
             [exchange.from]: {
               ...fromPlayer,
               hand: [...fromPlayer.hand, exchange.fromCard],
+              tokens: { ...fromPlayer.tokens, social: fromPlayer.tokens.social + 1 }
             },
           },
         },
