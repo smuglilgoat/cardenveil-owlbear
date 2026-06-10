@@ -583,7 +583,6 @@
           class:text-gray-500={!handFull && !mustCrystallize}
         >
           {player.hand.length} / {player.maxHandSize + (player.spiritBounds ?? 0)}
-          {#if (player.spiritBounds ?? 0) > 0}<span class="text-blue-400 ml-1" title="Spirit Bounds">✦×{player.spiritBounds}</span>{/if}
         </span>
       </div>
       {#if player.hand.length === 0}
@@ -618,13 +617,16 @@
     <button
       onclick={drawCard}
       disabled={handFull || mustCrystallize}
-      class="w-full py-2 text-sm font-medium text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      class="w-full py-2 text-sm font-medium text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
       class:bg-amber-700={mustCrystallize}
       class:hover:bg-amber-800={mustCrystallize}
       class:bg-indigo-600={!mustCrystallize}
       class:hover:bg-indigo-700={!mustCrystallize}
     >
-      {#if mustCrystallize}Cristalliser d'abord !{:else if handFull}Main pleine{:else}Piocher{/if}
+      <span>{#if mustCrystallize}Cristalliser d'abord !{:else if handFull}Main pleine{:else}Piocher{/if}</span>
+      {#if (player.spiritBounds ?? 0) > 0}
+        <span class="text-blue-300 font-semibold" title="Spirit Bounds actifs">✦×{player.spiritBounds}</span>
+      {/if}
     </button>
 
     <!-- ── Crystallized ────────────────────────────────────────────── -->

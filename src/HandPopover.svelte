@@ -842,23 +842,20 @@
       <button
         onclick={drawCard}
         disabled={handFull || mustCrystallize}
-        class="text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        class="text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
         style="background: {mustCrystallize
           ? '#b45309'
           : '#4f46e5'}; white-space: nowrap; flex-shrink: 0;"
       >
-        {mustCrystallize
+        <span>{mustCrystallize
           ? `Défaussez d'abord !`
           : handFull
             ? `Pleine ${player.hand.length}/${player.maxHandSize + (player.spiritBounds ?? 0)}`
-            : `Piocher ${player.hand.length}/${player.maxHandSize + (player.spiritBounds ?? 0)}`}
+            : `Piocher ${player.hand.length}/${player.maxHandSize + (player.spiritBounds ?? 0)}`}</span>
+        {#if (player.spiritBounds ?? 0) > 0}
+          <span class="text-blue-300 font-semibold" title="Spirit Bounds actifs">✦×{player.spiritBounds}</span>
+        {/if}
       </button>
-      {#if (player.spiritBounds ?? 0) > 0}
-        <span
-          class="text-[18px] text-blue-400 font-semibold ml-2 shrink-0"
-          title="Spirit Bounds actifs">✦×{player.spiritBounds}</span
-        >
-      {/if}
     </div>
     <div
       class="shrink-0 flex items-center justify-center px-2 py-1.5 relative bottom-[-60px]"
