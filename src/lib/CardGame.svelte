@@ -121,6 +121,20 @@
           await OBR.room.setMetadata({ [METADATA_KEY]: dehydrateState(state) });
         }
 
+        // GM registers all party members on mount
+        if (state && myRole === 'GM') {
+          let partyDirty = false;
+          for (const p of party) {
+            if (p.id !== myId && !state.players[p.id]) {
+              state = { ...state, players: { ...state.players, [p.id]: createEmptyPlayer(p.name) } };
+              partyDirty = true;
+            }
+          }
+          if (partyDirty) {
+            await OBR.room.setMetadata({ [METADATA_KEY]: dehydrateState(state) });
+          }
+        }
+
         gameState = state;
         ready = true;
 
@@ -139,8 +153,22 @@
         }
       });
 
-      unsubParty = OBR.party.onChange((players) => {
+      unsubParty = OBR.party.onChange(async (players) => {
         party = players;
+        // GM auto-registers new party members
+        if (myRole === 'GM' && gameState) {
+          let dirty = false;
+          let state = gameState;
+          for (const p of players) {
+            if (p.id !== myId && !state.players[p.id]) {
+              state = { ...state, players: { ...state.players, [p.id]: createEmptyPlayer(p.name) } };
+              dirty = true;
+            }
+          }
+          if (dirty) {
+            await pushState(state);
+          }
+        }
       });
     });
   });
