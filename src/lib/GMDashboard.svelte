@@ -16,8 +16,8 @@
     addLog,
   } from "./deck.js";
 
-  /** @type {{ gameState: object, party: object[], myId: string, onUpdate: (s: object) => void }} */
-  let { gameState, party, myId, onUpdate } = $props();
+  /** @type {{ gameState: object, party: object[], myId: string, onUpdate: (s: object) => void, onSync: () => void }} */
+  let { gameState, party, myId, onUpdate, onSync } = $props();
 
   let dealTarget = $state("");
   let dealCount = $state(1);
@@ -1088,16 +1088,25 @@
   <!-- ── Action log ───────────────────────────────────────────────────── -->
   <ActionLog logs={gameState.logs ?? []} {myId} isGM={true} />
 
-  <!-- ── Hard reset ─────────────────────────────────────────────────── -->
+  <!-- ── Sync + Hard reset ─────────────────────────────────────────── -->
   <div class="border-t border-gray-700 pt-4 space-y-2">
-    {#if resetStep === 0}
+    <div class="flex gap-2">
       <button
-        onclick={hardReset}
-        class="w-full py-2 text-xs font-bold bg-transparent border border-red-800 text-red-600 hover:bg-red-950 hover:text-red-400 hover:border-red-600 rounded-lg transition-colors"
+        onclick={onSync}
+        class="flex-1 py-2 text-xs font-bold bg-transparent border border-indigo-700 text-indigo-400 hover:bg-indigo-950 hover:text-indigo-300 hover:border-indigo-500 rounded-lg transition-colors"
       >
-        ⚠ Réinitialisation complète
+        ↻ Synchroniser tout
       </button>
-    {:else if resetStep === 1}
+      {#if resetStep === 0}
+        <button
+          onclick={hardReset}
+          class="flex-1 py-2 text-xs font-bold bg-transparent border border-red-800 text-red-600 hover:bg-red-950 hover:text-red-400 hover:border-red-600 rounded-lg transition-colors"
+        >
+          ⚠ Réinitialisation complète
+        </button>
+      {/if}
+    </div>
+    {#if resetStep === 1}
       <p class="text-xs text-red-400 text-center font-semibold">
         Toutes les mains, tokens et pioches seront effacés. Confirmer ?
       </p>

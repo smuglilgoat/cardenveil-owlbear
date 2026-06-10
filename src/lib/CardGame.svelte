@@ -31,15 +31,49 @@
     toasts = toasts.filter(t => t.id !== id);
   }
 
-  // ── State push: dehydrate → OBR, hydrate → local ────────────────────
+  // ── State push: optimistic local update → dehydrate → OBR ────────────
   async function pushState(newState) {
     try {
-      // $state.snapshot() is the Svelte 5 API to unwrap reactive Proxies into
-      // plain objects. JSON round-trip alone does not strip them reliably.
       const plain = $state.snapshot(newState);
       const dehydrated = dehydrateState(plain);
+      gameState = newState;
       await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
-      gameState = hydrateState(dehydrated);
+    } catch (e) {
+      addToast(e?.message ?? String(e));
+    }
+  }
+
+  // ── Sync All: re-read authoritative metadata, patch missing players, broadcast ─
+  async function syncAll() {
+    try {
+      const meta = await OBR.room.getMetadata();
+      const raw = meta[METADATA_KEY];
+      if (!raw) {
+        addToast('Aucune partie trouvée dans les métadonnées.', 'error');
+        return;
+      }
+      let state = hydrateState(raw);
+      let dirty = false;
+
+      if (myRole === 'GM' && state.gmId !== myId) {
+        state = { ...state, gmId: myId };
+        dirty = true;
+      }
+
+      for (const p of party) {
+        if (p.id !== myId && !state.players[p.id]) {
+          state = { ...state, players: { ...state.players, [p.id]: createEmptyPlayer(p.name) } };
+          dirty = true;
+        }
+      }
+
+      if (dirty) {
+        const dehydrated = dehydrateState($state.snapshot(state));
+        await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
+      }
+
+      gameState = state;
+      addToast('Synchronisation effectuée.', 'info');
     } catch (e) {
       addToast(e?.message ?? String(e));
     }
@@ -164,7 +198,7 @@
   </div>
 
 {:else if myRole === 'GM'}
-  <GMDashboard {gameState} {party} {myId} onUpdate={pushState} />
+  <GMDashboard {gameState} {party} {myId} onUpdate={pushState} onSync={syncAll} />
 
 {:else}
   <PlayerHand {gameState} {myId} {myName} {party} onUpdate={pushState} />

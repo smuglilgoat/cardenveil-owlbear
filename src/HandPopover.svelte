@@ -28,8 +28,8 @@
   async function pushState(newState) {
     const plain = $state.snapshot(newState);
     const dehydrated = dehydrateState(plain);
+    gameState = newState;
     await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
-    gameState = hydrateState(dehydrated);
   }
 
   onMount(() => {
