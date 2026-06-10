@@ -185,8 +185,7 @@
 
   // ── Token: Force ──────────────────────────────────────────────────────
   function useForce() {
-    if (!player || player.tokens.force <= 0 || handFull || mustCrystallize)
-      return;
+    if (!player || player.tokens.force <= 0) return;
     const mn = player.minDrawValue ?? 1,
       mx = player.maxDrawValue ?? 13;
     const card = drawNormal(mn, mx);
@@ -460,8 +459,7 @@
     {
       key: "force",
       label: "Force",
-      disabled: () =>
-        !player || player.tokens.force <= 0 || handFull || mustCrystallize,
+      disabled: () => !player || player.tokens.force <= 0,
       use: useForce,
     },
     {

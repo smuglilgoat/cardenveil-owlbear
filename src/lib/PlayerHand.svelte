@@ -114,7 +114,7 @@
 
   // ── Token: Force ──────────────────────────────────────────────────────
   function useForce() {
-    if (player.tokens.force <= 0 || handFull || mustCrystallize) return;
+    if (player.tokens.force <= 0) return;
     const card = drawNormal(player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
     onUpdate(addLog({
       ...gameState,
@@ -253,7 +253,7 @@
       key: "force",
       label: "Force",
       desc: "Piocher (pile normale)",
-      disabled: () => player.tokens.force <= 0 || handFull || mustCrystallize,
+      disabled: () => player.tokens.force <= 0,
       use: useForce,
     },
     {
