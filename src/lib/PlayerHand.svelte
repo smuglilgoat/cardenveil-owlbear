@@ -99,6 +99,7 @@
         ...player,
         hand: player.hand.filter((c) => c.id !== card.id),
         crystallized: [...player.crystallized, card],
+        grayedCards: (player.grayedCards ?? []).filter((id) => id !== card.id),
         spiritBounds: (player.spiritBounds ?? 0) - 1,
       }},
     }, myId, myName, `cristallise ${card.value}${card.suit} (−1 Spirit Bound)`));

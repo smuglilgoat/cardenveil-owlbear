@@ -149,6 +149,7 @@
               ...player,
               hand: player.hand.filter((c) => c.id !== card.id),
               crystallized: [...player.crystallized, card],
+              grayedCards: (player.grayedCards ?? []).filter((id) => id !== card.id),
               spiritBounds: (player.spiritBounds ?? 0) - 1,
             },
           },
@@ -402,8 +403,8 @@
   }
 
   // ── Gray out ──────────────────────────────────────────────────────────
-  function toggleGray(card) {
-    if (!player) return;
+  function toggleGray(card, isCrystallized) {
+    if (!player || isCrystallized) return;
     const grayed = player.grayedCards ?? [];
     const next = grayed.includes(card.id)
       ? grayed.filter((id) => id !== card.id)
@@ -798,20 +799,22 @@
                       title="Cristalliser (−1 Spirit Bound)">✦</button
                     >
                   {/if}
-                  <button
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      toggleGray(card);
-                    }}
-                    class="px-2.5 py-1 text-[11px] font-bold rounded-lg shadow-lg"
-                    class:bg-gray-600={!isGrayed}
-                    class:hover:bg-gray-500={!isGrayed}
-                    class:bg-gray-400={isGrayed}
-                    class:hover:bg-gray-300={isGrayed}
-                    class:text-white={!isGrayed}
-                    class:text-gray-800={isGrayed}
-                    title={isGrayed ? "Dégrisonner" : "Grisonner"}>◑</button
-                  >
+                  {#if !isCrystallized}
+                    <button
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        toggleGray(card, isCrystallized);
+                      }}
+                      class="px-2.5 py-1 text-[11px] font-bold rounded-lg shadow-lg"
+                      class:bg-gray-600={!isGrayed}
+                      class:hover:bg-gray-500={!isGrayed}
+                      class:bg-gray-400={isGrayed}
+                      class:hover:bg-gray-300={isGrayed}
+                      class:text-white={!isGrayed}
+                      class:text-gray-800={isGrayed}
+                      title={isGrayed ? "Dégrisonner" : "Grisonner"}>◑</button
+                    >
+                  {/if}
                 </div>
               {/if}
             </div>
