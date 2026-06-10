@@ -22,6 +22,9 @@
       ? (player.spiritBounds ?? 0) > 0 && player.hand.length >= player.maxHandSize + (player.spiritBounds ?? 0)
       : false,
   );
+  let spiritLocked = $derived(
+    player ? player.hand.length <= (player.spiritBounds ?? 0) : false,
+  );
 
   /** Exchanges from other players targeting me */
   let incomingExchanges = $derived(
@@ -84,6 +87,8 @@
 
   // ── Card actions ──────────────────────────────────────────────────────
   function discardCard(card) {
+    const isGrayed = (player.grayedCards ?? []).includes(card.id);
+    if (spiritLocked || isGrayed) return;
     onUpdate(addLog({
       ...gameState,
       discard: [...gameState.discard, card],
@@ -167,7 +172,7 @@
 
   // ── Token: Social ─────────────────────────────────────────────────────
   function startSocial() {
-    if (player.tokens.social <= 0 || player.hand.length === 0) return;
+    if (player.tokens.social <= 0 || player.hand.length === 0 || spiritLocked) return;
     action = "social-pick-card";
   }
 
@@ -275,7 +280,7 @@
       key: "social",
       label: "Social",
       desc: "Échanger avec un autre joueur",
-      disabled: () => player.tokens.social <= 0 || player.hand.length === 0,
+      disabled: () => player.tokens.social <= 0 || player.hand.length === 0 || spiritLocked,
       use: startSocial,
     },
   ];
@@ -591,7 +596,7 @@
               <CardDisplay
                 {card}
                 actions={[
-                  { icon: "▶️", label: "Défausser", onClick: () => discardCard(card) },
+                  ...(!spiritLocked && !isGrayed ? [{ icon: "▶️", label: "Défausser", onClick: () => discardCard(card) }] : []),
                   {
                     icon: "✦",
                     label: (player.spiritBounds ?? 0) > 0 ? "Cristalliser (−1 Spirit Bound)" : "Cristalliser (aucun Spirit Bound)",

@@ -24,23 +24,12 @@
 
   let unsubMeta = null;
   let unsubParty = null;
-  let syncInterval = null;
 
   async function pushState(newState) {
     const plain = $state.snapshot(newState);
     const dehydrated = dehydrateState(plain);
     gameState = newState;
     await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
-  }
-
-  async function resync() {
-    try {
-      const meta = await OBR.room.getMetadata();
-      const raw = meta[METADATA_KEY];
-      if (raw) gameState = hydrateState(raw);
-    } catch (e) {
-      console.error('Popover resync failed:', e);
-    }
   }
 
   onMount(() => {
@@ -60,15 +49,12 @@
       unsubParty = OBR.party.onChange((p) => {
         party = p;
       });
-
-      syncInterval = setInterval(resync, 30000);
     });
   });
 
   onDestroy(() => {
     unsubMeta?.();
     unsubParty?.();
-    if (syncInterval) clearInterval(syncInterval);
   });
 
   // ── Derived ───────────────────────────────────────────────────────────
@@ -84,6 +70,10 @@
       ? (player.spiritBounds ?? 0) > 0 &&
           player.hand.length >= player.maxHandSize + (player.spiritBounds ?? 0)
       : false,
+  );
+
+  let spiritLocked = $derived(
+    player ? player.hand.length <= (player.spiritBounds ?? 0) : false,
   );
 
   let allCards = $derived(
@@ -125,6 +115,10 @@
   // ── Card actions ──────────────────────────────────────────────────────
   function discard(card, isCrystallized) {
     if (!player) return;
+    if (!isCrystallized) {
+      const isGrayed = (player.grayedCards ?? []).includes(card.id);
+      if (spiritLocked || isGrayed) return;
+    }
     pushState(
       addLog(
         {
@@ -293,7 +287,7 @@
 
   // ── Token: Social ─────────────────────────────────────────────────────
   function startSocial() {
-    if (!player || player.tokens.social <= 0 || player.hand.length === 0)
+    if (!player || player.tokens.social <= 0 || player.hand.length === 0 || spiritLocked)
       return;
     action = "social-pick-card";
     active = null;
@@ -494,7 +488,7 @@
       key: "social",
       label: "Social",
       disabled: () =>
-        !player || player.tokens.social <= 0 || player.hand.length === 0,
+        !player || player.tokens.social <= 0 || player.hand.length === 0 || spiritLocked,
       use: startSocial,
     },
   ];
@@ -794,14 +788,16 @@
                 <div
                   class="absolute -top-[52px] left-1/2 -translate-x-1/2 flex gap-1 z-50"
                 >
-                  <button
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      discard(card, isCrystallized);
-                    }}
-                    class="px-2.5 py-1 text-[11px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg"
-                    title="Défausser">▶️</button
-                  >
+                  {#if isCrystallized || (!spiritLocked && !isGrayed)}
+                    <button
+                      onclick={(e) => {
+                        e.stopPropagation();
+                        discard(card, isCrystallized);
+                      }}
+                      class="px-2.5 py-1 text-[11px] font-bold bg-red-700 hover:bg-red-600 text-white rounded-lg shadow-lg"
+                      title="Défausser">▶️</button
+                    >
+                  {/if}
                   {#if !isCrystallized}
                     <button
                       onclick={(e) => {
@@ -852,7 +848,7 @@
           : '#4f46e5'}; white-space: nowrap; flex-shrink: 0;"
       >
         {mustCrystallize
-          ? `Cristalliser d'abord !`
+          ? `Défaussez d'abord !`
           : handFull
             ? `Pleine ${player.hand.length}/${player.maxHandSize + (player.spiritBounds ?? 0)}`
             : `Piocher ${player.hand.length}/${player.maxHandSize + (player.spiritBounds ?? 0)}`}
