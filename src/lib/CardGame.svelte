@@ -34,46 +34,66 @@
   // ── State push: optimistic local update → dehydrate → OBR ────────────
   async function pushState(newState) {
     try {
+      const previousState = gameState;
       const plain = $state.snapshot(newState);
       const dehydrated = dehydrateState(plain);
       gameState = newState;
-      await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
+      try {
+        await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
+      } catch (e) {
+        gameState = previousState;
+        throw e;
+      }
     } catch (e) {
       addToast(e?.message ?? String(e));
     }
   }
 
-  // ── Sync All: re-read authoritative metadata, patch missing players, broadcast ─
+  // ── Sync All: reconcile local and remote state ─────────────────────────────
   async function syncAll() {
     try {
       const meta = await OBR.room.getMetadata();
       const raw = meta[METADATA_KEY];
       if (!raw) {
-        addToast('Aucune partie trouvée dans les métadonnées.', 'error');
+        addToast('No game state found in metadata.', 'error');
         return;
       }
-      let state = hydrateState(raw);
-      let dirty = false;
-
-      if (myRole === 'GM' && state.gmId !== myId) {
-        state = { ...state, gmId: myId };
-        dirty = true;
+      
+      let remoteState = hydrateState(raw);
+      const localState = gameState;
+      
+      // Reconcile: preserve local player data if remote is missing it
+      if (localState && localState.players[myId] && !remoteState.players[myId]) {
+        remoteState = {
+          ...remoteState,
+          players: { ...remoteState.players, [myId]: localState.players[myId] }
+        };
       }
-
+      
+      // Ensure GM ID is set correctly
+      if (myRole === 'GM' && remoteState.gmId !== myId) {
+        remoteState = { ...remoteState, gmId: myId };
+      }
+      
+      // Ensure all party members are registered
+      let dirty = false;
       for (const p of party) {
-        if (p.id !== myId && !state.players[p.id]) {
-          state = { ...state, players: { ...state.players, [p.id]: createEmptyPlayer(p.name) } };
+        if (p.id !== myId && !remoteState.players[p.id]) {
+          remoteState = {
+            ...remoteState,
+            players: { ...remoteState.players, [p.id]: createEmptyPlayer(p.name) }
+          };
           dirty = true;
         }
       }
-
-      if (dirty) {
-        const dehydrated = dehydrateState($state.snapshot(state));
-        await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
-      }
-
-      gameState = state;
-      addToast('Synchronisation effectuée.', 'info');
+      
+      // Write reconciled state back to metadata
+      const dehydrated = dehydrateState($state.snapshot(remoteState));
+      await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
+      
+      // Update local state
+      gameState = remoteState;
+      addToast('Sync complete.', 'info');
     } catch (e) {
       addToast(e?.message ?? String(e));
     }

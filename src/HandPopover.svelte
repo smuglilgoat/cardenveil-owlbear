@@ -26,10 +26,16 @@
   let unsubParty = null;
 
   async function pushState(newState) {
+    const previousState = gameState;
     const plain = $state.snapshot(newState);
     const dehydrated = dehydrateState(plain);
     gameState = newState;
-    await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
+    try {
+      await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
+    } catch (e) {
+      gameState = previousState;
+      console.error('Push state failed:', e);
+    }
   }
 
   onMount(() => {
