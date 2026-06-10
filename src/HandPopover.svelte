@@ -24,12 +24,23 @@
 
   let unsubMeta = null;
   let unsubParty = null;
+  let syncInterval = null;
 
   async function pushState(newState) {
     const plain = $state.snapshot(newState);
     const dehydrated = dehydrateState(plain);
     gameState = newState;
     await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
+  }
+
+  async function resync() {
+    try {
+      const meta = await OBR.room.getMetadata();
+      const raw = meta[METADATA_KEY];
+      if (raw) gameState = hydrateState(raw);
+    } catch (e) {
+      console.error('Popover resync failed:', e);
+    }
   }
 
   onMount(() => {
@@ -49,12 +60,15 @@
       unsubParty = OBR.party.onChange((p) => {
         party = p;
       });
+
+      syncInterval = setInterval(resync, 30000);
     });
   });
 
   onDestroy(() => {
     unsubMeta?.();
     unsubParty?.();
+    if (syncInterval) clearInterval(syncInterval);
   });
 
   // ── Derived ───────────────────────────────────────────────────────────
