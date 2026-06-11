@@ -78,10 +78,10 @@ export default async (request) => {
       const newVersion = currentVersion + 1;
 
       const { data: rpcData, error: rpcError } = await supabase.rpc('apply_game_action', {
-        pRoomId: roomId,
-        pExpectedVersion: currentVersion,
-        pNewVersion: newVersion,
-        pState: dehydrated,
+        p_room_id: roomId,
+        p_expected_version: currentVersion,
+        p_new_version: newVersion,
+        p_state: dehydrated,
       });
 
       if (rpcError) {

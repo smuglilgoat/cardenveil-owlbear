@@ -146,7 +146,10 @@ export async function dispatch(roomId, action) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ roomId, action }),
   });
-  if (!res.ok) throw new Error(`Dispatch failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Dispatch failed: ${res.status} — ${body}`);
+  }
   const data = await res.json();
   if (data.version != null) currentVersion = data.version;
   return hydrateState(data.state);
