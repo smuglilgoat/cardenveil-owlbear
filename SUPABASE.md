@@ -6,13 +6,13 @@ This guide describes how to replace the current **Netlify Blobs + polling** arch
 
 ### Current Architecture (Blobs)
 ```
-Client → POST /api/action → Netlify Function → Netlify Blobs
+Client → POST /api/state → Netlify Function → Netlify Blobs
 Client ← poll GET /api/state (1.5s) ← Netlify Function ← Netlify Blobs
 ```
 
 ### Target Architecture (Supabase)
 ```
-Client → POST /api/action → Netlify Function → Supabase (PostgreSQL)
+Client → POST /api/state → Netlify Function → Supabase (PostgreSQL)
 Client ← realtime WebSocket ← Supabase Realtime ← Supabase (PostgreSQL)
 ```
 
@@ -69,6 +69,49 @@ CREATE TABLE game_rooms (
 );
 
 CREATE INDEX idx_game_rooms_updated ON game_rooms(updated_at);
+```
+
+### 2.1a Optimistic Concurrency Control (OCC) Stored Procedure
+
+To prevent race conditions where concurrent writes silently overwrite each other, create this stored procedure. It checks the version column before writing and returns a conflict flag when the expected version does not match.
+
+```sql
+CREATE OR REPLACE FUNCTION apply_game_action(
+  p_room_id TEXT,
+  p_expected_version INTEGER,
+  p_new_version INTEGER,
+  p_state JSONB
+) RETURNS JSONB AS $$
+DECLARE
+  current_row game_rooms%ROWTYPE;
+  result JSONB;
+BEGIN
+  -- Try to get existing row
+  SELECT * INTO current_row FROM game_rooms WHERE room_id = p_room_id;
+
+  IF NOT FOUND THEN
+    -- No row exists — insert new (initial game creation)
+    INSERT INTO game_rooms (room_id, version, state, updated_at)
+    VALUES (p_room_id, p_new_version, p_state, NOW());
+    result := jsonb_build_object('version', p_new_version, 'state', p_state);
+  ELSIF current_row.version = p_expected_version THEN
+    -- Version matches — safe to update
+    UPDATE game_rooms
+    SET version = p_new_version, state = p_state, updated_at = NOW()
+    WHERE room_id = p_room_id;
+    result := jsonb_build_object('version', p_new_version, 'state', p_state);
+  ELSE
+    -- Version mismatch — return conflict with current data so caller can retry
+    result := jsonb_build_object(
+      'conflict', true,
+      'version', current_row.version,
+      'state', current_row.state
+    );
+  END IF;
+
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
 ### 2.2 Enable Realtime
@@ -297,7 +340,7 @@ export function stopRealtime() {
 }
 
 export async function dispatch(roomId, action) {
-  const res = await fetch('/api/action', {
+  const res = await fetch('/api/state', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ roomId, action }),
@@ -375,6 +418,7 @@ These files require **zero changes**:
 
 - [ ] Create Supabase project
 - [ ] Run SQL to create `game_rooms` table
+- [ ] Run SQL to create `apply_game_action()` stored procedure
 - [ ] Enable realtime replication on `game_rooms`
 - [ ] Set RLS policies
 - [ ] Add environment variables to Netlify

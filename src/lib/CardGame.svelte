@@ -15,6 +15,33 @@
 
   let toasts = $state([]);
 
+  // Realtime connection status: 'connected' | 'disconnected' | 'permanently_disconnected'
+  let connectionStatus = $state('connected');
+  // Track whether we've ever received a successful SUBSCRIBED so we know
+  // to suppress the "reconnected" toast on the initial subscribe.
+  let hadInitialConnection = false;
+
+  $effect(() => {
+    const status = connectionStatus;
+    if (!ready) return;
+    if (status === 'disconnected') {
+      if (hadInitialConnection) {
+        addToast('Connexion perdue — reconnexion en cours...', 'error');
+      }
+    } else if (status === 'connected') {
+      if (hadInitialConnection) {
+        addToast('Connexion rétablie', 'info');
+      }
+    } else if (status === 'permanently_disconnected') {
+      addToast('Connexion perdue — rafraîchissez la page.', 'error');
+    }
+  });
+
+  function handleConnectionChange(status) {
+    connectionStatus = status;
+    if (status === 'connected') hadInitialConnection = true;
+  }
+
   function addToast(msg, type = 'error') {
     const id = Date.now() + Math.random();
     toasts = [...toasts, { id, msg: String(msg), type }];
@@ -71,7 +98,7 @@
 
         startRealtime(roomId, (newState) => {
           gameState = newState;
-        });
+        }, handleConnectionChange);
 
       } catch (e) {
         addToast(e?.message ?? String(e));

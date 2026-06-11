@@ -49,42 +49,64 @@ export default async (request) => {
     const { roomId, action } = body;
     if (!roomId || !action) return json({ error: 'roomId and action required' }, 400);
 
-    const { data: existing, error } = await supabase
-      .from('game_rooms')
-      .select('version, state')
-      .eq('room_id', roomId)
-      .single();
+    const MAX_RETRIES = 3;
+    let attempt = 0;
 
-    let currentVersion = 0;
-    let currentState;
+    while (attempt < MAX_RETRIES) {
+      const { data: existing, error } = await supabase
+        .from('game_rooms')
+        .select('version, state')
+        .eq('room_id', roomId)
+        .single();
 
-    if (existing && !error) {
-      currentVersion = existing.version;
-      currentState = hydrateState(existing.state);
-    } else {
-      currentState = createInitialGameState();
-    }
+      let currentVersion = 0;
+      let currentState;
 
-    const { state: newState } = applyAction(currentState, action);
-    const dehydrated = dehydrateState(newState);
-    const newVersion = currentVersion + 1;
+      if (error && error.code !== 'PGRST116') {
+        return json({ error: error.message }, 500);
+      }
 
-    const { error: upsertError } = await supabase
-      .from('game_rooms')
-      .upsert({
-        room_id: roomId,
-        version: newVersion,
-        state: dehydrated,
-        updated_at: new Date().toISOString(),
+      if (existing) {
+        currentVersion = existing.version;
+        currentState = hydrateState(existing.state);
+      } else {
+        currentState = createInitialGameState();
+      }
+
+      const { state: newState } = applyAction(currentState, action);
+      const dehydrated = dehydrateState(newState);
+      const newVersion = currentVersion + 1;
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc('apply_game_action', {
+        pRoomId: roomId,
+        pExpectedVersion: currentVersion,
+        pNewVersion: newVersion,
+        pState: dehydrated,
       });
 
-    if (upsertError) {
-      return json({ error: upsertError.message }, 500);
+      if (rpcError) {
+        return json({ error: rpcError.message }, 500);
+      }
+
+      if (rpcData && rpcData.conflict) {
+        attempt++;
+        if (attempt < MAX_RETRIES) {
+          await new Promise(r => setTimeout(r, 50 * attempt));
+          continue;
+        }
+        return json({
+          error: 'Conflict: version mismatch after max retries',
+          version: rpcData.version,
+          state: rpcData.state,
+        }, 409);
+      }
+
+      return json({ version: newVersion, state: dehydrated }, 200, {
+        'ETag': String(newVersion),
+      });
     }
 
-    return json({ version: newVersion, state: dehydrated }, 200, {
-      'ETag': String(newVersion),
-    });
+    return json({ error: 'Conflict: unable to apply action after max retries' }, 409);
   }
 
   return json({ error: 'Method not allowed' }, 405);
