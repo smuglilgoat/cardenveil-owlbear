@@ -41,7 +41,7 @@ export function stopPolling() {
 export async function dispatch(roomId, action) {
   dispatching = true;
   try {
-    const res = await fetch('/api/action', {
+    const res = await fetch('/api/state', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomId, action }),

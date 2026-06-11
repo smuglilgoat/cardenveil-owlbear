@@ -43,7 +43,7 @@
         myName = await OBR.player.getName();
         myRole = await OBR.player.getRole();
         party  = await OBR.party.getPlayers();
-        roomId = await OBR.room.getId();
+        roomId = OBR.room.id;
 
         let state = await fetchState(roomId);
 

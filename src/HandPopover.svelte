@@ -28,7 +28,7 @@
   onMount(() => {
     OBR.onReady(async () => {
       myId = await OBR.player.getId();
-      roomId = await OBR.room.getId();
+      roomId = OBR.room.id;
       party = await OBR.party.getPlayers();
       ready = true;
 
