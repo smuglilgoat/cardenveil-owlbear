@@ -3,22 +3,15 @@
   import TokenPanel from "./TokenPanel.svelte";
   import ActionLog from "./ActionLog.svelte";
   import {
-    createEmptyPlayer,
-    createInitialGameState,
-    hydrateState,
     dehydrateState,
-    drawNormal,
-    drawSpecialized,
-    makeCard,
+    hydrateState,
     fullDeck,
     fullSuit,
     GM_CHAR_ID,
-    addLog,
     sortCards,
   } from "./deck.js";
 
-  /** @type {{ gameState: object, party: object[], myId: string, onUpdate: (s: object) => void, onSync: () => void }} */
-  let { gameState, party, myId, onUpdate, onSync } = $props();
+  let { gameState, party, myId, onAction } = $props();
 
   let anyPlayerFull = $derived(
     Object.entries(gameState.players).some(
@@ -107,121 +100,42 @@
   // ── Deal ─────────────────────────────────────────────────────────────
   function dealToPlayer() {
     if (!dealTarget || dealCount <= 0) return;
-    const target = gameState.players[dealTarget];
-    if (!target) return;
-    const { minDrawValue: mn = 1, maxDrawValue: mx = 13 } = target;
-    const cards = Array.from({ length: dealCount }, () => drawNormal(mn, mx));
-    onUpdate(addLog({
-      ...gameState,
-      players: { ...gameState.players, [dealTarget]: { ...target, hand: [...target.hand, ...cards] } },
-    }, 'gm', 'MJ', `distribue ${cards.length} carte(s) à ${getPlayerName(dealTarget)} : ${cards.map(c => c.value + c.suit).join(', ')}`));
+    onAction({ type: 'DEAL', playerId: myId, targetId: dealTarget, count: dealCount });
   }
 
   function dealOneToAll() {
-    const updatedPlayers = { ...gameState.players };
-    const dealtTo = [];
-    for (const [id, p] of Object.entries(gameState.players)) {
-      if (id === myId) continue;
-      if (p.hand.length < p.maxHandSize) {
-        const { minDrawValue: mn = 1, maxDrawValue: mx = 13 } = p;
-        const card = drawNormal(mn, mx);
-        updatedPlayers[id] = { ...p, hand: [...p.hand, card] };
-        dealtTo.push(getPlayerName(id));
-      }
-    }
-    onUpdate(addLog({ ...gameState, players: updatedPlayers }, 'gm', 'MJ', `distribue 1 carte à tous (${dealtTo.join(', ') || 'aucun'})`));
+    onAction({ type: 'DEAL_ALL', playerId: myId });
   }
 
   function giveCrystallized(toId, card) {
-    const p = gameState.players[toId];
-    onUpdate(addLog({
-      ...gameState,
-      players: { ...gameState.players, [toId]: { ...p, crystallized: [...p.crystallized, card] } },
-    }, 'gm', 'MJ', `donne carte cristallisée ${card.value}${card.suit} à ${getPlayerName(toId)}`));
+    onAction({ type: 'GIVE_CRYSTAL', playerId: myId, targetId: toId, suit: card.suit, value: card.value });
     crystalPickOpen = false;
   }
 
   // ── Rest ─────────────────────────────────────────────────────────────
   function restAll() {
-    const updated = {};
-    for (const [id, p] of Object.entries(gameState.players)) {
-      updated[id] = { ...p, tokens: { ...p.maxTokens } };
-    }
-    onUpdate({ ...gameState, players: updated });
+    onAction({ type: 'REST_ALL', playerId: myId });
   }
 
   // ── Per-player GM controls ───────────────────────────────────────────
   function setHandSize(playerId, val) {
-    const p = gameState.players[playerId];
-    if (!p) return;
-    onUpdate({
-      ...gameState,
-      players: {
-        ...gameState.players,
-        [playerId]: {
-          ...p,
-          maxHandSize: Math.max(0, Math.min(15, Number(val))),
-        },
-      },
-    });
+    onAction({ type: 'SET_MAX_HAND', playerId: myId, targetId: playerId, val });
   }
 
   function setDrawRange(playerId, field, val) {
-    const p = gameState.players[playerId];
-    if (!p) return;
-    const clamped = Math.max(1, Math.min(13, Number(val)));
-    onUpdate({
-      ...gameState,
-      players: {
-        ...gameState.players,
-        [playerId]: { ...p, [field]: clamped },
-      },
-    });
+    onAction({ type: 'SET_DRAW_RANGE', playerId: myId, targetId: playerId, field, val });
   }
 
   function setMaxToken(playerId, stat, val) {
-    const p = gameState.players[playerId];
-    if (!p) return;
-    onUpdate({
-      ...gameState,
-      players: {
-        ...gameState.players,
-        [playerId]: {
-          ...p,
-          maxTokens: { ...p.maxTokens, [stat]: Math.max(0, Math.min(10, val)) },
-        },
-      },
-    });
+    onAction({ type: 'SET_MAX_TOKENS', playerId: myId, targetId: playerId, token: stat, val });
   }
 
   function gmSpendToken(playerId, stat) {
-    const p = gameState.players[playerId];
-    if (!p || p.tokens[stat] <= 0) return;
-    onUpdate({
-      ...gameState,
-      players: {
-        ...gameState.players,
-        [playerId]: {
-          ...p,
-          tokens: { ...p.tokens, [stat]: p.tokens[stat] - 1 },
-        },
-      },
-    });
+    onAction({ type: 'SPEND_TOKEN', playerId: playerId, token: stat });
   }
 
   function gmAddToken(playerId, stat) {
-    const p = gameState.players[playerId];
-    if (!p || p.tokens[stat] >= p.maxTokens[stat]) return;
-    onUpdate({
-      ...gameState,
-      players: {
-        ...gameState.players,
-        [playerId]: {
-          ...p,
-          tokens: { ...p.tokens, [stat]: p.tokens[stat] + 1 },
-        },
-      },
-    });
+    onAction({ type: 'ADD_TOKEN', playerId: myId, targetId: playerId, token: stat });
   }
 
   // ── Swap ─────────────────────────────────────────────────────────────
@@ -244,69 +158,29 @@
 
   function swapPickCard(pickedCard) {
     const { playerId, card: oldCard } = swapTarget;
-    const p = gameState.players[playerId];
-    const prefix = swapSource === "normal" ? "n" : "s";
-    const newCard = makeCard(pickedCard.suit, pickedCard.value, prefix);
-    onUpdate(addLog({
-      ...gameState,
-      discard: [...gameState.discard, oldCard],
-      players: {
-        ...gameState.players,
-        [playerId]: { ...p, hand: p.hand.map((c) => (c.id === oldCard.id ? newCard : c)) },
-      },
-    }, 'gm', 'MJ', `remplace ${oldCard.value}${oldCard.suit} → ${newCard.value}${newCard.suit} dans la main de ${getPlayerName(playerId)}`));
+    onAction({ type: 'SWAP_CARD', playerId: myId, targetId: playerId, oldCardId: oldCard.id, source: swapSource, suit: pickedCard.suit, value: pickedCard.value });
     cancelSwap();
   }
 
   function gmDiscardFromHand(playerId, card) {
-    const p = gameState.players[playerId];
-    onUpdate(addLog({
-      ...gameState,
-      discard: [...gameState.discard, card],
-      players: { ...gameState.players, [playerId]: { ...p, hand: p.hand.filter((c) => c.id !== card.id) } },
-    }, 'gm', 'MJ', `défausse ${card.value}${card.suit} de la main de ${getPlayerName(playerId)}`));
+    onAction({ type: 'DISCARD', playerId: playerId, cardId: card.id, from: 'hand' });
   }
 
   function gmDiscardCrystallized(playerId, card) {
-    const p = gameState.players[playerId];
-    onUpdate(addLog({
-      ...gameState,
-      discard: [...gameState.discard, card],
-      players: { ...gameState.players, [playerId]: { ...p, crystallized: p.crystallized.filter((c) => c.id !== card.id) } },
-    }, 'gm', 'MJ', `défausse cristallisée ${card.value}${card.suit} de ${getPlayerName(playerId)}`));
+    onAction({ type: 'DISCARD', playerId: playerId, cardId: card.id, from: 'crystallized' });
   }
 
   function gmDrawForPlayer(playerId) {
-    const p = gameState.players[playerId];
-    if (p.hand.length >= p.maxHandSize) return;
-    const { minDrawValue: mn = 1, maxDrawValue: mx = 13 } = p;
-    const card = drawNormal(mn, mx);
-    onUpdate(addLog({
-      ...gameState,
-      players: { ...gameState.players, [playerId]: { ...p, hand: [...p.hand, card] } },
-    }, 'gm', 'MJ', `pioche ${card.value}${card.suit} pour ${getPlayerName(playerId)}`));
+    onAction({ type: 'DRAW', playerId: playerId });
   }
 
   // ── GM Character ─────────────────────────────────────────────────────
   function createGMCharacter() {
-    onUpdate({
-      ...gameState,
-      gmCharacterId: GM_CHAR_ID,
-      players: {
-        ...gameState.players,
-        [GM_CHAR_ID]: createEmptyPlayer("Personnage MJ"),
-      },
-    });
+    onAction({ type: 'CREATE_GM_CHAR', playerId: myId });
   }
 
   function removeGMCharacter() {
-    const players = { ...gameState.players };
-    delete players[GM_CHAR_ID];
-    // Cancel any pending exchanges involving GM character
-    const pendingExchanges = (gameState.pendingExchanges ?? []).filter(
-      (e) => e.from !== GM_CHAR_ID && e.to !== GM_CHAR_ID,
-    );
-    onUpdate({ ...gameState, gmCharacterId: null, pendingExchanges, players });
+    onAction({ type: 'REMOVE_GM_CHAR', playerId: myId });
   }
 
   // ── GM character trade ────────────────────────────────────────────────
@@ -322,24 +196,7 @@
   }
 
   function gmCharPickTarget(targetId) {
-    const exchange = {
-      id: `${GM_CHAR_ID}-${Date.now()}`,
-      from: GM_CHAR_ID,
-      fromCard: gmActionCard,
-      to: targetId,
-    };
-    onUpdate(addLog({
-      ...gameState,
-      pendingExchanges: [...(gameState.pendingExchanges ?? []), exchange],
-      players: {
-        ...gameState.players,
-        [GM_CHAR_ID]: {
-          ...gmChar,
-          tokens: { ...gmChar.tokens, social: gmChar.tokens.social - 1 },
-          hand: gmChar.hand.filter((c) => c.id !== gmActionCard.id),
-        },
-      },
-    }, GM_CHAR_ID, getPlayerName(GM_CHAR_ID), `token Social : propose échange ${gmActionCard.value}${gmActionCard.suit} → ${getPlayerName(targetId)}`));
+    onAction({ type: 'PROPOSE_EXCHANGE', playerId: GM_CHAR_ID, cardId: gmActionCard.id, targetId });
     cancelGmAction();
   }
 
@@ -350,36 +207,12 @@
 
   function gmCharCompleteAccept(myCard) {
     const ex = gmAcceptExchange;
-    const fromPlayer = gameState.players[ex.from];
-    onUpdate(addLog({
-      ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== ex.id),
-      players: {
-        ...gameState.players,
-        [ex.from]: { ...fromPlayer, hand: [...fromPlayer.hand, myCard] },
-        [GM_CHAR_ID]: {
-          ...gmChar,
-          hand: [...gmChar.hand.filter((c) => c.id !== myCard.id), ex.fromCard],
-        },
-      },
-    }, GM_CHAR_ID, getPlayerName(GM_CHAR_ID), `accepte échange avec ${getPlayerName(ex.from)} : donne ${myCard.value}${myCard.suit}, reçoit ${ex.fromCard.value}${ex.fromCard.suit}`));
+    onAction({ type: 'ACCEPT_EXCHANGE', playerId: GM_CHAR_ID, exchangeId: ex.id, cardId: myCard.id });
     cancelGmAction();
   }
 
   function gmCharDecline(exchange) {
-    const fromPlayer = gameState.players[exchange.from];
-    onUpdate(addLog({
-      ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== exchange.id),
-      players: {
-        ...gameState.players,
-        [exchange.from]: { 
-          ...fromPlayer, 
-          hand: [...fromPlayer.hand, exchange.fromCard],
-          tokens: { ...fromPlayer.tokens, social: fromPlayer.tokens.social + 1 }
-        },
-      },
-    }, GM_CHAR_ID, getPlayerName(GM_CHAR_ID), `refuse échange de ${getPlayerName(exchange.from)} (${exchange.fromCard.value}${exchange.fromCard.suit})`));
+    onAction({ type: 'DECLINE_EXCHANGE', playerId: GM_CHAR_ID, exchangeId: exchange.id });
   }
 
   function cancelGmAction() {
@@ -407,10 +240,11 @@
     const file = e.currentTarget.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const raw = JSON.parse(ev.target.result);
-        onUpdate(hydrateState(raw));
+        const importedState = hydrateState(raw);
+        onAction({ type: 'IMPORT_STATE', playerId: myId, state: importedState });
       } catch (err) {
         console.error("Import failed:", err);
       }
@@ -430,15 +264,7 @@
       return;
     }
     resetStep = 0;
-    const fresh = createInitialGameState();
-    // Preserve gmId so the GM stays recognised after reset.
-    // Re-register all current players as empty so they don't get stuck on
-    // "En attente que le MJ initialise la partie..." screen.
-    const players = {};
-    for (const [id, p] of Object.entries(gameState.players)) {
-      players[id] = createEmptyPlayer(p.name);
-    }
-    onUpdate({ ...fresh, gmId: gameState.gmId, players });
+    onAction({ type: 'HARD_RESET', playerId: myId });
   }
 
   function cancelReset() {
@@ -447,20 +273,7 @@
 
   // Cancel any exchange and return the offered card to the sender's hand
   function cancelExchange(exchange) {
-    const sender = gameState.players[exchange.from];
-    onUpdate({
-      ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter(
-        (e) => e.id !== exchange.id,
-      ),
-      players: {
-        ...gameState.players,
-        [exchange.from]: {
-          ...sender,
-          hand: [...sender.hand, exchange.fromCard],
-        },
-      },
-    });
+    onAction({ type: 'CANCEL_EXCHANGE', playerId: myId, exchangeId: exchange.id });
   }
 </script>
 
@@ -1108,12 +921,6 @@
   <!-- ── Sync + Hard reset ─────────────────────────────────────────── -->
   <div class="border-t border-gray-700 pt-4 space-y-2">
     <div class="flex gap-2">
-      <button
-        onclick={onSync}
-        class="flex-1 py-2 text-xs font-bold bg-transparent border border-indigo-700 text-indigo-400 hover:bg-indigo-950 hover:text-indigo-300 hover:border-indigo-500 rounded-lg transition-colors"
-      >
-        ↻ Synchroniser tout
-      </button>
       {#if resetStep === 0}
         <button
           onclick={hardReset}

@@ -1,24 +1,18 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import OBR from '@owlbear-rodeo/sdk';
-  import {
-    createInitialGameState, createEmptyPlayer,
-    hydrateState, dehydrateState,
-    GM_CHAR_ID,
-  } from './deck.js';
   import GMDashboard from './GMDashboard.svelte';
   import PlayerHand from './PlayerHand.svelte';
-
-  const METADATA_KEY = 'com.cardenveil/gameState';
+  import { startPolling, stopPolling, dispatch, fetchState } from './api.js';
 
   let ready     = $state(false);
   let myId      = $state(null);
   let myName    = $state('');
   let myRole    = $state(null);
   let party     = $state([]);
+  let roomId    = $state(null);
   let gameState = $state(null);
 
-  // ── Toast notifications ──────────────────────────────────────────────
   let toasts = $state([]);
 
   function addToast(msg, type = 'error') {
@@ -31,75 +25,15 @@
     toasts = toasts.filter(t => t.id !== id);
   }
 
-  // ── State push: optimistic local update → dehydrate → OBR ────────────
-  async function pushState(newState) {
+  async function onAction(action) {
     try {
-      const previousState = gameState;
-      const plain = $state.snapshot(newState);
-      const dehydrated = dehydrateState(plain);
-      gameState = newState;
-      try {
-        await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
-      } catch (e) {
-        gameState = previousState;
-        throw e;
-      }
+      const newState = await dispatch(roomId, action);
+      if (newState) gameState = newState;
     } catch (e) {
       addToast(e?.message ?? String(e));
     }
   }
 
-  // ── Sync All: reconcile local and remote state ─────────────────────────────
-  async function syncAll() {
-    try {
-      const meta = await OBR.room.getMetadata();
-      const raw = meta[METADATA_KEY];
-      if (!raw) {
-        addToast('No game state found in metadata.', 'error');
-        return;
-      }
-      
-      let remoteState = hydrateState(raw);
-      const localState = gameState;
-      
-      // Reconcile: preserve local player data if remote is missing it
-      if (localState && localState.players[myId] && !remoteState.players[myId]) {
-        remoteState = {
-          ...remoteState,
-          players: { ...remoteState.players, [myId]: localState.players[myId] }
-        };
-      }
-      
-      // Ensure GM ID is set correctly
-      if (myRole === 'GM' && remoteState.gmId !== myId) {
-        remoteState = { ...remoteState, gmId: myId };
-      }
-      
-      // Ensure all party members are registered
-      let dirty = false;
-      for (const p of party) {
-        if (p.id !== myId && !remoteState.players[p.id]) {
-          remoteState = {
-            ...remoteState,
-            players: { ...remoteState.players, [p.id]: createEmptyPlayer(p.name) }
-          };
-          dirty = true;
-        }
-      }
-      
-      // Write reconciled state back to metadata
-      const dehydrated = dehydrateState($state.snapshot(remoteState));
-      await OBR.room.setMetadata({ [METADATA_KEY]: dehydrated });
-      
-      // Update local state
-      gameState = remoteState;
-      addToast('Sync complete.', 'info');
-    } catch (e) {
-      addToast(e?.message ?? String(e));
-    }
-  }
-
-  let unsubMeta  = null;
   let unsubParty = null;
 
   onMount(() => {
@@ -109,84 +43,47 @@
         myName = await OBR.player.getName();
         myRole = await OBR.player.getRole();
         party  = await OBR.party.getPlayers();
+        roomId = await OBR.room.getId();
 
-        const meta = await OBR.room.getMetadata();
-        let raw = meta[METADATA_KEY] ?? null;
+        let state = await fetchState(roomId);
 
-        // GM creates fresh state if none exists
-        if (!raw && myRole === 'GM') {
-          const fresh = createInitialGameState();
-          await OBR.room.setMetadata({ [METADATA_KEY]: dehydrateState(fresh) });
-          raw = dehydrateState(fresh);
+        if (!state && myRole === 'GM') {
+          state = await dispatch(roomId, { type: 'INIT_GAME', playerId: myId });
         }
 
-        // Hydrate and patch missing fields
-        let state = raw ? hydrateState(raw) : null;
-
-        if (state) {
-          let dirty = false;
-
-          // Record GM identity
-          if (myRole === 'GM' && state.gmId !== myId) {
-            state = { ...state, gmId: myId };
-            dirty = true;
-          }
-
-          if (dirty) await OBR.room.setMetadata({ [METADATA_KEY]: dehydrateState(state) });
+        if (state && myRole === 'GM' && state.gmId !== myId) {
+          state = await dispatch(roomId, { type: 'INIT_GAME', playerId: myId });
         }
 
-        // Register player (non-GM only)
         if (state && myRole !== 'GM' && !state.players[myId]) {
-          state = { ...state, players: { ...state.players, [myId]: createEmptyPlayer(myName) } };
-          await OBR.room.setMetadata({ [METADATA_KEY]: dehydrateState(state) });
+          state = await dispatch(roomId, { type: 'REGISTER_PLAYER', playerId: myId, name: myName });
         }
 
-        // GM registers all party members on mount
         if (state && myRole === 'GM') {
-          let partyDirty = false;
-          for (const p of party) {
-            if (p.id !== myId && !state.players[p.id]) {
-              state = { ...state, players: { ...state.players, [p.id]: createEmptyPlayer(p.name) } };
-              partyDirty = true;
-            }
-          }
-          if (partyDirty) {
-            await OBR.room.setMetadata({ [METADATA_KEY]: dehydrateState(state) });
+          const missingPlayers = party.filter(p => p.id !== myId && !state.players[p.id]);
+          if (missingPlayers.length > 0) {
+            state = await dispatch(roomId, { type: 'REGISTER_PARTY', playerId: myId, players: missingPlayers });
           }
         }
 
         gameState = state;
         ready = true;
 
+        startPolling(roomId, (newState) => {
+          gameState = newState;
+        }, 1500);
+
       } catch (e) {
         addToast(e?.message ?? String(e));
         ready = true;
       }
 
-      // Live sync: incoming raw → hydrate locally
-      unsubMeta = OBR.room.onMetadataChange((meta) => {
-        try {
-          const raw = meta[METADATA_KEY];
-          if (raw) gameState = hydrateState(raw);
-        } catch (e) {
-          addToast(e?.message ?? String(e));
-        }
-      });
-
       unsubParty = OBR.party.onChange(async (players) => {
         party = players;
-        // GM auto-registers new party members
-        if (myRole === 'GM' && gameState) {
-          let dirty = false;
-          let state = gameState;
-          for (const p of players) {
-            if (p.id !== myId && !state.players[p.id]) {
-              state = { ...state, players: { ...state.players, [p.id]: createEmptyPlayer(p.name) } };
-              dirty = true;
-            }
-          }
-          if (dirty) {
-            await pushState(state);
+        if (myRole === 'GM' && gameState && roomId) {
+          const missingPlayers = players.filter(p => p.id !== myId && !gameState.players[p.id]);
+          if (missingPlayers.length > 0) {
+            await onAction({ type: 'REGISTER_PARTY', playerId: myId, players: missingPlayers });
           }
         }
       });
@@ -194,12 +91,11 @@
   });
 
   onDestroy(() => {
-    unsubMeta?.();
+    stopPolling();
     unsubParty?.();
   });
 </script>
 
-<!-- ── Toast container ─────────────────────────────────────────────────── -->
 {#if toasts.length > 0}
   <div class="fixed top-2 left-2 right-2 z-50 flex flex-col gap-1.5 pointer-events-none">
     {#each toasts as toast (toast.id)}
@@ -221,7 +117,6 @@
   </div>
 {/if}
 
-<!-- ── Main content ────────────────────────────────────────────────────── -->
 {#if !ready}
   <div class="flex items-center justify-center h-full">
     <div class="text-center space-y-2">
@@ -237,7 +132,7 @@
     </p>
     {#if myRole === 'GM'}
       <button
-        onclick={() => pushState(createInitialGameState())}
+        onclick={() => onAction({ type: 'INIT_GAME', playerId: myId })}
         class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg"
       >
         Initialiser la partie
@@ -246,8 +141,8 @@
   </div>
 
 {:else if myRole === 'GM'}
-  <GMDashboard {gameState} {party} {myId} onUpdate={pushState} onSync={syncAll} />
+  <GMDashboard {gameState} {party} {myId} onAction={onAction} />
 
 {:else}
-  <PlayerHand {gameState} {myId} {myName} {party} onUpdate={pushState} />
+  <PlayerHand {gameState} {myId} {myName} {party} onAction={onAction} />
 {/if}

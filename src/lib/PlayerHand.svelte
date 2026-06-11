@@ -3,15 +3,9 @@
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
   import ActionLog from "./ActionLog.svelte";
-  import { drawNormal, drawSpecialized, GM_CHAR_ID, addLog, sortCards } from "./deck.js";
+  import { GM_CHAR_ID, sortCards } from "./deck.js";
 
-  /**
-   * @type {{
-   *   gameState: object, myId: string, myName: string,
-   *   party: object[], onUpdate: (s: object) => void
-   * }}
-   */
-  let { gameState, myId, myName, party, onUpdate } = $props();
+  let { gameState, myId, myName, party, onAction } = $props();
 
   let player = $derived(gameState.players[myId]);
   let sortedHand = $derived(player ? sortCards(player.hand) : []);
@@ -63,82 +57,43 @@
 
   /** @param {string} tokenKey @param {string} label */
   function useCombat(tokenKey, label) {
-    const tokens = /** @type {any} */ (player.tokens);
+    const tokens = player.tokens;
     if (tokens[tokenKey] <= 0) return;
-    onUpdate(addLog({
-      ...gameState,
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        tokens: { ...tokens, [tokenKey]: tokens[tokenKey] - 1 },
-      }},
-    }, myId, myName, `token ${label} : usage combat`));
+    onAction({ type: 'SPEND_TOKEN', playerId: myId, token: tokenKey });
     choosingToken = null;
   }
 
   // ── Gray out ──────────────────────────────────────────────────────────
   function toggleGray(card) {
-    const grayed = player.grayedCards ?? [];
-    const next = grayed.includes(card.id)
-      ? grayed.filter((id) => id !== card.id)
-      : [...grayed, card.id];
-    onUpdate({ ...gameState, players: { ...gameState.players, [myId]: { ...player, grayedCards: next } } });
+    onAction({ type: 'TOGGLE_GRAY', playerId: myId, cardId: card.id });
   }
 
   // ── Normal draw ───────────────────────────────────────────────────────
   function drawCard() {
     if (handFull || mustCrystallize) return;
-    const card = drawNormal(player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
-    onUpdate(addLog({
-      ...gameState,
-      players: { ...gameState.players, [myId]: { ...player, hand: [...player.hand, card] } },
-    }, myId, myName, `pioche ${card.value}${card.suit}`));
+    onAction({ type: 'DRAW', playerId: myId });
   }
 
   // ── Card actions ──────────────────────────────────────────────────────
   function discardCard(card) {
     const isGrayed = (player.grayedCards ?? []).includes(card.id);
     if (spiritLocked || isGrayed) return;
-    onUpdate(addLog({
-      ...gameState,
-      discard: [...gameState.discard, card],
-      players: { ...gameState.players, [myId]: { ...player, hand: player.hand.filter((c) => c.id !== card.id) } },
-    }, myId, myName, `défausse ${card.value}${card.suit}`));
+    onAction({ type: 'DISCARD', playerId: myId, cardId: card.id, from: 'hand' });
   }
 
   function crystallizeCard(card) {
     if ((player.spiritBounds ?? 0) <= 0) return;
-    onUpdate(addLog({
-      ...gameState,
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        hand: player.hand.filter((c) => c.id !== card.id),
-        crystallized: [...player.crystallized, card],
-        grayedCards: (player.grayedCards ?? []).filter((id) => id !== card.id),
-        spiritBounds: (player.spiritBounds ?? 0) - 1,
-      }},
-    }, myId, myName, `cristallise ${card.value}${card.suit} (−1 Spirit Bound)`));
+    onAction({ type: 'CRYSTALLIZE', playerId: myId, cardId: card.id });
   }
 
   function discardCrystallized(card) {
-    onUpdate(addLog({
-      ...gameState,
-      discard: [...gameState.discard, card],
-      players: { ...gameState.players, [myId]: { ...player, crystallized: player.crystallized.filter((c) => c.id !== card.id) } },
-    }, myId, myName, `joue/défausse cristallisée ${card.value}${card.suit}`));
+    onAction({ type: 'DISCARD', playerId: myId, cardId: card.id, from: 'crystallized' });
   }
 
   // ── Token: Force ──────────────────────────────────────────────────────
   function useForce() {
     if (player.tokens.force <= 0) return;
-    const card = drawNormal(player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
-    onUpdate(addLog({
-      ...gameState,
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        tokens: { ...player.tokens, force: player.tokens.force - 1 },
-        hand: [...player.hand, card],
-      }},
-    }, myId, myName, `token Force : pioche ${card.value}${card.suit}`));
+    onAction({ type: 'DRAW_FORCE', playerId: myId });
   }
 
   // ── Token: Agilité ────────────────────────────────────────────────────
@@ -153,30 +108,14 @@
   }
 
   function agilitePickSuit(suit) {
-    const card = drawSpecialized(suit, player.minDrawValue ?? 1, player.maxDrawValue ?? 13);
-    onUpdate(addLog({
-      ...gameState,
-      discard: [...gameState.discard, actionCard],
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        tokens: { ...player.tokens, agilite: player.tokens.agilite - 1 },
-        hand: [...player.hand.filter((c) => c.id !== actionCard.id), card],
-      }},
-    }, myId, myName, `token Agilité : défausse ${actionCard.value}${actionCard.suit}, pioche ${card.value}${card.suit} (${suit})`));
+    onAction({ type: 'USE_AGILITE', playerId: myId, cardId: actionCard.id, suit });
     cancelAction();
   }
 
   // ── Token: Esprit → ajoute 1 Spirit Bound ────────────────────────────
   function useEsprit() {
     if (player.tokens.esprit <= 0) return;
-    onUpdate(addLog({
-      ...gameState,
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        tokens: { ...player.tokens, esprit: player.tokens.esprit - 1 },
-        spiritBounds: (player.spiritBounds ?? 0) + 1,
-      }},
-    }, myId, myName, `token Esprit : +1 Spirit Bound (total ${(player.spiritBounds ?? 0) + 1})`));
+    onAction({ type: 'USE_ESPRIT', playerId: myId });
   }
 
   // ── Token: Social ─────────────────────────────────────────────────────
@@ -191,16 +130,7 @@
   }
 
   function socialPickTarget(targetId) {
-    const exchange = { id: `${myId}-${Date.now()}`, from: myId, fromCard: actionCard, to: targetId };
-    onUpdate(addLog({
-      ...gameState,
-      pendingExchanges: [...(gameState.pendingExchanges ?? []), exchange],
-      players: { ...gameState.players, [myId]: {
-        ...player,
-        tokens: { ...player.tokens, social: player.tokens.social - 1 },
-        hand: player.hand.filter((c) => c.id !== actionCard.id),
-      }},
-    }, myId, myName, `token Social : propose échange ${actionCard.value}${actionCard.suit} → ${getPlayerName(targetId)}`));
+    onAction({ type: 'PROPOSE_EXCHANGE', playerId: myId, cardId: actionCard.id, targetId });
     cancelAction();
   }
 
@@ -212,33 +142,12 @@
 
   function completeAccept(myCard) {
     const ex = acceptingExchange;
-    const fromPlayer = gameState.players[ex.from];
-    onUpdate(addLog({
-      ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== ex.id),
-      players: {
-        ...gameState.players,
-        [ex.from]: { ...fromPlayer, hand: [...fromPlayer.hand, myCard] },
-        [myId]: { ...player, hand: [...player.hand.filter((c) => c.id !== myCard.id), ex.fromCard] },
-      },
-    }, myId, myName, `accepte échange avec ${getPlayerName(ex.from)} : donne ${myCard.value}${myCard.suit}, reçoit ${ex.fromCard.value}${ex.fromCard.suit}`));
+    onAction({ type: 'ACCEPT_EXCHANGE', playerId: myId, exchangeId: ex.id, cardId: myCard.id });
     cancelAction();
   }
 
   function declineExchange(exchange) {
-    const fromPlayer = gameState.players[exchange.from];
-    onUpdate(addLog({
-      ...gameState,
-      pendingExchanges: gameState.pendingExchanges.filter((e) => e.id !== exchange.id),
-      players: {
-        ...gameState.players,
-        [exchange.from]: { 
-          ...fromPlayer, 
-          hand: [...fromPlayer.hand, exchange.fromCard],
-          tokens: { ...fromPlayer.tokens, social: fromPlayer.tokens.social + 1 }
-        },
-      },
-    }, myId, myName, `refuse échange de ${getPlayerName(exchange.from)} (${exchange.fromCard.value}${exchange.fromCard.suit})`));
+    onAction({ type: 'DECLINE_EXCHANGE', playerId: myId, exchangeId: exchange.id });
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────
