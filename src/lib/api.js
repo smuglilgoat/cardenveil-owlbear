@@ -1,9 +1,9 @@
 import { hydrateState } from './deck.js';
+import { supabase } from './supabaseClient.js';
 
 let currentVersion = 0;
-let pollTimer = null;
+let realtimeChannel = null;
 let onStateCallback = null;
-let dispatching = false;
 
 export async function fetchState(roomId) {
   const res = await fetch(`/api/state?roomId=${encodeURIComponent(roomId)}`, {
@@ -17,40 +17,48 @@ export async function fetchState(roomId) {
   return hydrateState(data.state);
 }
 
-export function startPolling(roomId, onState, interval = 300) {
+export function startRealtime(roomId, onState) {
   onStateCallback = onState;
-  stopPolling();
-  pollTimer = setInterval(async () => {
-    if (dispatching) return;
-    try {
-      const state = await fetchState(roomId);
-      if (state && onStateCallback) onStateCallback(state);
-    } catch (e) {
-      console.error('Poll error:', e);
-    }
-  }, interval);
+  stopRealtime();
+
+  realtimeChannel = supabase
+    .channel(`game:${roomId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'game_rooms',
+        filter: `room_id=eq.${roomId}`,
+      },
+      (payload) => {
+        const newRow = payload.new;
+        if (!newRow) return;
+        if (newRow.version <= currentVersion) return;
+        currentVersion = newRow.version;
+        if (onStateCallback) {
+          onStateCallback(hydrateState(newRow.state));
+        }
+      }
+    )
+    .subscribe();
 }
 
-export function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
+export function stopRealtime() {
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
   }
 }
 
 export async function dispatch(roomId, action) {
-  dispatching = true;
-  try {
-    const res = await fetch('/api/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId, action }),
-    });
-    if (!res.ok) throw new Error(`Dispatch failed: ${res.status}`);
-    const data = await res.json();
-    if (data.version != null) currentVersion = data.version;
-    return hydrateState(data.state);
-  } finally {
-    dispatching = false;
-  }
+  const res = await fetch('/api/state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roomId, action }),
+  });
+  if (!res.ok) throw new Error(`Dispatch failed: ${res.status}`);
+  const data = await res.json();
+  if (data.version != null) currentVersion = data.version;
+  return hydrateState(data.state);
 }

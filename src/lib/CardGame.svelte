@@ -3,7 +3,7 @@
   import OBR from '@owlbear-rodeo/sdk';
   import GMDashboard from './GMDashboard.svelte';
   import PlayerHand from './PlayerHand.svelte';
-  import { startPolling, stopPolling, dispatch, fetchState } from './api.js';
+  import { startRealtime, stopRealtime, dispatch, fetchState } from './api.js';
 
   let ready     = $state(false);
   let myId      = $state(null);
@@ -69,9 +69,9 @@
         gameState = state;
         ready = true;
 
-        startPolling(roomId, (newState) => {
+        startRealtime(roomId, (newState) => {
           gameState = newState;
-        }, 1500);
+        });
 
       } catch (e) {
         addToast(e?.message ?? String(e));
@@ -91,7 +91,7 @@
   });
 
   onDestroy(() => {
-    stopPolling();
+    stopRealtime();
     unsubParty?.();
   });
 </script>

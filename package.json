@@ -15,8 +15,8 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
-    "@netlify/blobs": "^10.7.9",
     "@owlbear-rodeo/sdk": "^3.1.0",
+    "@supabase/supabase-js": "^2.49.1",
     "@tailwindcss/vite": "^4.1.17",
     "tailwindcss": "^4.1.17"
   }

@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
   import { GM_CHAR_ID, sortCards } from "./lib/deck.js";
-  import { startPolling, stopPolling, dispatch } from "./lib/api.js";
+  import { startRealtime, stopRealtime, dispatch } from "./lib/api.js";
 
   let ready = $state(false);
   let myId = $state(null);
@@ -32,9 +32,9 @@
       party = await OBR.party.getPlayers();
       ready = true;
 
-      startPolling(roomId, (newState) => {
+      startRealtime(roomId, (newState) => {
         gameState = newState;
-      }, 1500);
+      });
 
       unsubParty = OBR.party.onChange((p) => {
         party = p;
@@ -43,7 +43,7 @@
   });
 
   onDestroy(() => {
-    stopPolling();
+    stopRealtime();
     unsubParty?.();
   });
 
