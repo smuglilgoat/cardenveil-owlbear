@@ -6,13 +6,13 @@ This guide describes how to replace the current **Netlify Blobs + polling** arch
 
 ### Current Architecture (Blobs)
 ```
-Client → POST /api/state → Netlify Function → Netlify Blobs
+Client → POST /api/action → Netlify Function → Netlify Blobs
 Client ← poll GET /api/state (1.5s) ← Netlify Function ← Netlify Blobs
 ```
 
 ### Target Architecture (Supabase)
 ```
-Client → POST /api/state → Netlify Function → Supabase (PostgreSQL)
+Client → POST /api/action → Netlify Function → Supabase (PostgreSQL)
 Client ← realtime WebSocket ← Supabase Realtime ← Supabase (PostgreSQL)
 ```
 
@@ -340,7 +340,7 @@ export function stopRealtime() {
 }
 
 export async function dispatch(roomId, action) {
-  const res = await fetch('/api/state', {
+  const res = await fetch('/api/action', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ roomId, action }),
