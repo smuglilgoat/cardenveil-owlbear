@@ -1,4 +1,4 @@
-import { hydrateState } from './deck.js';
+import { hydrateState, applyAction } from './deck.js';
 import { supabase } from './supabaseClient.js';
 
 let currentVersion = 0;
@@ -11,6 +11,9 @@ let isSubscribed = false;
 let currentRoomId = null;
 let permanentlyDisconnected = false;
 let connectionGeneration = 0;
+
+let lastServerState = null;
+let pendingActions = [];
 
 const BACKOFF_STEPS_MS = [1000, 2000, 4000, 8000];
 const MAX_BACKOFF_MS = 30000;
@@ -29,7 +32,10 @@ export async function fetchState(roomId) {
   const data = await res.json();
   if (data.version != null) currentVersion = data.version;
   if (!data.state) return null;
-  return hydrateState(data.state);
+  const state = hydrateState(data.state);
+  lastServerState = state;
+  pendingActions = [];
+  return state;
 }
 
 function nextBackoffMs() {
@@ -59,6 +65,16 @@ function scheduleReconnect() {
   }, delay);
 }
 
+function replayPending(serverState) {
+  if (pendingActions.length === 0) return serverState;
+  let state = serverState;
+  for (const action of pendingActions) {
+    const result = applyAction(state, action);
+    state = result.state;
+  }
+  return state;
+}
+
 export function startRealtime(roomId, onState, onConnectionChange) {
   onStateCallback = onState;
   onConnectionCallback = onConnectionChange || null;
@@ -83,14 +99,16 @@ export function startRealtime(roomId, onState, onConnectionChange) {
         if (!newRow) return;
         if (newRow.version <= currentVersion) return;
         currentVersion = newRow.version;
+        const serverState = hydrateState(newRow.state);
+        lastServerState = serverState;
+        pendingActions = pendingActions.filter(a => a._confirmedVersion == null || a._confirmedVersion > currentVersion);
+        const displayState = replayPending(serverState);
         if (onStateCallback) {
-          onStateCallback(hydrateState(newRow.state));
+          onStateCallback(displayState);
         }
       }
     )
     .subscribe((status, err) => {
-      // Ignore callbacks from stale subscriptions (e.g. after stopRealtime
-      // or a newer startRealtime superseded this one).
       if (myGen !== connectionGeneration) return;
 
       if (status === 'SUBSCRIBED') {
@@ -101,7 +119,6 @@ export function startRealtime(roomId, onState, onConnectionChange) {
         permanentlyDisconnected = false;
         if (onConnectionCallback) onConnectionCallback('connected');
         if (wasReconnect) {
-          // Catch up on state changes that may have been missed while disconnected.
           const catchUpGen = myGen;
           fetchState(roomId)
             .then((state) => {
@@ -138,40 +155,66 @@ export function stopRealtime() {
   reconnectAttempt = 0;
   permanentlyDisconnected = false;
   connectionGeneration++;
+  lastServerState = null;
+  pendingActions = [];
 }
 
 const MAX_CLIENT_RETRIES = 3;
 
 export async function dispatch(roomId, action) {
-  let lastError;
-  for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
-    const res = await fetch('/api/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomId, action }),
-    });
+  const currentState = lastServerState
+    ? replayPending(lastServerState)
+    : await fetchState(roomId);
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.version != null) currentVersion = data.version;
-      return hydrateState(data.state);
-    }
-
-    if (res.status === 409) {
-      // Server returned current state — use it and retry
-      const data = await res.json();
-      if (data.version != null) currentVersion = data.version;
-      if (data.state && onStateCallback) {
-        onStateCallback(hydrateState(data.state));
-      }
-      // Small delay before retry to let server settle
-      await new Promise(r => setTimeout(r, 100));
-      continue;
-    }
-
-    // Other errors — try to include response body for debugging
-    const body = await res.text();
-    throw new Error(`Dispatch failed: ${res.status} — ${body}`);
+  if (!currentState) {
+    throw new Error('No state available for optimistic update');
   }
-  throw lastError || new Error('Dispatch failed after max retries');
+
+  const { state: optimisticState } = applyAction(currentState, action);
+  if (onStateCallback) {
+    onStateCallback(optimisticState);
+  }
+
+  const pendingEntry = { ...action, _dispatchTime: Date.now() };
+  pendingActions.push(pendingEntry);
+
+  (async () => {
+    let lastError;
+    for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
+      try {
+        const { data, error } = await supabase.functions.invoke('action', {
+          body: { roomId, action },
+        });
+
+        if (error) {
+          lastError = error;
+          continue;
+        }
+
+        if (data?.version != null) {
+          pendingEntry._confirmedVersion = data.version;
+          return;
+        }
+
+        if (data?.error) {
+          lastError = new Error(data.error);
+        }
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    console.error('Dispatch failed after retries:', lastError);
+    pendingActions = pendingActions.filter(a => a !== pendingEntry);
+    if (currentRoomId) {
+      try {
+        const state = await fetchState(currentRoomId);
+        if (state && onStateCallback) onStateCallback(state);
+      } catch (e) {
+        console.error('Recovery fetch failed:', e);
+      }
+    }
+  })();
+
+  return optimisticState;
 }

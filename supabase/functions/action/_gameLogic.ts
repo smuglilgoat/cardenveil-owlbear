@@ -6,192 +6,151 @@ const SUITS = [
 ];
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
-const SUIT_BY_ID = {
+const SUIT_BY_ID: Record<string, { symbol: string; isRed: boolean }> = {
   S: { symbol: '♠', isRed: false },
   C: { symbol: '♣', isRed: false },
   H: { symbol: '♥', isRed: true  },
   D: { symbol: '♦', isRed: true  },
 };
 
-const SUIT_SORT_ORDER = { '♥': 0, '♣': 1, '♦': 2, '♠': 3 };
-
-export function sortCards(cards) {
-  return [...cards].sort((a, b) =>
-    (SUIT_SORT_ORDER[a.suit] - SUIT_SORT_ORDER[b.suit]) || (a.numericValue - b.numericValue)
-  );
-}
-
-export function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+export const GM_CHAR_ID = '__gm_char__';
+const LOG_LIMIT = 200;
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 }
 
-/** Create a specific card (by suit symbol + value) with a fresh unique ID. */
-export function makeCard(suitSymbol, value, prefix = 'n') {
-  const suit = SUITS.find(s => s.symbol === suitSymbol);
-  const i    = VALUES.indexOf(value);
-  return { id: `${prefix}-${suit.id}-${value}-${uid()}`, suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed };
-}
-
-/** Draw one random card from the full 52-card set (normal pool, infinite). */
 export function drawNormal(min = 1, max = 13) {
-  const pool   = VALUES.filter((_, i) => i + 1 >= min && i + 1 <= max);
-  const arr    = pool.length > 0 ? pool : VALUES;
-  const suit   = SUITS[Math.floor(Math.random() * SUITS.length)];
-  const value  = arr[Math.floor(Math.random() * arr.length)];
-  const i      = VALUES.indexOf(value);
+  const pool = VALUES.filter((_, i) => i + 1 >= min && i + 1 <= max);
+  const arr = pool.length > 0 ? pool : VALUES;
+  const suit = SUITS[Math.floor(Math.random() * SUITS.length)];
+  const value = arr[Math.floor(Math.random() * arr.length)];
+  const i = VALUES.indexOf(value);
   return { id: `n-${suit.id}-${value}-${uid()}`, suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed };
 }
 
-/** Draw one random card from the 13 cards of the given suit (specialized pool, infinite). */
-export function drawSpecialized(suitSymbol, min = 1, max = 13) {
-  const pool   = VALUES.filter((_, i) => i + 1 >= min && i + 1 <= max);
-  const arr    = pool.length > 0 ? pool : VALUES;
-  const suit   = SUITS.find(s => s.symbol === suitSymbol);
-  const value  = arr[Math.floor(Math.random() * arr.length)];
-  const i      = VALUES.indexOf(value);
-  return { id: `s-${suit.id}-${value}-${uid()}`, suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed };
-}
-
-/** All 52 cards of the standard deck (for swap picker UI). */
-export function fullDeck() {
-  return SUITS.flatMap(suit =>
-    VALUES.map((value, i) => ({
-      id: `pick-${suit.id}-${value}`,
-      suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed,
-    }))
-  );
-}
-
-/** All 13 cards of a given suit (for swap picker UI). */
-export function fullSuit(suitSymbol) {
+export function drawSpecialized(suitSymbol: string, min = 1, max = 13) {
+  const pool = VALUES.filter((_, i) => i + 1 >= min && i + 1 <= max);
+  const arr = pool.length > 0 ? pool : VALUES;
   const suit = SUITS.find(s => s.symbol === suitSymbol);
-  return VALUES.map((value, i) => ({
-    id: `pick-${suit.id}-${value}`,
-    suit: suit.symbol, value, numericValue: i + 1, isRed: suit.isRed,
-  }));
+  const value = arr[Math.floor(Math.random() * arr.length)];
+  const i = VALUES.indexOf(value);
+  return { id: `s-${suit!.id}-${value}-${uid()}`, suit: suit!.symbol, value, numericValue: i + 1, isRed: suit!.isRed };
 }
 
-/** Reconstruct a full card object from its ID string. */
-export function cardFromId(id) {
-  // id format: "{prefix}-{suitId}-{value}-{copy}"  e.g. "n-S-10-1"
-  const parts = id.split('-');
-  const suitId = parts[1];
-  const value  = parts[2];
-  const { symbol, isRed } = SUIT_BY_ID[suitId];
-  return { id, suit: symbol, value, numericValue: VALUES.indexOf(value) + 1, isRed };
+export function makeCard(suitSymbol: string, value: string, prefix = 'n') {
+  const suit = SUITS.find(s => s.symbol === suitSymbol);
+  const i = VALUES.indexOf(value);
+  return { id: `${prefix}-${suit!.id}-${value}-${uid()}`, suit: suit!.symbol, value, numericValue: i + 1, isRed: suit!.isRed };
 }
-
-/** Accept an ID string or an already-hydrated card object. */
-function toCard(item) {
-  return typeof item === 'string' ? cardFromId(item) : item;
-}
-
-/**
- * Normal stack: 3 full 52-card decks shuffled together (156 cards).
- */
-export function createNormalDeck() {
-  const cards = [];
-  for (let copy = 1; copy <= 3; copy++) {
-    for (const suit of SUITS) {
-      for (let i = 0; i < VALUES.length; i++) {
-        cards.push({
-          id: `n-${suit.id}-${VALUES[i]}-${copy}`,
-          suit: suit.symbol,
-          value: VALUES[i],
-          numericValue: i + 1,
-          isRed: suit.isRed,
-        });
-      }
-    }
-  }
-  return shuffle(cards);
-}
-
-/**
- * Specialized stack: 3×52 cards split into 4 piles by suit (39 cards each).
- */
-export function createSpecializedDecks() {
-  const decks = {};
-  for (const suit of SUITS) {
-    const cards = [];
-    for (let copy = 1; copy <= 3; copy++) {
-      for (let i = 0; i < VALUES.length; i++) {
-        cards.push({
-          id: `s-${suit.id}-${VALUES[i]}-${copy}`,
-          suit: suit.symbol,
-          value: VALUES[i],
-          numericValue: i + 1,
-          isRed: suit.isRed,
-        });
-      }
-    }
-    decks[suit.symbol] = shuffle(cards);
-  }
-  return decks;
-}
-
-/** Reserved ID for the optional GM player-character */
-export const GM_CHAR_ID = '__gm_char__';
 
 export function createEmptyPlayer(name = '') {
   return {
     name,
-    hand: [],
-    crystallized: [],
+    hand: [] as any[],
+    crystallized: [] as any[],
     maxHandSize: 3,
     tokens:       { force: 3, agilite: 3, esprit: 3, social: 3 },
     maxTokens:    { force: 3, agilite: 3, esprit: 3, social: 3 },
-    minDrawValue:  1,
-    maxDrawValue:  13,
-    grayedCards:   [],
-    spiritBounds:  0,
+    minDrawValue: 1,
+    maxDrawValue: 13,
+    grayedCards:  [] as string[],
+    spiritBounds: 0,
   };
 }
 
 export function createInitialGameState() {
   return {
-    discard:          [],
-    pendingExchanges: [],
-    gmId:             null,
-    gmCharacterId:    null,
-    players:          {},
-    logs:             [],
+    discard: [] as any[],
+    pendingExchanges: [] as any[],
+    gmId: null as string | null,
+    gmCharacterId: null as string | null,
+    players: {} as Record<string, any>,
+    logs: [] as any[],
   };
 }
 
-const LOG_LIMIT = 200;
+function cardFromId(id: string) {
+  const parts = id.split('-');
+  const suitId = parts[1];
+  const value = parts[2];
+  const { symbol, isRed } = SUIT_BY_ID[suitId];
+  return { id, suit: symbol, value, numericValue: VALUES.indexOf(value) + 1, isRed };
+}
 
-/**
- * Append a log entry to state. Trims to the last LOG_LIMIT entries.
- * @param {object} state
- * @param {string} playerId
- * @param {string} playerName
- * @param {string} msg
- */
-export function addLog(state, playerId, playerName, msg) {
+function toCard(item: any) {
+  return typeof item === 'string' ? cardFromId(item) : item;
+}
+
+export function addLog(state: any, playerId: string, playerName: string, msg: string) {
   const entry = { id: uid(), ts: Date.now(), playerId, playerName, msg };
   const logs = [...(state.logs ?? []), entry];
   return { ...state, logs: logs.length > LOG_LIMIT ? logs.slice(-LOG_LIMIT) : logs };
 }
 
-function isGM(state, playerId) {
+function isGM(state: any, playerId: string) {
   return state.gmId === playerId;
 }
 
-function clamp(val, min, max) {
+function clamp(val: number, min: number, max: number) {
   return Math.max(min, Math.min(max, val));
 }
 
-export function applyAction(state, action) {
+export function hydrateState(raw: any) {
+  const players: Record<string, any> = {};
+  for (const [id, p] of Object.entries(raw.players ?? {})) {
+    players[id] = {
+      ...(p as any),
+      maxHandSize:  (p as any).maxHandSize  ?? 3,
+      hand:         ((p as any).hand        ?? []).map(toCard),
+      crystallized: ((p as any).crystallized ?? []).map(toCard),
+      tokens:       (p as any).tokens    ?? { force: 3, agilite: 3, esprit: 3, social: 3 },
+      maxTokens:    (p as any).maxTokens ?? { force: 3, agilite: 3, esprit: 3, social: 3 },
+      minDrawValue: (p as any).minDrawValue ?? 1,
+      maxDrawValue: (p as any).maxDrawValue ?? 13,
+      grayedCards:  (p as any).grayedCards  ?? [],
+      spiritBounds: (p as any).spiritBounds ?? 0,
+    };
+  }
+
+  const pendingExchanges = (raw.pendingExchanges ?? []).map((ex: any) => ({
+    ...ex,
+    fromCard: toCard(ex.fromCard),
+  }));
+
+  return {
+    discard:          (raw.discard ?? []).map(toCard),
+    pendingExchanges,
+    gmId:             raw.gmId          ?? null,
+    gmCharacterId:    raw.gmCharacterId ?? null,
+    players,
+    logs:             raw.logs ?? [],
+  };
+}
+
+export function dehydrateState(state: any) {
+  const toId = (c: any) => c.id;
+
+  const players: Record<string, any> = {};
+  for (const [id, p] of Object.entries(state.players)) {
+    players[id] = {
+      ...p,
+      hand:         (p as any).hand.map(toId),
+      crystallized: (p as any).crystallized.map(toId),
+    };
+  }
+
+  return {
+    discard:          state.discard.map(toId),
+    pendingExchanges: state.pendingExchanges.map((ex: any) => ({ ...ex, fromCard: ex.fromCard.id })),
+    gmId:             state.gmId,
+    gmCharacterId:    state.gmCharacterId,
+    players,
+    logs:             state.logs ?? [],
+  };
+}
+
+export function applyAction(state: any, action: any): { state: any; log: any } {
   const { type } = action;
 
   switch (type) {
@@ -261,13 +220,13 @@ export function applyAction(state, action) {
         ...state,
         players: { ...state.players, [action.targetId]: { ...target, hand: [...target.hand, ...cards] } },
       };
-      return { state: addLog(s, 'gm', 'MJ', `distribue ${cards.length} carte(s) à ${target.name} : ${cards.map(c => c.value + c.suit).join(', ')}`), log: null };
+      return { state: addLog(s, 'gm', 'MJ', `distribue ${cards.length} carte(s) à ${target.name} : ${cards.map((c: any) => c.value + c.suit).join(', ')}`), log: null };
     }
 
     case 'DEAL_ALL': {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const updatedPlayers = { ...state.players };
-      const dealtTo = [];
+      const dealtTo: string[] = [];
       for (const [id, pl] of Object.entries(state.players)) {
         if (id === action.playerId) continue;
         if (pl.hand.length < pl.maxHandSize) {
@@ -289,24 +248,24 @@ export function applyAction(state, action) {
         const isGrayed = (p.grayedCards ?? []).includes(action.cardId);
         const spiritLocked = p.hand.length <= (p.spiritBounds ?? 0);
         if (isGrayed || spiritLocked) return { state, log: null };
-        const card = p.hand.find(c => c.id === action.cardId);
+        const card = p.hand.find((c: any) => c.id === action.cardId);
         if (!card) return { state, log: null };
         const s = {
           ...state,
           discard: [...state.discard, card],
           players: { ...state.players, [action.playerId]: {
-            ...p, hand: p.hand.filter(c => c.id !== action.cardId),
+            ...p, hand: p.hand.filter((c: any) => c.id !== action.cardId),
           }},
         };
         return { state: addLog(s, action.playerId, p.name, `défausse ${card.value}${card.suit}`), log: null };
       } else {
-        const card = p.crystallized.find(c => c.id === action.cardId);
+        const card = p.crystallized.find((c: any) => c.id === action.cardId);
         if (!card) return { state, log: null };
         const s = {
           ...state,
           discard: [...state.discard, card],
           players: { ...state.players, [action.playerId]: {
-            ...p, crystallized: p.crystallized.filter(c => c.id !== action.cardId),
+            ...p, crystallized: p.crystallized.filter((c: any) => c.id !== action.cardId),
           }},
         };
         return { state: addLog(s, action.playerId, p.name, `joue/défausse cristallisée ${card.value}${card.suit}`), log: null };
@@ -316,15 +275,15 @@ export function applyAction(state, action) {
     case 'CRYSTALLIZE': {
       const p = state.players[action.playerId];
       if (!p || (p.spiritBounds ?? 0) <= 0) return { state, log: null };
-      const card = p.hand.find(c => c.id === action.cardId);
+      const card = p.hand.find((c: any) => c.id === action.cardId);
       if (!card) return { state, log: null };
       const s = {
         ...state,
         players: { ...state.players, [action.playerId]: {
           ...p,
-          hand: p.hand.filter(c => c.id !== action.cardId),
+          hand: p.hand.filter((c: any) => c.id !== action.cardId),
           crystallized: [...p.crystallized, card],
-          grayedCards: (p.grayedCards ?? []).filter(id => id !== action.cardId),
+          grayedCards: (p.grayedCards ?? []).filter((id: string) => id !== action.cardId),
           spiritBounds: (p.spiritBounds ?? 0) - 1,
         }},
       };
@@ -348,7 +307,7 @@ export function applyAction(state, action) {
     case 'USE_AGILITE': {
       const p = state.players[action.playerId];
       if (!p || p.tokens.agilite <= 0) return { state, log: null };
-      const actionCard = p.hand.find(c => c.id === action.cardId);
+      const actionCard = p.hand.find((c: any) => c.id === action.cardId);
       if (!actionCard) return { state, log: null };
       const mn = p.minDrawValue ?? 1, mx = p.maxDrawValue ?? 13;
       const newCard = drawSpecialized(action.suit, mn, mx);
@@ -358,7 +317,7 @@ export function applyAction(state, action) {
         players: { ...state.players, [action.playerId]: {
           ...p,
           tokens: { ...p.tokens, agilite: p.tokens.agilite - 1 },
-          hand: [...p.hand.filter(c => c.id !== action.cardId), newCard],
+          hand: [...p.hand.filter((c: any) => c.id !== action.cardId), newCard],
         }},
       };
       return { state: addLog(s, action.playerId, p.name, `token Agilité : défausse ${actionCard.value}${actionCard.suit}, pioche ${newCard.value}${newCard.suit} (${action.suit})`), log: null };
@@ -381,7 +340,7 @@ export function applyAction(state, action) {
     case 'PROPOSE_EXCHANGE': {
       const p = state.players[action.playerId];
       if (!p || p.tokens.social <= 0) return { state, log: null };
-      const card = p.hand.find(c => c.id === action.cardId);
+      const card = p.hand.find((c: any) => c.id === action.cardId);
       if (!card) return { state, log: null };
       const exchange = {
         id: `${action.playerId}-${Date.now()}`,
@@ -395,7 +354,7 @@ export function applyAction(state, action) {
         players: { ...state.players, [action.playerId]: {
           ...p,
           tokens: { ...p.tokens, social: p.tokens.social - 1 },
-          hand: p.hand.filter(c => c.id !== action.cardId),
+          hand: p.hand.filter((c: any) => c.id !== action.cardId),
         }},
       };
       const targetName = state.players[action.targetId]?.name ?? action.targetId.slice(0, 8);
@@ -403,33 +362,33 @@ export function applyAction(state, action) {
     }
 
     case 'ACCEPT_EXCHANGE': {
-      const ex = (state.pendingExchanges ?? []).find(e => e.id === action.exchangeId);
+      const ex = (state.pendingExchanges ?? []).find((e: any) => e.id === action.exchangeId);
       if (!ex) return { state, log: null };
       const recipient = state.players[ex.to];
       const sender = state.players[ex.from];
       if (!recipient || !sender) return { state, log: null };
-      const myCard = recipient.hand.find(c => c.id === action.cardId);
+      const myCard = recipient.hand.find((c: any) => c.id === action.cardId);
       if (!myCard) return { state, log: null };
       const s = {
         ...state,
-        pendingExchanges: state.pendingExchanges.filter(e => e.id !== ex.id),
+        pendingExchanges: state.pendingExchanges.filter((e: any) => e.id !== ex.id),
         players: {
           ...state.players,
           [ex.from]: { ...sender, hand: [...sender.hand, myCard] },
-          [ex.to]: { ...recipient, hand: [...recipient.hand.filter(c => c.id !== myCard.id), ex.fromCard] },
+          [ex.to]: { ...recipient, hand: [...recipient.hand.filter((c: any) => c.id !== myCard.id), ex.fromCard] },
         },
       };
       return { state: addLog(s, ex.to, recipient.name, `accepte échange avec ${sender.name} : donne ${myCard.value}${myCard.suit}, reçoit ${ex.fromCard.value}${ex.fromCard.suit}`), log: null };
     }
 
     case 'DECLINE_EXCHANGE': {
-      const ex = (state.pendingExchanges ?? []).find(e => e.id === action.exchangeId);
+      const ex = (state.pendingExchanges ?? []).find((e: any) => e.id === action.exchangeId);
       if (!ex) return { state, log: null };
       const sender = state.players[ex.from];
       if (!sender) return { state, log: null };
       const s = {
         ...state,
-        pendingExchanges: state.pendingExchanges.filter(e => e.id !== ex.id),
+        pendingExchanges: state.pendingExchanges.filter((e: any) => e.id !== ex.id),
         players: {
           ...state.players,
           [ex.from]: {
@@ -445,13 +404,13 @@ export function applyAction(state, action) {
 
     case 'CANCEL_EXCHANGE': {
       if (!isGM(state, action.playerId)) return { state, log: null };
-      const ex = (state.pendingExchanges ?? []).find(e => e.id === action.exchangeId);
+      const ex = (state.pendingExchanges ?? []).find((e: any) => e.id === action.exchangeId);
       if (!ex) return { state, log: null };
       const sender = state.players[ex.from];
       if (!sender) return { state, log: null };
       const s = {
         ...state,
-        pendingExchanges: state.pendingExchanges.filter(e => e.id !== ex.id),
+        pendingExchanges: state.pendingExchanges.filter((e: any) => e.id !== ex.id),
         players: {
           ...state.players,
           [ex.from]: { ...sender, hand: [...sender.hand, ex.fromCard] },
@@ -492,7 +451,7 @@ export function applyAction(state, action) {
       if (!p) return { state, log: null };
       const grayed = p.grayedCards ?? [];
       const next = grayed.includes(action.cardId)
-        ? grayed.filter(id => id !== action.cardId)
+        ? grayed.filter((id: string) => id !== action.cardId)
         : [...grayed, action.cardId];
       const s = {
         ...state,
@@ -505,7 +464,7 @@ export function applyAction(state, action) {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const p = state.players[action.targetId];
       if (!p) return { state, log: null };
-      const oldCard = p.hand.find(c => c.id === action.oldCardId);
+      const oldCard = p.hand.find((c: any) => c.id === action.oldCardId);
       if (!oldCard) return { state, log: null };
       const prefix = action.source === 'normal' ? 'n' : 's';
       const newCard = makeCard(action.suit, action.value, prefix);
@@ -514,7 +473,7 @@ export function applyAction(state, action) {
         discard: [...state.discard, oldCard],
         players: {
           ...state.players,
-          [action.targetId]: { ...p, hand: p.hand.map(c => c.id === oldCard.id ? newCard : c) },
+          [action.targetId]: { ...p, hand: p.hand.map((c: any) => c.id === oldCard.id ? newCard : c) },
         },
       };
       return { state: addLog(s, 'gm', 'MJ', `remplace ${oldCard.value}${oldCard.suit} → ${newCard.value}${newCard.suit} dans la main de ${p.name}`), log: null };
@@ -562,7 +521,7 @@ export function applyAction(state, action) {
 
     case 'REST_ALL': {
       if (!isGM(state, action.playerId)) return { state, log: null };
-      const updated = {};
+      const updated: Record<string, any> = {};
       for (const [id, p] of Object.entries(state.players)) {
         updated[id] = { ...p, tokens: { ...p.maxTokens } };
       }
@@ -572,7 +531,7 @@ export function applyAction(state, action) {
     case 'HARD_RESET': {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const fresh = createInitialGameState();
-      const players = {};
+      const players: Record<string, any> = {};
       for (const [id, p] of Object.entries(state.players)) {
         players[id] = createEmptyPlayer(p.name);
       }
@@ -599,7 +558,7 @@ export function applyAction(state, action) {
       const players = { ...state.players };
       delete players[GM_CHAR_ID];
       const pendingExchanges = (state.pendingExchanges ?? []).filter(
-        e => e.from !== GM_CHAR_ID && e.to !== GM_CHAR_ID,
+        (e: any) => e.from !== GM_CHAR_ID && e.to !== GM_CHAR_ID,
       );
       return { state: { ...state, gmCharacterId: null, pendingExchanges, players }, log: null };
     }
@@ -607,75 +566,4 @@ export function applyAction(state, action) {
     default:
       return { state, log: null };
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Hydration / Dehydration
-//
-// OBR room metadata has a limited payload size. Storing full card objects
-// (id + suit + value + numericValue + isRed) for 156 + 156 cards would
-// exceed that limit. Instead we store only card ID strings (~9 chars each)
-// and reconstruct full objects on the client side.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Convert raw OBR-stored state (ID strings everywhere) back to runtime state
- * (full card objects). Also handles legacy formats where full objects were stored.
- */
-export function hydrateState(raw) {
-  const players = {};
-  for (const [id, p] of Object.entries(raw.players ?? {})) {
-    players[id] = {
-      ...p,
-      maxHandSize:  p.maxHandSize  ?? 3,
-      hand:         (p.hand        ?? []).map(toCard),
-      crystallized: (p.crystallized ?? []).map(toCard),
-      tokens:       p.tokens    ?? { force: 3, agilite: 3, esprit: 3, social: 3 },
-      maxTokens:    p.maxTokens ?? { force: 3, agilite: 3, esprit: 3, social: 3 },
-      minDrawValue: p.minDrawValue ?? 1,
-      maxDrawValue: p.maxDrawValue ?? 13,
-      grayedCards:  p.grayedCards  ?? [],
-      spiritBounds: p.spiritBounds ?? 0,
-    };
-  }
-
-  const pendingExchanges = (raw.pendingExchanges ?? []).map(ex => ({
-    ...ex,
-    fromCard: toCard(ex.fromCard),
-  }));
-
-  return {
-    discard:          (raw.discard ?? []).map(toCard),
-    pendingExchanges,
-    gmId:             raw.gmId          ?? null,
-    gmCharacterId:    raw.gmCharacterId ?? null,
-    players,
-    logs:             raw.logs ?? [],
-  };
-}
-
-/**
- * Convert runtime state (full card objects) to compact storage state (ID strings only).
- * This is what gets written to OBR metadata.
- */
-export function dehydrateState(state) {
-  const toId = c => c.id;
-
-  const players = {};
-  for (const [id, p] of Object.entries(state.players)) {
-    players[id] = {
-      ...p,
-      hand:         p.hand.map(toId),
-      crystallized: p.crystallized.map(toId),
-    };
-  }
-
-  return {
-    discard:          state.discard.map(toId),
-    pendingExchanges: state.pendingExchanges.map(ex => ({ ...ex, fromCard: ex.fromCard.id })),
-    gmId:             state.gmId,
-    gmCharacterId:    state.gmCharacterId,
-    players,
-    logs:             state.logs ?? [],
-  };
 }
