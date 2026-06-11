@@ -1,4 +1,4 @@
-import { hydrateState, applyAction } from './deck.js';
+import { hydrateState, applyAction, createInitialGameState } from './deck.js';
 import { supabase } from './supabaseClient.js';
 
 let currentVersion = 0;
@@ -164,11 +164,7 @@ const MAX_CLIENT_RETRIES = 3;
 export async function dispatch(roomId, action) {
   const currentState = lastServerState
     ? replayPending(lastServerState)
-    : await fetchState(roomId);
-
-  if (!currentState) {
-    throw new Error('No state available for optimistic update');
-  }
+    : (await fetchState(roomId)) ?? createInitialGameState();
 
   const { state: optimisticState } = applyAction(currentState, action);
   if (onStateCallback) {
@@ -180,6 +176,8 @@ export async function dispatch(roomId, action) {
 
   (async () => {
     let lastError;
+    let useFallback = false;
+
     for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
       try {
         const { data, error } = await supabase.functions.invoke('action', {
@@ -188,7 +186,8 @@ export async function dispatch(roomId, action) {
 
         if (error) {
           lastError = error;
-          continue;
+          useFallback = true;
+          break;
         }
 
         if (data?.version != null) {
@@ -201,6 +200,44 @@ export async function dispatch(roomId, action) {
         }
       } catch (e) {
         lastError = e;
+        useFallback = true;
+        break;
+      }
+    }
+
+    if (useFallback) {
+      console.warn('Edge Function failed, falling back to Netlify:', lastError?.message);
+      for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
+        try {
+          const res = await fetch('/api/state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomId, action }),
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            pendingEntry._confirmedVersion = data.version;
+            return;
+          }
+
+          if (res.status === 409) {
+            const data = await res.json();
+            if (data.version != null) currentVersion = data.version;
+            if (data.state && onStateCallback) {
+              const serverState = hydrateState(data.state);
+              lastServerState = serverState;
+              const displayState = replayPending(serverState);
+              onStateCallback(displayState);
+            }
+            await new Promise(r => setTimeout(r, 100));
+            continue;
+          }
+
+          lastError = new Error(`Netlify dispatch failed: ${res.status}`);
+        } catch (e) {
+          lastError = e;
+        }
       }
     }
 
