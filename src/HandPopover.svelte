@@ -119,6 +119,17 @@
   let acceptingExchange = $state(null);
   let choosingToken = /** @type {string | null} */ ($state(null)); // token key awaiting card/combat choice
 
+  let interactionFrozen = $derived(
+    (incomingExchanges.length > 0 && action !== "accept-exchange") ||
+    outgoingExchange !== null ||
+    (action !== null && action !== "accept-exchange" && action !== "agilite-pick-card" && action !== "social-pick-card") ||
+    choosingToken !== null
+  );
+
+  $effect(() => {
+    if (interactionFrozen) active = null;
+  });
+
   // ── Card actions ──────────────────────────────────────────────────────
   function discard(card, isCrystallized) {
     if (!player) return;
@@ -436,6 +447,7 @@
 
   // ── Fan card click — route to action or toggle ─────────────────────────
   function onCardClick(card, isCrystallized) {
+    if (interactionFrozen) return;
     const isGrayed = (player?.grayedCards ?? []).includes(card.id);
     if (action === "agilite-pick-card" && !isCrystallized && !isGrayed) {
       agilitePickCard(card);
@@ -791,7 +803,7 @@
               </div>
 
               <!-- Per-card action buttons when active -->
-              {#if isActive && !action}
+              {#if isActive && !action && !interactionFrozen}
                 <div
                   class="absolute -top-[52px] left-1/2 -translate-x-1/2 flex gap-1 z-50"
                 >
@@ -873,7 +885,7 @@
         {@const max = player.maxTokens?.[tok.key] ?? current}
         {@const active_tok = action?.startsWith(tok.key)}
         <button
-          onclick={() => choosingToken = tok.key}
+          onclick={() => { active = null; choosingToken = tok.key; }}
           disabled={tok.disabled() || (action !== null && !active_tok) || choosingToken !== null}
           title={tok.label}
           class="flex-1 flex flex-col items-center py-1 mx-1 border text-[9px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"

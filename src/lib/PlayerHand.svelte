@@ -47,6 +47,13 @@
 
   let choosingToken = /** @type {string | null} */ ($state(null));
 
+  let interactionFrozen = $derived(
+    (incomingExchanges.length > 0 && action !== "accept-exchange") ||
+    outgoingExchange !== null ||
+    (action !== null && action !== "accept-exchange" && action !== "agilite-pick-card" && action !== "social-pick-card") ||
+    choosingToken !== null
+  );
+
   function cancelAction() {
     action = null;
     actionCard = null;
@@ -596,7 +603,7 @@
             <div class="relative">
               <CardDisplay
                 {card}
-                actions={[
+                actions={interactionFrozen ? [] : [
                   ...(!spiritLocked && !isGrayed ? [{ icon: "▶️", label: "Défausser", onClick: () => discardCard(card) }] : []),
                   {
                     icon: "✦",
@@ -644,7 +651,7 @@
             <CardDisplay
               {card}
               crystallized={true}
-              actions={[
+              actions={interactionFrozen ? [] : [
                 {
                   icon: "▶",
                   label: "Jouer / Défausser",
