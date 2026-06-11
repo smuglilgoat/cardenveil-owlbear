@@ -17,7 +17,7 @@ export async function fetchState(roomId) {
   return hydrateState(data.state);
 }
 
-export function startPolling(roomId, onState, interval = 1500) {
+export function startPolling(roomId, onState, interval = 300) {
   onStateCallback = onState;
   stopPolling();
   pollTimer = setInterval(async () => {
