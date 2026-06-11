@@ -3,7 +3,7 @@
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
   import ActionLog from "./ActionLog.svelte";
-  import { drawNormal, drawSpecialized, GM_CHAR_ID, addLog } from "./deck.js";
+  import { drawNormal, drawSpecialized, GM_CHAR_ID, addLog, sortCards } from "./deck.js";
 
   /**
    * @type {{
@@ -14,6 +14,8 @@
   let { gameState, myId, myName, party, onUpdate } = $props();
 
   let player = $derived(gameState.players[myId]);
+  let sortedHand = $derived(player ? sortCards(player.hand) : []);
+  let sortedCrystallized = $derived(player ? sortCards(player.crystallized) : []);
   let handFull = $derived(
     player ? player.hand.length >= player.maxHandSize + (player.spiritBounds ?? 0) : false,
   );
@@ -396,7 +398,7 @@
             Choisissez la carte à donner en retour :
           </p>
           <div class="flex flex-wrap gap-2">
-            {#each player.hand as card (card.id)}
+            {#each sortedHand as card (card.id)}
               <CardDisplay
                 {card}
                 actions={[
@@ -486,7 +488,7 @@
             Agilité — Choisissez la carte à défausser :
           </p>
           <div class="flex flex-wrap gap-2">
-            {#each player.hand.filter(c => !(player.grayedCards ?? []).includes(c.id)) as card (card.id)}
+            {#each sortCards(player.hand.filter(c => !(player.grayedCards ?? []).includes(c.id))) as card (card.id)}
               <CardDisplay
                 {card}
                 actions={[{ icon: "▶️", label: "Défausser", onClick: () => agilitePickCard(card) }]}
@@ -523,7 +525,7 @@
             Social — Choisissez votre carte à offrir :
           </p>
           <div class="flex flex-wrap gap-2">
-            {#each player.hand.filter(c => !(player.grayedCards ?? []).includes(c.id)) as card (card.id)}
+            {#each sortCards(player.hand.filter(c => !(player.grayedCards ?? []).includes(c.id))) as card (card.id)}
               <CardDisplay
                 {card}
                 actions={[
@@ -589,7 +591,7 @@
         <p class="text-xs text-gray-600 italic">Aucune carte en main</p>
       {:else}
         <div class="flex flex-wrap gap-2">
-          {#each player.hand as card (card.id)}
+          {#each sortedHand as card (card.id)}
             {@const isGrayed = (player.grayedCards ?? []).includes(card.id)}
             <div class="relative">
               <CardDisplay
@@ -638,7 +640,7 @@
           Cristallisées ({player.crystallized.length})
         </h3>
         <div class="flex flex-wrap gap-2">
-          {#each player.crystallized as card (card.id)}
+          {#each sortedCrystallized as card (card.id)}
             <CardDisplay
               {card}
               crystallized={true}

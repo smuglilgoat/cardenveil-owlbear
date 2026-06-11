@@ -13,6 +13,14 @@ const SUIT_BY_ID = {
   D: { symbol: '♦', isRed: true  },
 };
 
+const SUIT_SORT_ORDER = { '♥': 0, '♣': 1, '♦': 2, '♠': 3 };
+
+export function sortCards(cards) {
+  return [...cards].sort((a, b) =>
+    (SUIT_SORT_ORDER[a.suit] - SUIT_SORT_ORDER[b.suit]) || (a.numericValue - b.numericValue)
+  );
+}
+
 export function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {

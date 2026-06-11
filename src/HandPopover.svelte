@@ -8,6 +8,7 @@
     drawSpecialized,
     GM_CHAR_ID,
     addLog,
+    sortCards,
   } from "./lib/deck.js";
 
   const METADATA_KEY = "com.cardenveil/gameState";
@@ -86,11 +87,11 @@
     player
       ? [
           ...player.hand.map((c) => ({ card: c, isCrystallized: false })),
-          ...player.crystallized.map((c) => ({
-            card: c,
-            isCrystallized: true,
-          })),
-        ]
+          ...player.crystallized.map((c) => ({ card: c, isCrystallized: true })),
+        ].sort((a, b) => {
+          const suitOrder = { '♥': 0, '♣': 1, '♦': 2, '♠': 3 };
+          return (suitOrder[a.card.suit] - suitOrder[b.card.suit]) || (a.card.numericValue - b.card.numericValue);
+        })
       : [],
   );
 
@@ -617,7 +618,7 @@
             Choisissez la carte à donner en retour :
           </p>
           <div class="flex flex-wrap gap-1.5 justify-center">
-            {#each player.hand as card (card.id)}
+            {#each sortCards(player.hand) as card (card.id)}
               <div
                 class="w-[56px] h-[84px] rounded cursor-pointer hover:ring-2 hover:ring-green-400 flex flex-col p-1 text-[10px] font-bold"
                 style="background: #fff; border: 1.5px solid #d1d5db; color: {SUIT_COLOR[

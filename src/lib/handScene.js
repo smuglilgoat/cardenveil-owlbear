@@ -1,5 +1,6 @@
 import OBR, { buildImage } from '@owlbear-rodeo/sdk';
 import { cardToSvgUrl } from './cardSvg.js';
+import { sortCards } from './deck.js';
 
 const NS      = 'com.cardenveil';
 const ITEM_NS = `${NS}/handCard`;
@@ -111,10 +112,11 @@ export async function renderHand(hand, crystallized) {
   try {
     await _clearItems();
 
-    const allCards = [
-      ...hand.map(c        => ({ card: c, isCrystallized: false })),
-      ...crystallized.map(c => ({ card: c, isCrystallized: true  })),
-    ];
+    const crystallizedIds = new Set(crystallized.map(c => c.id));
+    const allCards = sortCards([...hand, ...crystallized]).map(c => ({
+      card: c,
+      isCrystallized: crystallizedIds.has(c.id),
+    }));
     if (allCards.length === 0) return;
 
     const screenW = await OBR.viewport.getWidth();

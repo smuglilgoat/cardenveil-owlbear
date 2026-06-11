@@ -14,6 +14,7 @@
     fullSuit,
     GM_CHAR_ID,
     addLog,
+    sortCards,
   } from "./deck.js";
 
   /** @type {{ gameState: object, party: object[], myId: string, onUpdate: (s: object) => void, onSync: () => void }} */
@@ -30,6 +31,8 @@
   let gmChar = $derived(
     gameState.gmCharacterId ? gameState.players[gameState.gmCharacterId] : null,
   );
+  let gmCharHand = $derived(gmChar ? sortCards(gmChar.hand) : []);
+  let gmCharCrystallized = $derived(gmChar ? sortCards(gmChar.crystallized) : []);
   let gmCharExchanges = $derived(
     (gameState.pendingExchanges ?? []).filter((e) => e.to === GM_CHAR_ID),
   );
@@ -600,7 +603,7 @@
             <p class="text-xs text-gray-600 italic mt-1">Vide</p>
           {:else}
             <div class="flex flex-wrap gap-1.5 mt-1.5">
-              {#each gmChar.hand as card (card.id)}
+              {#each gmCharHand as card (card.id)}
                 <CardDisplay
                   {card}
                   actions={[
@@ -624,7 +627,7 @@
               >Cristallisées</span
             >
             <div class="flex flex-wrap gap-1.5 mt-1.5">
-              {#each gmChar.crystallized as card (card.id)}
+              {#each gmCharCrystallized as card (card.id)}
                 <CardDisplay
                   {card}
                   crystallized={true}
@@ -699,7 +702,7 @@
                   Choisissez la carte à donner :
                 </p>
                 <div class="flex flex-wrap gap-1.5">
-                  {#each gmChar.hand as card (card.id)}
+                  {#each gmCharHand as card (card.id)}
                     <CardDisplay
                       {card}
                       actions={[
@@ -743,7 +746,7 @@
                 Choisissez la carte à offrir :
               </p>
               <div class="flex flex-wrap gap-1.5">
-                {#each gmChar.hand as card (card.id)}
+                {#each gmCharHand as card (card.id)}
                   <CardDisplay
                     {card}
                     actions={[
@@ -923,7 +926,7 @@
                 <p class="text-xs text-gray-600 italic mt-1">Vide</p>
               {:else}
                 <div class="flex flex-wrap gap-1.5 mt-1.5">
-                  {#each p.hand as card (card.id)}
+                  {#each sortCards(p.hand) as card (card.id)}
                     <CardDisplay
                       {card}
                       actions={[
@@ -1030,7 +1033,7 @@
                   >Cristallisées</span
                 >
                 <div class="flex flex-wrap gap-1.5 mt-1.5">
-                  {#each p.crystallized as card (card.id)}
+                  {#each sortCards(p.crystallized) as card (card.id)}
                     <CardDisplay {card} crystallized={true} />
                   {/each}
                 </div>
