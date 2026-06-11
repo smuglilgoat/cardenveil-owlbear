@@ -20,6 +20,12 @@
   /** @type {{ gameState: object, party: object[], myId: string, onUpdate: (s: object) => void, onSync: () => void }} */
   let { gameState, party, myId, onUpdate, onSync } = $props();
 
+  let anyPlayerFull = $derived(
+    Object.entries(gameState.players).some(
+      ([id, p]) => id !== myId && p.hand.length >= p.maxHandSize
+    )
+  );
+
   let dealTarget = $state("");
   let dealCount = $state(1);
   let expandedPlayers = $state(new Set());
@@ -475,7 +481,8 @@
   <div class="flex gap-2">
     <button
       onclick={dealOneToAll}
-      class="flex-1 text-xs py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg font-semibold"
+      disabled={anyPlayerFull}
+      class="flex-1 text-xs py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
     >
       Distribuer 1 à tous
     </button>
@@ -486,6 +493,9 @@
       Repos (reset tokens)
     </button>
   </div>
+  {#if anyPlayerFull}
+    <p class="text-xs text-amber-400 text-center">Un joueur a la main pleine</p>
+  {/if}
 
   <!-- ── Distribute ─────────────────────────────────────────────────── -->
   <div class="bg-gray-800 rounded-xl p-3 space-y-2">
