@@ -49,7 +49,7 @@ export default async (request) => {
     const { roomId, action } = body;
     if (!roomId || !action) return json({ error: 'roomId and action required' }, 400);
 
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 10;
     let attempt = 0;
 
     while (attempt < MAX_RETRIES) {
@@ -91,7 +91,8 @@ export default async (request) => {
       if (rpcData && rpcData.conflict) {
         attempt++;
         if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, 50 * attempt));
+          const delay = Math.min(100 * Math.pow(2, attempt), 2000);
+          await new Promise(r => setTimeout(r, delay));
           continue;
         }
         return json({

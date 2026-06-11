@@ -140,17 +140,38 @@ export function stopRealtime() {
   connectionGeneration++;
 }
 
+const MAX_CLIENT_RETRIES = 3;
+
 export async function dispatch(roomId, action) {
-  const res = await fetch('/api/state', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ roomId, action }),
-  });
-  if (!res.ok) {
+  let lastError;
+  for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
+    const res = await fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId, action }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.version != null) currentVersion = data.version;
+      return hydrateState(data.state);
+    }
+
+    if (res.status === 409) {
+      // Server returned current state — use it and retry
+      const data = await res.json();
+      if (data.version != null) currentVersion = data.version;
+      if (data.state && onStateCallback) {
+        onStateCallback(hydrateState(data.state));
+      }
+      // Small delay before retry to let server settle
+      await new Promise(r => setTimeout(r, 100));
+      continue;
+    }
+
+    // Other errors — try to include response body for debugging
     const body = await res.text();
     throw new Error(`Dispatch failed: ${res.status} — ${body}`);
   }
-  const data = await res.json();
-  if (data.version != null) currentVersion = data.version;
-  return hydrateState(data.state);
+  throw lastError || new Error('Dispatch failed after max retries');
 }

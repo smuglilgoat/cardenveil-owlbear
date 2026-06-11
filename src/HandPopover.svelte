@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
   import { GM_CHAR_ID, sortCards } from "./lib/deck.js";
-  import { startRealtime, stopRealtime, dispatch } from "./lib/api.js";
+  import { startRealtime, stopRealtime, dispatch, fetchState } from "./lib/api.js";
 
   let ready = $state(false);
   let myId = $state(null);
@@ -31,6 +31,11 @@
       roomId = OBR.room.id;
       party = await OBR.party.getPlayers();
       ready = true;
+
+      let state = await fetchState(roomId);
+      if (state) {
+        gameState = state;
+      }
 
       startRealtime(roomId, (newState) => {
         gameState = newState;
