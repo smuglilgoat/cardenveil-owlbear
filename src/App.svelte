@@ -3,6 +3,10 @@
 
   let activeTab = $state('game');
 
+  /** @type {Set<string>} */
+  let visited = $state(new Set(['game']));
+  $effect(() => { visited.add(activeTab); });
+
   // Initiative tracker embed state
   let inputUrl    = $state('');
   let embedUrl    = $state(null);
@@ -55,53 +59,58 @@
       <CardGame />
     </div>
 
-    {#if activeTab === 'sheet'}
-      <iframe
-        title="Character Sheet"
-        src="https://cardenveil-sheet.pages.dev/"
-        class="w-full h-full border-0 absolute inset-0"
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
-      ></iframe>
+    {#if visited.has('sheet')}
+      <div class="absolute inset-0" style:display={activeTab !== 'sheet' ? 'none' : ''}>
+        <iframe
+          title="Character Sheet"
+          src="https://cardenveil-sheet.pages.dev/"
+          class="w-full h-full border-0"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+        ></iframe>
+      </div>
+    {/if}
 
-    {:else if activeTab === 'embed'}
-      <div class="w-full h-full flex flex-col absolute inset-0">
-        {#if !embedUrl}
-          <div class="flex-1 flex flex-col items-center justify-center p-4">
-            <div class="w-full max-w-sm space-y-3">
-              <h2 class="text-sm font-semibold text-white">URL à intégrer</h2>
-              <input
-                type="text"
-                bind:value={inputUrl}
-                onkeydown={(e) => { if (e.key === 'Enter') handleEmbed(); }}
-                placeholder="Ex: https://www.improved-initiative.com"
-                class="w-full p-2.5 border border-gray-700 bg-gray-900 text-gray-100 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              {#if errorMessage}
-                <p class="text-red-400 text-xs">{errorMessage}</p>
-              {/if}
-              <button
-                onclick={handleEmbed}
-                class="w-full bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                Confirmer et intégrer
+    {#if visited.has('embed')}
+      <div class="absolute inset-0" style:display={activeTab !== 'embed' ? 'none' : ''}>
+        <div class="w-full h-full flex flex-col">
+          {#if !embedUrl}
+            <div class="flex-1 flex flex-col items-center justify-center p-4">
+              <div class="w-full max-w-sm space-y-3">
+                <h2 class="text-sm font-semibold text-white">URL à intégrer</h2>
+                <input
+                  type="text"
+                  bind:value={inputUrl}
+                  onkeydown={(e) => { if (e.key === 'Enter') handleEmbed(); }}
+                  placeholder="Ex: https://www.improved-initiative.com"
+                  class="w-full p-2.5 border border-gray-700 bg-gray-900 text-gray-100 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                {#if errorMessage}
+                  <p class="text-red-400 text-xs">{errorMessage}</p>
+                {/if}
+                <button
+                  onclick={handleEmbed}
+                  class="w-full bg-indigo-600 text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  Confirmer et intégrer
+                </button>
+              </div>
+            </div>
+          {:else}
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-gray-900 border-b border-gray-700 shrink-0">
+              <span class="text-xs text-gray-400 truncate flex-1 font-mono">{embedUrl}</span>
+              <button onclick={resetEmbed} class="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded shrink-0">
+                Changer
               </button>
             </div>
-          </div>
-        {:else}
-          <div class="flex items-center gap-2 px-3 py-1.5 bg-gray-900 border-b border-gray-700 shrink-0">
-            <span class="text-xs text-gray-400 truncate flex-1 font-mono">{embedUrl}</span>
-            <button onclick={resetEmbed} class="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded shrink-0">
-              Changer
-            </button>
-          </div>
-          <iframe
-            title="Contenu intégré"
-            src={embedUrl}
-            class="w-full flex-1 border-0"
-            referrerpolicy="no-referrer"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
-          ></iframe>
-        {/if}
+            <iframe
+              title="Contenu intégré"
+              src={embedUrl}
+              class="w-full flex-1 border-0"
+              referrerpolicy="no-referrer"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+            ></iframe>
+          {/if}
+        </div>
       </div>
     {/if}
 
