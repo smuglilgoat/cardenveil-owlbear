@@ -10,13 +10,15 @@
     GM_CHAR_ID,
     sortCards,
     FATIGUE_PENALTY,
+    RACES,
+    handCap,
   } from "./deck.js";
 
   let { gameState, party, myId, onAction } = $props();
 
   let anyPlayerFull = $derived(
     Object.entries(gameState.players).some(
-      ([id, p]) => id !== myId && p.hand.length >= p.maxHandSize
+      ([id, p]) => id !== myId && p.hand.length >= handCap(p)
     )
   );
 
@@ -144,6 +146,10 @@
 
   function setFatigue(playerId, level) {
     onAction({ type: 'SET_FATIGUE', playerId: myId, targetId: playerId, level });
+  }
+
+  function setRace(playerId, race) {
+    onAction({ type: 'SET_RACE', playerId: myId, targetId: playerId, race: race || null });
   }
 
   function setMaxToken(playerId, stat, val) {
@@ -756,12 +762,18 @@
           onclick={() => toggleExpand(id)}
           class="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-700 transition-colors text-left"
         >
-          <span class="text-sm text-white font-medium">{getPlayerName(id)}</span
-          >
+          <span class="flex items-center gap-1.5">
+            <span class="text-sm text-white font-medium">{getPlayerName(id)}</span>
+            {#if p.race}
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900 text-indigo-300 font-semibold">
+                {RACES.find(r => r.id === p.race)?.label ?? p.race}
+              </span>
+            {/if}
+          </span>
           <div class="flex items-center gap-3 text-xs text-gray-400">
             <span
               >Main : <span class="text-white"
-                >{p.hand.length}/{p.maxHandSize}</span
+                >{p.hand.length}/{handCap(p)}</span
               ></span
             >
             <span class="text-red-400">✦ {p.crystallized.length}</span>
@@ -825,11 +837,25 @@
               </select>
             </div>
 
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400 shrink-0">Race :</span>
+              <select
+                value={p.race ?? ''}
+                onchange={(e) => setRace(id, e.currentTarget.value)}
+                class="text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-gray-200"
+              >
+                <option value="">Aucune</option>
+                {#each RACES as r}
+                  <option value={r.id}>{r.label}</option>
+                {/each}
+              </select>
+            </div>
+
             <div>
               <span
                 class="text-[11px] text-gray-400 uppercase tracking-wide font-semibold"
               >
-                Main ({p.hand.length}/{p.maxHandSize})
+                Main ({p.hand.length}/{handCap(p)})
               </span>
               {#if p.hand.length === 0}
                 <p class="text-xs text-gray-600 italic mt-1">Vide</p>

@@ -160,6 +160,16 @@ export function createSpecializedDecks() {
 /** Reserved ID for the optional GM player-character */
 export const GM_CHAR_ID = '__gm_char__';
 
+export const RACES = [
+  { id: 'haut-elfe', label: 'Haut-Elfe' },
+  { id: 'tieffelin', label: 'Tieffelin' },
+  { id: 'aasimar',   label: 'Aasimar' },
+  { id: 'halfling',  label: 'Halfling' },
+  { id: 'sporelin',  label: 'Sporelin' },
+];
+
+const RACE_IDS = new Set(RACES.map(r => r.id));
+
 export function createEmptyPlayer(name = '') {
   return {
     name,
@@ -173,6 +183,9 @@ export function createEmptyPlayer(name = '') {
     grayedCards:   [],
     spiritBounds:  0,
     fatigue:       0,
+    race:          null,
+    tieflingDrawEligible: true,
+    pendingHalfling: null,
   };
 }
 
@@ -210,6 +223,22 @@ function clamp(val, min, max) {
   return Math.max(min, Math.min(max, val));
 }
 
+/** Effective hand cap including racial bonus. */
+export function handCap(player) {
+  const raceBonus = player.race === 'haut-elfe' ? 1 : 0;
+  return (player.maxHandSize ?? 3) + (player.spiritBounds ?? 0) + raceBonus;
+}
+
+/** If the player is Aasimar, append a random crystallized Heart card. */
+function maybeAasimarHeart(player) {
+  if (player.race !== 'aasimar') return player;
+  const heart = drawSpecialized('♥');
+  return {
+    ...player,
+    crystallized: [...player.crystallized, heart],
+  };
+}
+
 export function applyAction(state, action) {
   const { type } = action;
 
@@ -241,32 +270,69 @@ export function applyAction(state, action) {
 
     case 'DRAW': {
       const p = state.players[action.playerId];
-      if (!p) return { state, log: null };
-      const cap = p.maxHandSize + (p.spiritBounds ?? 0);
+      if (!p || p.pendingHalfling) return { state, log: null };
+      const cap = handCap(p);
       if (p.hand.length >= cap) return { state, log: null };
       const mn = p.minDrawValue ?? 1, mx = p.maxDrawValue ?? 13;
+
+      // HALFLING: draw 2, store in pendingHalfling
+      if (p.race === 'halfling') {
+        const cardA = drawNormal(mn, mx);
+        const cardB = drawNormal(mn, mx);
+        const s = {
+          ...state,
+          players: { ...state.players, [action.playerId]: {
+            ...p,
+            pendingHalfling: [cardA, cardB],
+            tieflingDrawEligible: p.race === 'tieffelin' ? true : p.tieflingDrawEligible,
+          }},
+        };
+        return { state: addLog(s, action.playerId, p.name, `pioche Halfling : choisissez une carte`), log: null };
+      }
+
       const card = drawNormal(mn, mx);
       const s = {
         ...state,
-        players: { ...state.players, [action.playerId]: { ...p, hand: [...p.hand, card] } },
+        players: { ...state.players, [action.playerId]: {
+          ...p,
+          hand: [...p.hand, card],
+          tieflingDrawEligible: p.race === 'tieffelin' ? true : p.tieflingDrawEligible,
+        }},
       };
       return { state: addLog(s, action.playerId, p.name, `pioche ${card.value}${card.suit}`), log: null };
     }
 
     case 'DRAW_FORCE': {
       const p = state.players[action.playerId];
-      if (!p || p.tokens.force <= 0) return { state, log: null };
+      if (!p || p.tokens.force <= 0 || p.pendingHalfling) return { state, log: null };
       const mn = p.minDrawValue ?? 1, mx = p.maxDrawValue ?? 13;
-      const card = drawNormal(mn, mx);
-      const s = {
-        ...state,
-        players: { ...state.players, [action.playerId]: {
+      let updatedPlayer;
+
+      if (p.race === 'halfling') {
+        const cardA = drawNormal(mn, mx);
+        const cardB = drawNormal(mn, mx);
+        updatedPlayer = {
+          ...p,
+          tokens: { ...p.tokens, force: p.tokens.force - 1 },
+          pendingHalfling: [cardA, cardB],
+        };
+      } else {
+        const card = drawNormal(mn, mx);
+        updatedPlayer = {
           ...p,
           tokens: { ...p.tokens, force: p.tokens.force - 1 },
           hand: [...p.hand, card],
-        }},
+        };
+      }
+
+      // AASIMAR: crystallized Heart after full token resolution
+      updatedPlayer = maybeAasimarHeart(updatedPlayer);
+
+      const s = {
+        ...state,
+        players: { ...state.players, [action.playerId]: updatedPlayer },
       };
-      return { state: addLog(s, action.playerId, p.name, `token Force : pioche ${card.value}${card.suit}`), log: null };
+      return { state: addLog(s, action.playerId, p.name, `token Force : pioche ${p.race === 'halfling' ? '(Halfling : choix)' : ''}`), log: null };
     }
 
     case 'GIVE_CARDS': {
@@ -300,8 +366,20 @@ export function applyAction(state, action) {
       const dealtTo = [];
       for (const [id, pl] of Object.entries(state.players)) {
         if (id === action.playerId) continue;
-        if (pl.hand.length < pl.maxHandSize) {
-          const mn = pl.minDrawValue ?? 1, mx = pl.maxDrawValue ?? 13;
+        const cap = handCap(pl);
+        if (pl.hand.length >= cap) continue;
+        if (pl.pendingHalfling) continue;
+        const hasExchange = (state.pendingExchanges ?? [])
+          .some(e => e.from === id || e.to === id);
+        if (hasExchange) continue;
+        const mn = pl.minDrawValue ?? 1, mx = pl.maxDrawValue ?? 13;
+
+        if (pl.race === 'halfling') {
+          const cardA = drawNormal(mn, mx);
+          const cardB = drawNormal(mn, mx);
+          updatedPlayers[id] = { ...pl, pendingHalfling: [cardA, cardB] };
+          dealtTo.push(pl.name + ' (Halfling)');
+        } else {
           const card = drawNormal(mn, mx);
           updatedPlayers[id] = { ...pl, hand: [...pl.hand, card] };
           dealtTo.push(pl.name);
@@ -363,40 +441,44 @@ export function applyAction(state, action) {
 
     case 'USE_AGILITE': {
       const p = state.players[action.playerId];
-      if (!p || p.tokens.agilite <= 0) return { state, log: null };
+      if (!p || p.tokens.agilite <= 0 || p.pendingHalfling) return { state, log: null };
       const actionCard = p.hand.find(c => c.id === action.cardId);
       if (!actionCard) return { state, log: null };
       const mn = p.minDrawValue ?? 1, mx = p.maxDrawValue ?? 13;
       const newCard = drawSpecialized(action.suit, mn, mx);
+      let updatedPlayer = {
+        ...p,
+        tokens: { ...p.tokens, agilite: p.tokens.agilite - 1 },
+        hand: [...p.hand.filter(c => c.id !== action.cardId), newCard],
+      };
+      updatedPlayer = maybeAasimarHeart(updatedPlayer);
       const s = {
         ...state,
         discard: [...state.discard, actionCard],
-        players: { ...state.players, [action.playerId]: {
-          ...p,
-          tokens: { ...p.tokens, agilite: p.tokens.agilite - 1 },
-          hand: [...p.hand.filter(c => c.id !== action.cardId), newCard],
-        }},
+        players: { ...state.players, [action.playerId]: updatedPlayer },
       };
       return { state: addLog(s, action.playerId, p.name, `token Agilité : défausse ${actionCard.value}${actionCard.suit}, pioche ${newCard.value}${newCard.suit} (${action.suit})`), log: null };
     }
 
     case 'USE_ESPRIT': {
       const p = state.players[action.playerId];
-      if (!p || p.tokens.esprit <= 0) return { state, log: null };
+      if (!p || p.tokens.esprit <= 0 || p.pendingHalfling) return { state, log: null };
+      let updatedPlayer = {
+        ...p,
+        tokens: { ...p.tokens, esprit: p.tokens.esprit - 1 },
+        spiritBounds: (p.spiritBounds ?? 0) + 1,
+      };
+      updatedPlayer = maybeAasimarHeart(updatedPlayer);
       const s = {
         ...state,
-        players: { ...state.players, [action.playerId]: {
-          ...p,
-          tokens: { ...p.tokens, esprit: p.tokens.esprit - 1 },
-          spiritBounds: (p.spiritBounds ?? 0) + 1,
-        }},
+        players: { ...state.players, [action.playerId]: updatedPlayer },
       };
       return { state: addLog(s, action.playerId, p.name, `token Esprit : +1 Spirit Bound (total ${(p.spiritBounds ?? 0) + 1})`), log: null };
     }
 
     case 'PROPOSE_EXCHANGE': {
       const p = state.players[action.playerId];
-      if (!p || p.tokens.social <= 0) return { state, log: null };
+      if (!p || p.tokens.social <= 0 || p.pendingHalfling) return { state, log: null };
       const card = p.hand.find(c => c.id === action.cardId);
       if (!card) return { state, log: null };
       const exchange = {
@@ -405,14 +487,16 @@ export function applyAction(state, action) {
         fromCard: card,
         to: action.targetId,
       };
+      let updatedPlayer = {
+        ...p,
+        tokens: { ...p.tokens, social: p.tokens.social - 1 },
+        hand: p.hand.filter(c => c.id !== action.cardId),
+      };
+      updatedPlayer = maybeAasimarHeart(updatedPlayer);
       const s = {
         ...state,
         pendingExchanges: [...(state.pendingExchanges ?? []), exchange],
-        players: { ...state.players, [action.playerId]: {
-          ...p,
-          tokens: { ...p.tokens, social: p.tokens.social - 1 },
-          hand: p.hand.filter(c => c.id !== action.cardId),
-        }},
+        players: { ...state.players, [action.playerId]: updatedPlayer },
       };
       const targetName = state.players[action.targetId]?.name ?? action.targetId.slice(0, 8);
       return { state: addLog(s, action.playerId, p.name, `token Social : propose échange ${card.value}${card.suit} → ${targetName}`), log: null };
@@ -478,13 +562,15 @@ export function applyAction(state, action) {
 
     case 'SPEND_TOKEN': {
       const p = state.players[action.playerId];
-      if (!p || p.tokens[action.token] <= 0) return { state, log: null };
+      if (!p || p.tokens[action.token] <= 0 || p.pendingHalfling) return { state, log: null };
+      let updatedPlayer = {
+        ...p,
+        tokens: { ...p.tokens, [action.token]: p.tokens[action.token] - 1 },
+      };
+      updatedPlayer = maybeAasimarHeart(updatedPlayer);
       const s = {
         ...state,
-        players: { ...state.players, [action.playerId]: {
-          ...p,
-          tokens: { ...p.tokens, [action.token]: p.tokens[action.token] - 1 },
-        }},
+        players: { ...state.players, [action.playerId]: updatedPlayer },
       };
       return { state: addLog(s, action.playerId, p.name, `token ${action.token} : usage combat`), log: null };
     }
@@ -590,7 +676,9 @@ export function applyAction(state, action) {
       const fresh = createInitialGameState();
       const players = {};
       for (const [id, p] of Object.entries(state.players)) {
-        players[id] = createEmptyPlayer(p.name);
+        const np = createEmptyPlayer(p.name);
+        np.race = p.race ?? null;
+        players[id] = np;
       }
       return { state: { ...fresh, gmId: state.gmId, players }, log: null };
     }
@@ -634,6 +722,87 @@ export function applyAction(state, action) {
       return { state: addLog(s, 'gm', 'MJ', `fatigue de ${p.name} → niveau ${level}`), log: null };
     }
 
+    case 'SET_RACE': {
+      if (!isGM(state, action.playerId)) return { state, log: null };
+      const p = state.players[action.targetId];
+      if (!p) return { state, log: null };
+      const race = action.race && RACE_IDS.has(action.race) ? action.race : null;
+      const s = {
+        ...state,
+        players: { ...state.players, [action.targetId]: {
+          ...p,
+          race,
+          tieflingDrawEligible: true,
+          pendingHalfling: null,
+        }},
+      };
+      const label = race ? RACES.find(r => r.id === race)?.label ?? race : 'aucune';
+      return { state: addLog(s, 'gm', 'MJ', `race de ${p.name} → ${label}`), log: null };
+    }
+
+    case 'DRAW_SPADE': {
+      const p = state.players[action.playerId];
+      if (!p || p.race !== 'tieffelin' || !p.tieflingDrawEligible) return { state, log: null };
+      if (p.pendingHalfling) return { state, log: null };
+      const cap = handCap(p);
+      if (p.hand.length >= cap) return { state, log: null };
+      const mn = p.minDrawValue ?? 1, mx = p.maxDrawValue ?? 13;
+      const card = drawSpecialized('♠', mn, mx);
+      const s = {
+        ...state,
+        players: { ...state.players, [action.playerId]: {
+          ...p,
+          hand: [...p.hand, card],
+          tieflingDrawEligible: false,
+        }},
+      };
+      return { state: addLog(s, action.playerId, p.name, `pioche Pique ${card.value}${card.suit} (Tieffelin)`), log: null };
+    }
+
+    case 'HALFLING_CHOOSE': {
+      const p = state.players[action.playerId];
+      if (!p || !p.pendingHalfling) return { state, log: null };
+      const chosen = p.pendingHalfling.find(c => c.id === action.cardId);
+      if (!chosen) return { state, log: null };
+      const discarded = p.pendingHalfling.find(c => c.id !== action.cardId);
+      const s = {
+        ...state,
+        discard: discarded ? [...state.discard, discarded] : state.discard,
+        players: { ...state.players, [action.playerId]: {
+          ...p,
+          hand: [...p.hand, chosen],
+          pendingHalfling: null,
+        }},
+      };
+      return { state: addLog(s, action.playerId, p.name, `Halfling : choisit ${chosen.value}${chosen.suit}`), log: null };
+    }
+
+    case 'SPORELIN_EXCHANGE': {
+      const p = state.players[action.playerId];
+      if (!p || p.race !== 'sporelin' || p.pendingHalfling) return { state, log: null };
+      const hasExchange = (state.pendingExchanges ?? [])
+        .some(e => e.from === action.playerId || e.to === action.playerId);
+      if (hasExchange) return { state, log: null };
+      const card = p.hand.find(c => c.id === action.cardId);
+      if (!card) return { state, log: null };
+      const exchange = {
+        id: `${action.playerId}-${Date.now()}`,
+        from: action.playerId,
+        fromCard: card,
+        to: action.targetId,
+      };
+      const s = {
+        ...state,
+        pendingExchanges: [...(state.pendingExchanges ?? []), exchange],
+        players: { ...state.players, [action.playerId]: {
+          ...p,
+          hand: p.hand.filter(c => c.id !== action.cardId),
+        }},
+      };
+      const targetName = state.players[action.targetId]?.name ?? action.targetId.slice(0, 8);
+      return { state: addLog(s, action.playerId, p.name, `échange Sporelin : propose ${card.value}${card.suit} → ${targetName}`), log: null };
+    }
+
     default:
       return { state, log: null };
   }
@@ -666,6 +835,9 @@ export function hydrateState(raw) {
       maxDrawValue: p.maxDrawValue ?? 13,
       grayedCards:  p.grayedCards  ?? [],
       spiritBounds: p.spiritBounds ?? 0,
+      race:         p.race ?? null,
+      tieflingDrawEligible: p.tieflingDrawEligible ?? true,
+      pendingHalfling: p.pendingHalfling ?? null,
     };
   }
 
