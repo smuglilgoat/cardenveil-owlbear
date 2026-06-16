@@ -3,7 +3,7 @@
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
   import ActionLog from "./ActionLog.svelte";
-  import { GM_CHAR_ID, sortCards } from "./deck.js";
+  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY } from "./deck.js";
 
   let { gameState, myId, myName, party, onAction } = $props();
 
@@ -514,6 +514,7 @@
               <CardDisplay
                 {card}
                 faceDown={isPending}
+                fatiguePenalty={FATIGUE_PENALTY[player.fatigue ?? 0]}
                 actions={card._pending || interactionFrozen ? [] : [
                   ...(!spiritLocked && !isGrayed ? [{ icon: "▶️", label: "Défausser", onClick: () => discardCard(card) }] : []),
                   {

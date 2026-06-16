@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
-  import { GM_CHAR_ID, sortCards } from "./lib/deck.js";
+  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY } from "./lib/deck.js";
   import { startRealtime, stopRealtime, dispatch, fetchState } from "./lib/api.js";
 
   let ready = $state(false);
@@ -585,6 +585,12 @@
                       class="absolute inset-0 rounded-lg"
                       style="background: rgba(0,0,0,0.55);"
                     ></div>
+                  {/if}
+                  <!-- Fatigue penalty badge -->
+                  {#if FATIGUE_PENALTY[player?.fatigue ?? 0] > 0}
+                    <div class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-600 border border-amber-400 flex items-center justify-center text-[9px] font-bold text-white leading-none z-10 pointer-events-none" title="Fatigue : −{FATIGUE_PENALTY[player?.fatigue ?? 0]}">
+                      −{FATIGUE_PENALTY[player?.fatigue ?? 0]}
+                    </div>
                   {/if}
                 </div>
               {/if}

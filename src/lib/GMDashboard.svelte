@@ -9,6 +9,7 @@
     fullSuit,
     GM_CHAR_ID,
     sortCards,
+    FATIGUE_PENALTY,
   } from "./deck.js";
 
   let { gameState, party, myId, onAction } = $props();
@@ -139,6 +140,10 @@
 
   function setDrawRange(playerId, field, val) {
     onAction({ type: 'SET_DRAW_RANGE', playerId: myId, targetId: playerId, field, val });
+  }
+
+  function setFatigue(playerId, level) {
+    onAction({ type: 'SET_FATIGUE', playerId: myId, targetId: playerId, level });
   }
 
   function setMaxToken(playerId, stat, val) {
@@ -494,6 +499,7 @@
                 <CardDisplay
                   {card}
                   faceDown={!!card._pending}
+                  fatiguePenalty={FATIGUE_PENALTY[gmChar.fatigue ?? 0]}
                   actions={card._pending ? [] : [
                     {
                       icon: "▶️",
@@ -804,6 +810,21 @@
               </select>
             </div>
 
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400 shrink-0">Fatigue :</span>
+              <select
+                value={p.fatigue ?? 0}
+                onchange={(e) => setFatigue(id, e.currentTarget.value)}
+                class="text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-gray-200"
+              >
+                <option value={0}>Aucune</option>
+                <option value={1}>Niveau 1 (−1)</option>
+                <option value={2}>Niveau 2 (−2)</option>
+                <option value={3}>Niveau 3 (−4)</option>
+                <option value={4}>Niveau 4 (−6)</option>
+              </select>
+            </div>
+
             <div>
               <span
                 class="text-[11px] text-gray-400 uppercase tracking-wide font-semibold"
@@ -818,6 +839,7 @@
                     <CardDisplay
                       {card}
                       faceDown={!!card._pending}
+                      fatiguePenalty={FATIGUE_PENALTY[p.fatigue ?? 0]}
                       actions={card._pending ? [] : [
                         {
                           icon: "▶️",
