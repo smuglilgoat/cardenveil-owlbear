@@ -509,10 +509,12 @@
         <div class="flex flex-wrap gap-2">
           {#each sortedHand as card (card.id)}
             {@const isGrayed = (player.grayedCards ?? []).includes(card.id)}
+            {@const isPending = !!card._pending}
             <div class="relative">
               <CardDisplay
                 {card}
-                actions={interactionFrozen ? [] : [
+                faceDown={isPending}
+                actions={card._pending || interactionFrozen ? [] : [
                   ...(!spiritLocked && !isGrayed ? [{ icon: "▶️", label: "Défausser", onClick: () => discardCard(card) }] : []),
                   {
                     icon: "✦",
@@ -559,8 +561,9 @@
           {#each sortedCrystallized as card (card.id)}
             <CardDisplay
               {card}
+              faceDown={!!card._pending}
               crystallized={true}
-              actions={interactionFrozen ? [] : [
+              actions={card._pending || interactionFrozen ? [] : [
                 {
                   icon: "▶",
                   label: "Jouer / Défausser",

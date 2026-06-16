@@ -493,7 +493,8 @@
               {#each gmCharHand as card (card.id)}
                 <CardDisplay
                   {card}
-                  actions={[
+                  faceDown={!!card._pending}
+                  actions={card._pending ? [] : [
                     {
                       icon: "▶️",
                       label: "Défausser",
@@ -816,7 +817,8 @@
                   {#each sortCards(p.hand) as card (card.id)}
                     <CardDisplay
                       {card}
-                      actions={[
+                      faceDown={!!card._pending}
+                      actions={card._pending ? [] : [
                         {
                           icon: "▶️",
                           label: "Défausser",
