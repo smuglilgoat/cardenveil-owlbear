@@ -5,7 +5,11 @@
 
   /** @type {Set<string>} */
   let visited = $state(new Set(['game']));
-  $effect(() => { visited.add(activeTab); });
+
+  function selectTab(id) {
+    activeTab = id;
+    visited = new Set([...visited, id]);
+  }
 
   // Initiative tracker embed state
   let inputUrl    = $state('');
@@ -40,7 +44,7 @@
   <div class="flex shrink-0 border-b border-gray-700 bg-gray-900 overflow-x-auto">
     {#each TABS as tab}
       <button
-        onclick={() => activeTab = tab.id}
+        onclick={() => selectTab(tab.id)}
         class="px-4 py-2 text-xs font-semibold transition-colors border-b-2 whitespace-nowrap"
         class:text-indigo-400={activeTab === tab.id}
         class:border-indigo-500={activeTab === tab.id}
