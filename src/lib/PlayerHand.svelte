@@ -3,7 +3,7 @@
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
   import ActionLog from "./ActionLog.svelte";
-  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY } from "./deck.js";
+  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES } from "./deck.js";
 
   let { gameState, myId, myName, party, onAction } = $props();
 
@@ -11,15 +11,18 @@
   let sortedHand = $derived(player ? sortCards(player.hand) : []);
   let sortedCrystallized = $derived(player ? sortCards(player.crystallized) : []);
   let handFull = $derived(
-    player ? player.hand.length >= player.maxHandSize + (player.spiritBounds ?? 0) : false,
+    player ? player.hand.length >= handCap(player) : false,
   );
   let mustCrystallize = $derived(
     player
-      ? (player.spiritBounds ?? 0) > 0 && player.hand.length >= player.maxHandSize + (player.spiritBounds ?? 0)
+      ? (player.spiritBounds ?? 0) > 0 && player.hand.length >= handCap(player)
       : false,
   );
   let spiritLocked = $derived(
     player ? player.hand.length <= (player.spiritBounds ?? 0) : false,
+  );
+  let drawBlocked = $derived(
+    handFull || mustCrystallize || (player?.pendingHalfling != null),
   );
 
   /** Exchanges from other players targeting me */
@@ -42,9 +45,10 @@
   let choosingToken = /** @type {string | null} */ ($state(null));
 
   let interactionFrozen = $derived(
+    (player?.pendingHalfling != null) ||
     (incomingExchanges.length > 0 && action !== "accept-exchange") ||
     outgoingExchange !== null ||
-    (action !== null && action !== "accept-exchange" && action !== "agilite-pick-card" && action !== "social-pick-card") ||
+    (action !== null && action !== "accept-exchange" && action !== "agilite-pick-card" && action !== "social-pick-card" && action !== "sporelin-pick-card" && action !== "sporelin-pick-target") ||
     choosingToken !== null
   );
 
@@ -70,7 +74,11 @@
 
   // ── Normal draw ───────────────────────────────────────────────────────
   function drawCard() {
-    if (handFull || mustCrystallize) return;
+    if (drawBlocked) return;
+    if (player.race === 'tieffelin' && player.tieflingDrawEligible) {
+      action = 'tiefling-choose';
+      return;
+    }
     onAction({ type: 'DRAW', playerId: myId });
   }
 
@@ -131,6 +139,32 @@
 
   function socialPickTarget(targetId) {
     onAction({ type: 'PROPOSE_EXCHANGE', playerId: myId, cardId: actionCard.id, targetId });
+    cancelAction();
+  }
+
+  // ── Sporelin exchange (free) ──────────────────────────────────────────
+  let sporelinBlocked = $derived(
+    !player ||
+    player.race !== 'sporelin' ||
+    player.hand.length === 0 ||
+    spiritLocked ||
+    player.pendingHalfling != null ||
+    outgoingExchange !== null ||
+    incomingExchanges.length > 0
+  );
+
+  function startSporelinExchange() {
+    if (sporelinBlocked) return;
+    action = 'sporelin-pick-card';
+  }
+
+  function sporelinPickCard(card) {
+    actionCard = card;
+    action = 'sporelin-pick-target';
+  }
+
+  function sporelinPickTarget(targetId) {
+    onAction({ type: 'SPORELIN_EXCHANGE', playerId: myId, cardId: actionCard.id, targetId });
     cancelAction();
   }
 
@@ -272,7 +306,14 @@
   <div class="flex flex-col h-full overflow-y-auto p-3 gap-3">
     <!-- ── Header ──────────────────────────────────────────────────── -->
     <div class="flex justify-between items-center">
-      <h2 class="text-white font-semibold text-sm">{myName}</h2>
+      <h2 class="text-white font-semibold text-sm flex items-center gap-1.5">
+        {myName}
+        {#if player.race}
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900 text-indigo-300 font-semibold">
+            {RACES.find(r => r.id === player.race)?.label ?? player.race}
+          </span>
+        {/if}
+      </h2>
       <div class="flex gap-3 text-xs text-gray-500">
         <span
           >Défausse: <span class="text-white">{gameState.discard.length}</span
@@ -294,6 +335,28 @@
     >
       {popoverVisible ? "🃏 Main affichée" : "🃏 Afficher la main"}
     </button>
+
+    <!-- ── Halfling pending choice ─────────────────────────────────── -->
+    {#if player.pendingHalfling}
+      <div class="bg-emerald-900/40 border border-emerald-600 rounded-xl p-3 space-y-2">
+        <p class="text-xs text-emerald-200 font-semibold">
+          Halfling — Choisissez la carte à conserver :
+        </p>
+        <div class="flex gap-3 justify-center">
+          {#each player.pendingHalfling as card (card.id)}
+            <div class="flex flex-col items-center gap-1">
+              <CardDisplay {card} faceDown={!!card._pending} />
+              <button
+                onclick={() => onAction({ type: 'HALFLING_CHOOSE', playerId: myId, cardId: card.id })}
+                disabled={!!card._pending}
+                class="text-xs px-3 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg disabled:opacity-40">
+                Choisir
+              </button>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
 
     <!-- ── Incoming exchanges ──────────────────────────────────────── -->
     {#each incomingExchanges as ex (ex.id)}
@@ -475,6 +538,59 @@
               </p>
             {/if}
           </div>
+        {:else if action === "tiefling-choose"}
+          <p class="text-xs text-purple-200 font-semibold">
+            Tieffelin — Choisissez votre pioche :
+          </p>
+          <div class="flex gap-2">
+            <button onclick={() => { onAction({ type: 'DRAW', playerId: myId }); cancelAction(); }}
+              class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold">
+              Piocher normalement
+            </button>
+            <button onclick={() => { onAction({ type: 'DRAW_SPADE', playerId: myId }); cancelAction(); }}
+              class="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs font-semibold border border-gray-600">
+              ♠ Piocher un Pique
+            </button>
+          </div>
+        {:else if action === "sporelin-pick-card"}
+          <p class="text-xs text-purple-200 font-semibold">
+            Échange Sporelin — Choisissez votre carte à offrir :
+          </p>
+          <div class="flex flex-wrap gap-2">
+            {#each sortCards(player.hand.filter(c => !(player.grayedCards ?? []).includes(c.id))) as card (card.id)}
+              <CardDisplay
+                {card}
+                actions={[
+                  {
+                    icon: "↗",
+                    label: "Offrir",
+                    onClick: () => sporelinPickCard(card),
+                  },
+                ]}
+              />
+            {/each}
+          </div>
+        {:else if action === "sporelin-pick-target"}
+          <p class="text-xs text-purple-200 font-semibold">
+            Échange Sporelin — Vous offrez <span class="text-white"
+              >{actionCard.value}{actionCard.suit}</span
+            >. À qui ?
+          </p>
+          <div class="space-y-1">
+            {#each otherPlayerIds as id}
+              <button
+                onclick={() => sporelinPickTarget(id)}
+                class="w-full text-left text-xs px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+              >
+                {getPlayerName(id)}
+              </button>
+            {/each}
+            {#if otherPlayerIds.length === 0}
+              <p class="text-xs text-gray-500 italic">
+                Aucun autre joueur enregistré.
+              </p>
+            {/if}
+          </div>
         {/if}
 
         <button
@@ -500,7 +616,7 @@
           class:text-amber-400={mustCrystallize && !handFull}
           class:text-gray-500={!handFull && !mustCrystallize}
         >
-          {player.hand.length} / {player.maxHandSize + (player.spiritBounds ?? 0)}
+          {player.hand.length} / {handCap(player)}
         </span>
       </div>
       {#if player.hand.length === 0}
@@ -537,16 +653,19 @@
     <!-- ── Draw button ─────────────────────────────────────────────── -->
     <button
       onclick={drawCard}
-      disabled={handFull || mustCrystallize}
+      disabled={drawBlocked}
       class="w-full py-2 text-sm font-medium text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
       class:bg-amber-700={mustCrystallize}
       class:hover:bg-amber-800={mustCrystallize}
       class:bg-indigo-600={!mustCrystallize}
       class:hover:bg-indigo-700={!mustCrystallize}
     >
-      <span>{#if mustCrystallize}Cristalliser d'abord !{:else if handFull}Main pleine{:else}Piocher{/if}</span>
+      <span>{#if player.pendingHalfling}Choix en cours…{:else if mustCrystallize}Cristalliser d'abord !{:else if handFull}Main pleine{:else}Piocher{/if}</span>
       {#if (player.spiritBounds ?? 0) > 0}
         <span class="text-blue-300 font-semibold" title="Spirit Bounds actifs">✦×{player.spiritBounds}</span>
+      {/if}
+      {#if player.race === 'tieffelin' && player.tieflingDrawEligible && !drawBlocked}
+        <span class="text-[10px] text-purple-300">♠ choix</span>
       {/if}
     </button>
 
@@ -575,6 +694,17 @@
           {/each}
         </div>
       </div>
+    {/if}
+
+    <!-- ── Sporelin free exchange ──────────────────────────────────── -->
+    {#if player.race === 'sporelin' && player.hand.length > 0}
+      <button
+        onclick={startSporelinExchange}
+        disabled={sporelinBlocked}
+        class="w-full py-1.5 text-xs font-semibold bg-purple-800 hover:bg-purple-700 text-purple-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        🍄 Échange Sporelin (gratuit)
+      </button>
     {/if}
 
     <!-- ── Tokens ──────────────────────────────────────────────────── -->

@@ -83,10 +83,24 @@ function replayPending(serverState) {
 function markOptimisticDraws(prevState, optimisticState, action) {
   const { type } = action;
 
-  if (type === 'DRAW' || type === 'DRAW_FORCE') {
+  if (type === 'DRAW' || type === 'DRAW_FORCE' || type === 'DRAW_SPADE') {
     const pid = action.playerId;
+    const player = optimisticState.players[pid];
+
+    // HALFLING: pendingHalfling appeared → mark both cards as pending
+    if (player?.pendingHalfling && !prevState.players[pid]?.pendingHalfling) {
+      const pending = player.pendingHalfling.map(() => makePendingCard());
+      return {
+        ...optimisticState,
+        players: {
+          ...optimisticState.players,
+          [pid]: { ...player, pendingHalfling: pending },
+        },
+      };
+    }
+
     const prevLen = prevState.players[pid]?.hand?.length ?? 0;
-    const newHand = optimisticState.players[pid]?.hand ?? [];
+    const newHand = player?.hand ?? [];
     if (newHand.length > prevLen) {
       const added = newHand.length - prevLen;
       const hand = [
@@ -97,7 +111,7 @@ function markOptimisticDraws(prevState, optimisticState, action) {
         ...optimisticState,
         players: {
           ...optimisticState.players,
-          [pid]: { ...optimisticState.players[pid], hand },
+          [pid]: { ...player, hand },
         },
       };
     }
@@ -116,6 +130,26 @@ function markOptimisticDraws(prevState, optimisticState, action) {
           [pid]: { ...optimisticState.players[pid], hand },
         },
       };
+    }
+  }
+
+  // AASIMAR auto-heart: after any token-consuming action, mark the new crystallized card as pending
+  if (['DRAW_FORCE', 'USE_AGILITE', 'USE_ESPRIT', 'SPEND_TOKEN', 'PROPOSE_EXCHANGE'].includes(type)) {
+    const pid = action.playerId;
+    const player = optimisticState.players[pid];
+    if (player?.race === 'aasimar') {
+      const prevCrystLen = prevState.players[pid]?.crystallized?.length ?? 0;
+      const cryst = player.crystallized;
+      if (cryst.length > prevCrystLen) {
+        const updated = [...cryst.slice(0, -1), makePendingCard()];
+        return {
+          ...optimisticState,
+          players: {
+            ...optimisticState.players,
+            [pid]: { ...player, crystallized: updated },
+          },
+        };
+      }
     }
   }
 
@@ -146,6 +180,18 @@ function markOptimisticDraws(prevState, optimisticState, action) {
       if (id === action.playerId) continue;
       const prevLen = pl.hand?.length ?? 0;
       const newHand = players[id]?.hand ?? [];
+      const newPending = players[id]?.pendingHalfling;
+
+      // Halfling: pendingHalfling appeared → mark both cards as pending
+      if (newPending && !pl.pendingHalfling) {
+        players[id] = {
+          ...players[id],
+          pendingHalfling: newPending.map(() => makePendingCard()),
+        };
+        continue;
+      }
+
+      // Non-Halfling: normal draw placeholder
       if (newHand.length > prevLen) {
         const added = newHand.length - prevLen;
         players[id] = {
