@@ -16,9 +16,12 @@ const SUIT_BY_ID = {
 const SUIT_SORT_ORDER = { '♥': 0, '♣': 1, '♦': 2, '♠': 3 };
 
 export function sortCards(cards) {
-  return [...cards].sort((a, b) =>
-    (SUIT_SORT_ORDER[a.suit] - SUIT_SORT_ORDER[b.suit]) || (a.numericValue - b.numericValue)
-  );
+  return [...cards].sort((a, b) => {
+    if (a._pending && !b._pending) return 1;
+    if (!a._pending && b._pending) return -1;
+    if (a._pending && b._pending) return 0;
+    return (SUIT_SORT_ORDER[a.suit] - SUIT_SORT_ORDER[b.suit]) || (a.numericValue - b.numericValue);
+  });
 }
 
 export function shuffle(arr) {
@@ -32,6 +35,18 @@ export function shuffle(arr) {
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+}
+
+let _pendingUid = 0;
+
+/** Create a placeholder card shown while waiting for the server to confirm a draw. */
+export function makePendingCard() {
+  return { id: `pending-${Date.now()}-${++_pendingUid}`, _pending: true, suit: '', value: '?', numericValue: 0, isRed: false };
+}
+
+/** Check whether a card is a pending (unconfirmed) placeholder. */
+export function isPendingCard(card) {
+  return !!card._pending;
 }
 
 /** Create a specific card (by suit symbol + value) with a fresh unique ID. */

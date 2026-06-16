@@ -1,4 +1,4 @@
-import { hydrateState, applyAction, createInitialGameState } from './deck.js';
+import { hydrateState, applyAction, createInitialGameState, makePendingCard } from './deck.js';
 import { supabase } from './supabaseClient.js';
 
 let currentVersion = 0;
@@ -69,10 +69,98 @@ function replayPending(serverState) {
   if (pendingActions.length === 0) return serverState;
   let state = serverState;
   for (const action of pendingActions) {
+    const prev = state;
     const result = applyAction(state, action);
-    state = result.state;
+    state = markOptimisticDraws(prev, result.state, action);
   }
   return state;
+}
+
+/**
+ * Replace newly-added random cards with pending placeholders so the UI shows
+ * blank cards until the server confirms the actual card identity.
+ */
+function markOptimisticDraws(prevState, optimisticState, action) {
+  const { type } = action;
+
+  if (type === 'DRAW' || type === 'DRAW_FORCE') {
+    const pid = action.playerId;
+    const prevLen = prevState.players[pid]?.hand?.length ?? 0;
+    const newHand = optimisticState.players[pid]?.hand ?? [];
+    if (newHand.length > prevLen) {
+      const added = newHand.length - prevLen;
+      const hand = [
+        ...newHand.slice(0, prevLen),
+        ...Array.from({ length: added }, () => makePendingCard()),
+      ];
+      return {
+        ...optimisticState,
+        players: {
+          ...optimisticState.players,
+          [pid]: { ...optimisticState.players[pid], hand },
+        },
+      };
+    }
+  }
+
+  if (type === 'USE_AGILITE') {
+    const pid = action.playerId;
+    const newHand = optimisticState.players[pid]?.hand ?? [];
+    // USE_AGILITE removes 1 card and adds 1 — the last card is the new draw
+    if (newHand.length > 0) {
+      const hand = [...newHand.slice(0, -1), makePendingCard()];
+      return {
+        ...optimisticState,
+        players: {
+          ...optimisticState.players,
+          [pid]: { ...optimisticState.players[pid], hand },
+        },
+      };
+    }
+  }
+
+  if (type === 'GIVE_CARDS') {
+    const tid = action.targetId;
+    const dest = action.crystal ? 'crystallized' : 'hand';
+    const prevLen = prevState.players[tid]?.[dest]?.length ?? 0;
+    const newArr = optimisticState.players[tid]?.[dest] ?? [];
+    if (newArr.length > prevLen) {
+      const added = newArr.length - prevLen;
+      const arr = [
+        ...newArr.slice(0, prevLen),
+        ...Array.from({ length: added }, () => makePendingCard()),
+      ];
+      return {
+        ...optimisticState,
+        players: {
+          ...optimisticState.players,
+          [tid]: { ...optimisticState.players[tid], [dest]: arr },
+        },
+      };
+    }
+  }
+
+  if (type === 'DEAL_ALL') {
+    let players = { ...optimisticState.players };
+    for (const [id, pl] of Object.entries(prevState.players)) {
+      if (id === action.playerId) continue;
+      const prevLen = pl.hand?.length ?? 0;
+      const newHand = players[id]?.hand ?? [];
+      if (newHand.length > prevLen) {
+        const added = newHand.length - prevLen;
+        players[id] = {
+          ...players[id],
+          hand: [
+            ...newHand.slice(0, prevLen),
+            ...Array.from({ length: added }, () => makePendingCard()),
+          ],
+        };
+      }
+    }
+    return { ...optimisticState, players };
+  }
+
+  return optimisticState;
 }
 
 export function startRealtime(roomId, onState, onConnectionChange) {
@@ -166,7 +254,8 @@ export async function dispatch(roomId, action) {
     ? replayPending(lastServerState)
     : (await fetchState(roomId)) ?? createInitialGameState();
 
-  const { state: optimisticState } = applyAction(currentState, action);
+  const { state: rawOptimistic } = applyAction(currentState, action);
+  const optimisticState = markOptimisticDraws(currentState, rawOptimistic, action);
   if (onStateCallback) {
     onStateCallback(optimisticState);
   }

@@ -225,6 +225,7 @@
   // ── Fan card click — route to action or toggle ─────────────────────────
   function onCardClick(card, isCrystallized) {
     if (interactionFrozen) return;
+    if (card._pending) return;
     const isGrayed = (player?.grayedCards ?? []).includes(card.id);
     if (action === "agilite-pick-card" && !isCrystallized && !isGrayed) {
       agilitePickCard(card);
@@ -407,7 +408,7 @@
             Choisissez la carte à donner en retour :
           </p>
           <div class="flex flex-wrap gap-1.5 justify-center">
-            {#each sortCards(player.hand) as card (card.id)}
+            {#each sortCards(player.hand.filter(c => !c._pending)) as card (card.id)}
               <div
                 class="w-[56px] h-[84px] rounded cursor-pointer hover:ring-2 hover:ring-green-400 flex flex-col p-1 text-[10px] font-bold"
                 style="background: #fff; border: 1.5px solid #d1d5db; color: {SUIT_COLOR[
@@ -545,39 +546,50 @@
               "
               onclick={() => onCardClick(card, isCrystallized)}
             >
-              <div
-                class="relative w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
-                style="
-                  background: {isCrystallized ? '#ef9b9b' : '#ffffff'};
-                  border: {isCrystallized
-                  ? '2.5px solid #ef4444'
-                  : '1.5px solid #d1d5db'};
-                  color: {SUIT_COLOR[card.suit] ?? '#111827'};
-                "
-              >
-                <div class="flex flex-col items-start">
-                  <span>{card.value}</span><span class="text-[14px]"
-                    >{card.suit}</span
-                  >
-                </div>
+              {#if card._pending}
                 <div
-                  class="flex-1 flex items-center justify-center text-[28px]"
+                  class="relative w-[80px] h-[120px] rounded-lg flex items-center justify-center"
+                  style="background: #1e1b4b; border: 1.5px solid #4338ca;"
                 >
-                  {card.suit}
+                  <div class="w-[56px] h-[84px] rounded border border-indigo-700 bg-indigo-900 flex items-center justify-center">
+                    <span class="text-indigo-500 text-lg">✦</span>
+                  </div>
                 </div>
-                <div class="flex flex-col items-end rotate-180">
-                  <span>{card.value}</span><span class="text-[14px]"
-                    >{card.suit}</span
-                  >
-                </div>
-                <!-- Gray overlay -->
-                {#if isGrayed}
+              {:else}
+                <div
+                  class="relative w-[80px] h-[120px] rounded-lg flex flex-col p-1 text-[12px] font-bold leading-none"
+                  style="
+                    background: {isCrystallized ? '#ef9b9b' : '#ffffff'};
+                    border: {isCrystallized
+                    ? '2.5px solid #ef4444'
+                    : '1.5px solid #d1d5db'};
+                    color: {SUIT_COLOR[card.suit] ?? '#111827'};
+                  "
+                >
+                  <div class="flex flex-col items-start">
+                    <span>{card.value}</span><span class="text-[14px]"
+                      >{card.suit}</span
+                    >
+                  </div>
                   <div
-                    class="absolute inset-0 rounded-lg"
-                    style="background: rgba(0,0,0,0.55);"
-                  ></div>
-                {/if}
-              </div>
+                    class="flex-1 flex items-center justify-center text-[28px]"
+                  >
+                    {card.suit}
+                  </div>
+                  <div class="flex flex-col items-end rotate-180">
+                    <span>{card.value}</span><span class="text-[14px]"
+                      >{card.suit}</span
+                    >
+                  </div>
+                  <!-- Gray overlay -->
+                  {#if isGrayed}
+                    <div
+                      class="absolute inset-0 rounded-lg"
+                      style="background: rgba(0,0,0,0.55);"
+                    ></div>
+                  {/if}
+                </div>
+              {/if}
 
               <!-- Per-card action buttons when active -->
               {#if isActive && !action && !interactionFrozen}
