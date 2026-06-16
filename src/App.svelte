@@ -49,21 +49,22 @@
   </div>
 
   <!-- Content -->
-  <div class="flex-1 overflow-hidden">
+  <div class="flex-1 overflow-hidden relative">
 
-    {#if activeTab === 'game'}
+    <div class="w-full h-full" style:display={activeTab !== 'game' ? 'none' : ''}>
       <CardGame />
+    </div>
 
-    {:else if activeTab === 'sheet'}
+    {#if activeTab === 'sheet'}
       <iframe
         title="Character Sheet"
         src="https://cardenveil-sheet.pages.dev/"
-        class="w-full h-full border-0"
+        class="w-full h-full border-0 absolute inset-0"
         sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
       ></iframe>
 
-    {:else}
-      <div class="w-full h-full flex flex-col">
+    {:else if activeTab === 'embed'}
+      <div class="w-full h-full flex flex-col absolute inset-0">
         {#if !embedUrl}
           <div class="flex-1 flex flex-col items-center justify-center p-4">
             <div class="w-full max-w-sm space-y-3">
