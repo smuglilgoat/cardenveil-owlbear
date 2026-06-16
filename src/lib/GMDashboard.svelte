@@ -13,6 +13,7 @@
     RACES,
     handCap,
   } from "./deck.js";
+  import { tooltip } from "./tooltip.js";
 
   let { gameState, party, myId, onAction } = $props();
 
@@ -321,12 +322,14 @@
     <button
       onclick={dealOneToAll}
       disabled={anyPlayerFull}
+      use:tooltip={"Distribue 1 carte aléatoire à chaque joueur dont la main n'est pas pleine"}
       class="flex-1 text-xs py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
     >
       Distribuer 1 à tous
     </button>
     <button
       onclick={restAll}
+      use:tooltip={"Remet tous les tokens de tous les joueurs à leur maximum"}
       class="flex-1 text-xs py-2 bg-emerald-800 hover:bg-emerald-700 text-emerald-100 rounded-lg font-semibold"
     >
       Repos (reset tokens)
@@ -358,6 +361,7 @@
       <div class="flex gap-1">
         <button
           onclick={() => { giveType = 'normal'; selectedCards = []; }}
+          use:tooltip={"Donner des cartes normales (pioche standard)"}
           class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition-colors"
           class:bg-indigo-600={giveType === 'normal'} class:text-white={giveType === 'normal'}
           class:bg-gray-700={giveType !== 'normal'} class:text-gray-400={giveType !== 'normal'} class:hover:bg-gray-600={giveType !== 'normal'}
@@ -366,6 +370,7 @@
         </button>
         <button
           onclick={() => { giveType = 'crystal'; selectedCards = []; }}
+          use:tooltip={"Donner des cartes cristallisées (couleur spécifique)"}
           class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition-colors"
           class:bg-red-700={giveType === 'crystal'} class:text-white={giveType === 'crystal'}
           class:bg-gray-700={giveType !== 'crystal'} class:text-gray-400={giveType !== 'crystal'} class:hover:bg-gray-600={giveType !== 'crystal'}
@@ -377,6 +382,7 @@
       <div class="flex gap-1">
         <button
           onclick={() => { giveMode = 'random'; selectedCards = []; }}
+          use:tooltip={"Les cartes sont tirées au hasard"}
           class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition-colors"
           class:bg-gray-600={giveMode === 'random'} class:text-white={giveMode === 'random'}
           class:bg-gray-700={giveMode !== 'random'} class:text-gray-400={giveMode !== 'random'} class:hover:bg-gray-600={giveMode !== 'random'}
@@ -385,6 +391,7 @@
         </button>
         <button
           onclick={() => { giveMode = 'specific'; selectedCards = []; }}
+          use:tooltip={"Choisir précisément les cartes à donner"}
           class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition-colors"
           class:bg-gray-600={giveMode === 'specific'} class:text-white={giveMode === 'specific'}
           class:bg-gray-700={giveMode !== 'specific'} class:text-gray-400={giveMode !== 'specific'} class:hover:bg-gray-600={giveMode !== 'specific'}
@@ -404,6 +411,7 @@
           />
           <button
             onclick={giveRandomCards}
+            use:tooltip={"Donner " + dealCount + " carte(s) aléatoire(s) au joueur sélectionné"}
             class="flex-1 text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg"
           >
             Donner
@@ -415,6 +423,7 @@
             <span class="text-xs text-gray-300">{selectedCards.length} carte(s) sélectionnée(s)</span>
             <button
               onclick={giveSelectedCards}
+              use:tooltip={"Donner les cartes sélectionnées au joueur sélectionné"}
               class="text-xs px-3 py-1 rounded-lg font-semibold"
               class:bg-indigo-600={giveType === 'normal'} class:hover:bg-indigo-500={giveType === 'normal'}
               class:bg-red-700={giveType === 'crystal'} class:hover:bg-red-600={giveType === 'crystal'}
@@ -430,6 +439,7 @@
             {@const selected = selectedCards.some(c => c.key === key)}
             <button
               onclick={() => toggleSpecificCard(card)}
+              use:tooltip={"Sélectionner / désélectionner cette carte"}
               class="relative rounded-lg transition-all"
               class:ring-2={selected}
               class:ring-indigo-400={selected && giveType === 'normal'}
@@ -455,6 +465,7 @@
       {#if !gmChar}
         <button
           onclick={createGMCharacter}
+          use:tooltip={"Créer un personnage MJ qui peut participer aux échanges"}
           class="text-xs px-2 py-1 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg"
         >
           + Créer
@@ -462,6 +473,7 @@
       {:else}
         <button
           onclick={removeGMCharacter}
+          use:tooltip={"Supprimer le personnage MJ et annuler ses échanges en cours"}
           class="text-xs px-2 py-1 bg-red-900 hover:bg-red-800 text-red-300 rounded-lg"
         >
           Supprimer
@@ -485,6 +497,7 @@
           <button
             onclick={() => gmDrawForPlayer(GM_CHAR_ID)}
             disabled={gmChar.hand.length >= gmChar.maxHandSize}
+            use:tooltip={"Piocher une carte pour le personnage MJ"}
             class="ml-auto text-xs px-2 py-1 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg disabled:opacity-40"
           >
             Piocher ({gmChar.hand.length}/{gmChar.maxHandSize})
@@ -617,6 +630,7 @@
                 </div>
                 <button
                   onclick={cancelGmAction}
+                  use:tooltip={"Annuler l'action en cours"}
                   class="text-xs text-gray-500 hover:text-gray-300 underline"
                   >Annuler</button
                 >
@@ -624,11 +638,13 @@
                 <div class="flex gap-2">
                   <button
                     onclick={() => gmCharStartAccept(ex)}
+                    use:tooltip={"Accepter l'échange pour le personnage MJ"}
                     class="flex-1 text-xs py-1 bg-green-700 hover:bg-green-600 text-white rounded-lg"
                     >Accepter</button
                   >
                   <button
                     onclick={() => gmCharDecline(ex)}
+                    use:tooltip={"Refuser l'échange, le token Social est remboursé"}
                     class="flex-1 text-xs py-1 bg-red-800 hover:bg-red-700 text-red-200 rounded-lg"
                     >Refuser</button
                   >
@@ -661,6 +677,7 @@
               </div>
               <button
                 onclick={cancelGmAction}
+                use:tooltip={"Annuler l'action en cours"}
                 class="text-xs text-gray-500 hover:text-gray-300 underline"
                 >Annuler</button
               >
@@ -677,6 +694,7 @@
               {#each playerIds as id}
                 <button
                   onclick={() => gmCharPickTarget(id)}
+                  use:tooltip={"Proposer l'échange à " + getPlayerName(id)}
                   class="w-full text-left text-xs px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
                 >
                   {getPlayerName(id)}
@@ -684,6 +702,7 @@
               {/each}
               <button
                 onclick={cancelGmAction}
+                use:tooltip={"Annuler l'action en cours"}
                 class="text-xs text-gray-500 hover:text-gray-300 underline"
                 >Annuler</button
               >
@@ -694,6 +713,7 @@
               disabled={!gmChar ||
                 gmChar.tokens.social <= 0 ||
                 gmChar.hand.length === 0}
+              use:tooltip={"Le personnage MJ propose un échange (coûte 1 token Social)"}
               class="w-full text-xs py-1.5 bg-yellow-800 hover:bg-yellow-700 text-yellow-100 rounded-lg disabled:opacity-40"
             >
               Initier un échange (token Social)
@@ -760,6 +780,7 @@
       <div class="bg-gray-800 rounded-xl">
         <button
           onclick={() => toggleExpand(id)}
+          use:tooltip={"Afficher / masquer les détails de " + getPlayerName(id)}
           class="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-700 transition-colors text-left"
         >
           <span class="flex items-center gap-1.5">
@@ -900,6 +921,7 @@
                     </p>
                     <button
                       onclick={cancelSwap}
+                      use:tooltip={"Annuler le remplacement de carte"}
                       class="text-xs text-gray-500 hover:text-gray-300"
                       >✕</button
                     >
@@ -909,6 +931,7 @@
                   {#if swapStep === 1}
                     <button
                       onclick={() => pickSwapSource("normal")}
+                      use:tooltip={"Remplacer par une carte de la pioche normale"}
                       class="w-full text-xs py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg"
                     >
                       Pioche normale
@@ -917,6 +940,7 @@
                       {#each SUITS_INFO as s}
                         <button
                           onclick={() => pickSwapSource(s.symbol)}
+                          use:tooltip={"Remplacer par une carte de la pioche " + s.label}
                           class="text-xs py-1.5 rounded-lg border font-semibold"
                           class:text-red-400={s.isRed}
                           class:border-red-800={s.isRed}
@@ -939,6 +963,7 @@
                         : fullSuit(swapSource)}
                     <button
                       onclick={() => (swapStep = 1)}
+                      use:tooltip={"Retour au choix de la source"}
                       class="text-xs text-gray-500 hover:text-gray-300 underline"
                       >← Retour</button
                     >
@@ -1010,12 +1035,14 @@
     <div class="flex gap-2">
       <button
         onclick={exportState}
+        use:tooltip={"Télécharger l'état de la partie en fichier JSON"}
         class="flex-1 text-xs py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg font-semibold"
       >
         ↓ Exporter JSON
       </button>
       <!-- label wraps hidden file input so no ref needed -->
       <label
+        use:tooltip={"Charger un état de partie depuis un fichier JSON"}
         class="flex-1 text-s py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg font-semibold text-center cursor-pointer"
       >
         ↑ Importer JSON
@@ -1038,6 +1065,7 @@
       {#if resetStep === 0}
         <button
           onclick={hardReset}
+          use:tooltip={"Effacer toutes les mains, tokens et cartes cristallisées"}
           class="flex-1 py-2 text-xs font-bold bg-transparent border border-red-800 text-red-600 hover:bg-red-950 hover:text-red-400 hover:border-red-600 rounded-lg transition-colors"
         >
           ⚠ Réinitialisation complète
@@ -1051,12 +1079,14 @@
       <div class="flex gap-2">
         <button
           onclick={cancelReset}
+          use:tooltip={"Annuler la réinitialisation"}
           class="flex-1 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg"
         >
           Annuler
         </button>
         <button
           onclick={hardReset}
+          use:tooltip={"Confirmer — une dernière étape avant l'effacement"}
           class="flex-1 py-1.5 text-xs bg-red-800 hover:bg-red-700 text-red-100 font-bold rounded-lg"
         >
           Oui, continuer
@@ -1069,12 +1099,14 @@
       <div class="flex gap-2">
         <button
           onclick={cancelReset}
+          use:tooltip={"Annuler la réinitialisation"}
           class="flex-1 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg"
         >
           Annuler
         </button>
         <button
           onclick={hardReset}
+          use:tooltip={"Effacement irréversible de toutes les données de jeu"}
           class="flex-1 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg"
         >
           Tout effacer

@@ -1,4 +1,5 @@
 <script>
+  import { tooltip } from './tooltip.js';
   /**
    * @type {{
    *   playerState: object,
@@ -47,6 +48,7 @@
           <button
             onclick={() => onSpendToken(stat.key)}
             disabled={current <= 0}
+            use:tooltip={"Dépenser 1 token " + stat.label + " (usage combat)"}
             class="w-5 h-5 flex items-center justify-center text-sm bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-30 leading-none"
           >−</button>
         {/if}
@@ -54,6 +56,7 @@
           <button
             onclick={() => onAddToken(stat.key)}
             disabled={current >= max}
+            use:tooltip={"Ajouter 1 token " + stat.label + " au joueur"}
             class="w-5 h-5 flex items-center justify-center text-sm bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-30 leading-none"
           >+</button>
         {/if}
