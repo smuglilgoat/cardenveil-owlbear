@@ -209,18 +209,29 @@ export function applyAction(state: any, action: any): { state: any; log: any } {
       return { state: addLog(s, action.playerId, p.name, `token Force : pioche ${card.value}${card.suit}`), log: null };
     }
 
-    case 'DEAL': {
+    case 'GIVE_CARDS': {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const target = state.players[action.targetId];
       if (!target) return { state, log: null };
-      const mn = target.minDrawValue ?? 1, mx = target.maxDrawValue ?? 13;
-      const count = clamp(action.count ?? 1, 1, 10);
-      const cards = Array.from({ length: count }, () => drawNormal(mn, mx));
+      const crystal = !!action.crystal;
+      const prefix = crystal ? 's' : 'n';
+      let cards;
+      if (action.mode === 'specific' && Array.isArray(action.cards) && action.cards.length > 0) {
+        cards = action.cards.map((c: any) => makeCard(c.suit, c.value, prefix));
+      } else {
+        const count = clamp(action.count ?? 1, 1, 10);
+        const mn = target.minDrawValue ?? 1, mx = target.maxDrawValue ?? 13;
+        cards = Array.from({ length: count }, () => drawNormal(mn, mx));
+      }
+      const dest = crystal ? 'crystallized' : 'hand';
       const s = {
         ...state,
-        players: { ...state.players, [action.targetId]: { ...target, hand: [...target.hand, ...cards] } },
+        players: { ...state.players, [action.targetId]: {
+          ...target, [dest]: [...target[dest], ...cards],
+        }},
       };
-      return { state: addLog(s, 'gm', 'MJ', `distribue ${cards.length} carte(s) à ${target.name} : ${cards.map((c: any) => c.value + c.suit).join(', ')}`), log: null };
+      const label = crystal ? 'cristallisée(s)' : 'normale(s)';
+      return { state: addLog(s, 'gm', 'MJ', `donne ${cards.length} carte(s) ${label} à ${target.name} : ${cards.map((c: any) => c.value + c.suit).join(', ')}`), log: null };
     }
 
     case 'DEAL_ALL': {
@@ -288,20 +299,6 @@ export function applyAction(state: any, action: any): { state: any; log: any } {
         }},
       };
       return { state: addLog(s, action.playerId, p.name, `cristallise ${card.value}${card.suit} (−1 Spirit Bound)`), log: null };
-    }
-
-    case 'GIVE_CRYSTAL': {
-      if (!isGM(state, action.playerId)) return { state, log: null };
-      const p = state.players[action.targetId];
-      if (!p) return { state, log: null };
-      const card = makeCard(action.suit, action.value, 's');
-      const s = {
-        ...state,
-        players: { ...state.players, [action.targetId]: {
-          ...p, crystallized: [...p.crystallized, card],
-        }},
-      };
-      return { state: addLog(s, 'gm', 'MJ', `donne carte cristallisée ${card.value}${card.suit} à ${p.name}`), log: null };
     }
 
     case 'USE_AGILITE': {

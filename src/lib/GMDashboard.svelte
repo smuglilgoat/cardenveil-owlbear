@@ -21,6 +21,10 @@
 
   let dealTarget = $state("");
   let dealCount = $state(1);
+  let giveType = $state('normal');
+  let giveMode = $state('random');
+  /** @type {{key: string, suit: string, value: string}[]} */
+  let selectedCards = $state([]);
   let expandedPlayers = $state(new Set());
 
   // Hard reset two-step state: 0 = idle, 1 = first confirm, 2 = second confirm
@@ -98,18 +102,29 @@
   }
 
   // ── Deal ─────────────────────────────────────────────────────────────
-  function dealToPlayer() {
+  function giveRandomCards() {
     if (!dealTarget || dealCount <= 0) return;
-    onAction({ type: 'DEAL', playerId: myId, targetId: dealTarget, count: dealCount });
+    onAction({ type: 'GIVE_CARDS', playerId: myId, targetId: dealTarget, crystal: giveType === 'crystal', mode: 'random', count: dealCount });
   }
 
   function dealOneToAll() {
     onAction({ type: 'DEAL_ALL', playerId: myId });
   }
 
-  function giveCrystallized(toId, card) {
-    onAction({ type: 'GIVE_CRYSTAL', playerId: myId, targetId: toId, suit: card.suit, value: card.value });
-    crystalPickOpen = false;
+  function toggleSpecificCard(card) {
+    const key = card.suit + '-' + card.value;
+    const exists = selectedCards.find(c => c.key === key);
+    if (exists) {
+      selectedCards = selectedCards.filter(c => c.key !== key);
+    } else {
+      selectedCards = [...selectedCards, { key, suit: card.suit, value: card.value }];
+    }
+  }
+
+  function giveSelectedCards() {
+    if (!dealTarget || selectedCards.length === 0) return;
+    onAction({ type: 'GIVE_CARDS', playerId: myId, targetId: dealTarget, crystal: giveType === 'crystal', mode: 'specific', cards: selectedCards.map(c => ({ suit: c.suit, value: c.value })) });
+    selectedCards = [];
   }
 
   // ── Rest ─────────────────────────────────────────────────────────────
@@ -315,55 +330,104 @@
     <h2 class="text-xs font-semibold text-gray-300 uppercase tracking-wide">
       Distribuer
     </h2>
-    <div class="flex gap-2">
-      <select
-        bind:value={dealTarget}
-        class="flex-1 text-xs bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-gray-200"
-      >
-        <option value="">— Joueur —</option>
-        {#each playerIds as id}
-          <option value={id}>{getPlayerName(id)}</option>
-        {/each}
-        {#if gmChar}
-          <option value={GM_CHAR_ID}>{getPlayerName(GM_CHAR_ID)}</option>
-        {/if}
-      </select>
-      <input
-        type="number"
-        bind:value={dealCount}
-        min="1"
-        max="10"
-        class="w-12 text-xs bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-center text-gray-200"
-      />
-      <button
-        onclick={dealToPlayer}
-        disabled={!dealTarget}
-        class="text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg disabled:opacity-40 shrink-0"
-      >
-        Donner
-      </button>
-    </div>
-    {#if dealTarget}
-      <button
-        onclick={() => { crystalPickOpen = !crystalPickOpen; }}
-        class="w-full text-xs py-1.5 rounded-lg font-semibold"
-        class:bg-red-700={!crystalPickOpen} class:hover:bg-red-600={!crystalPickOpen} class:text-red-100={!crystalPickOpen}
-        class:bg-red-900={crystalPickOpen} class:text-red-300={crystalPickOpen}
-      >
-        ✦ {crystalPickOpen ? 'Annuler' : `Donner 1 carte cristallisée à ${getPlayerName(dealTarget)}`}
-      </button>
+    <select
+      bind:value={dealTarget}
+      class="w-full text-xs bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-gray-200"
+    >
+      <option value="">— Joueur —</option>
+      {#each playerIds as id}
+        <option value={id}>{getPlayerName(id)}</option>
+      {/each}
+      {#if gmChar}
+        <option value={GM_CHAR_ID}>{getPlayerName(GM_CHAR_ID)}</option>
+      {/if}
+    </select>
 
-      {#if crystalPickOpen}
-        <div class="bg-gray-900 border border-red-800 rounded-lg p-2 space-y-2">
-          <p class="text-[11px] text-red-300 font-semibold">Choisir la carte à cristalliser :</p>
-          <div class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-            {#each fullDeck() as card (card.id)}
-              <CardDisplay
-                {card}
-                actions={[{ icon: "✦", label: "Donner cristallisée", onClick: () => giveCrystallized(dealTarget, card) }]}
-              />
-            {/each}
+    {#if dealTarget}
+      <div class="flex gap-1">
+        <button
+          onclick={() => { giveType = 'normal'; selectedCards = []; }}
+          class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition-colors"
+          class:bg-indigo-600={giveType === 'normal'} class:text-white={giveType === 'normal'}
+          class:bg-gray-700={giveType !== 'normal'} class:text-gray-400={giveType !== 'normal'} class:hover:bg-gray-600={giveType !== 'normal'}
+        >
+          Normale
+        </button>
+        <button
+          onclick={() => { giveType = 'crystal'; selectedCards = []; }}
+          class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition-colors"
+          class:bg-red-700={giveType === 'crystal'} class:text-white={giveType === 'crystal'}
+          class:bg-gray-700={giveType !== 'crystal'} class:text-gray-400={giveType !== 'crystal'} class:hover:bg-gray-600={giveType !== 'crystal'}
+        >
+          ✦ Cristallisée
+        </button>
+      </div>
+
+      <div class="flex gap-1">
+        <button
+          onclick={() => { giveMode = 'random'; selectedCards = []; }}
+          class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition-colors"
+          class:bg-gray-600={giveMode === 'random'} class:text-white={giveMode === 'random'}
+          class:bg-gray-700={giveMode !== 'random'} class:text-gray-400={giveMode !== 'random'} class:hover:bg-gray-600={giveMode !== 'random'}
+        >
+          Aléatoire
+        </button>
+        <button
+          onclick={() => { giveMode = 'specific'; selectedCards = []; }}
+          class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition-colors"
+          class:bg-gray-600={giveMode === 'specific'} class:text-white={giveMode === 'specific'}
+          class:bg-gray-700={giveMode !== 'specific'} class:text-gray-400={giveMode !== 'specific'} class:hover:bg-gray-600={giveMode !== 'specific'}
+        >
+          Spécifique
+        </button>
+      </div>
+
+      {#if giveMode === 'random'}
+        <div class="flex gap-2">
+          <input
+            type="number"
+            bind:value={dealCount}
+            min="1"
+            max="10"
+            class="w-12 text-xs bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-center text-gray-200"
+          />
+          <button
+            onclick={giveRandomCards}
+            class="flex-1 text-xs px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg"
+          >
+            Donner
+          </button>
+        </div>
+      {:else}
+        {#if selectedCards.length > 0}
+          <div class="flex items-center justify-between bg-gray-900 rounded-lg px-2 py-1.5">
+            <span class="text-xs text-gray-300">{selectedCards.length} carte(s) sélectionnée(s)</span>
+            <button
+              onclick={giveSelectedCards}
+              class="text-xs px-3 py-1 rounded-lg font-semibold"
+              class:bg-indigo-600={giveType === 'normal'} class:hover:bg-indigo-500={giveType === 'normal'}
+              class:bg-red-700={giveType === 'crystal'} class:hover:bg-red-600={giveType === 'crystal'}
+              class:text-white={giveType === 'normal' || giveType === 'crystal'}
+            >
+              Donner
+            </button>
           </div>
+        {/if}
+        <div class="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto bg-gray-900 border border-gray-700 rounded-lg p-2">
+          {#each fullDeck() as card (card.id)}
+            {@const key = card.suit + '-' + card.value}
+            {@const selected = selectedCards.some(c => c.key === key)}
+            <button
+              onclick={() => toggleSpecificCard(card)}
+              class="relative rounded-lg transition-all"
+              class:ring-2={selected}
+              class:ring-indigo-400={selected && giveType === 'normal'}
+              class:ring-red-400={selected && giveType === 'crystal'}
+              class:opacity-50={!selected}
+            >
+              <CardDisplay {card} />
+            </button>
+          {/each}
         </div>
       {/if}
     {/if}

@@ -73,11 +73,10 @@ Contains the **action reducer** that handles all 28 action types:
 | `REGISTER_PARTY` | Bulk register party members | GM only |
 | `DRAW` | Draw from normal pile | Any (self) / GM |
 | `DRAW_FORCE` | Spend Force token to draw | Any (self) |
-| `DEAL` | GM deals N cards to player | GM only |
+| `GIVE_CARDS` | GM gives N normal/crystallized cards (random or specific) | GM only |
 | `DEAL_ALL` | GM deals 1 card to all | GM only |
 | `DISCARD` | Discard from hand/crystallized | Any/GM |
 | `CRYSTALLIZE` | Move card to crystallized | Any (self) |
-| `GIVE_CRYSTAL` | GM gives crystallized card | GM only |
 | `USE_AGILITE` | Spend Agilité for specialized draw | Any (self) |
 | `USE_ESPRIT` | Spend Esprit for +1 Spirit Bound | Any (self) |
 | `PROPOSE_EXCHANGE` | Initiate card exchange | Any (self) |
