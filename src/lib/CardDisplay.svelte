@@ -1,4 +1,5 @@
 <script>
+  import { tooltip } from './tooltip.js';
   /** @type {{ card: object, faceDown?: boolean, actions?: Array<{icon?: string, label: string, onClick: () => void}>, crystallized?: boolean, fatiguePenalty?: number }} */
   let { card, faceDown = false, actions = [], crystallized = false, fatiguePenalty = 0 } = $props();
 </script>
@@ -59,7 +60,7 @@
         {#each actions as action}
           <button
             onclick={action.onClick}
-            title={action.label}
+            use:tooltip={action.label}
             class="text-base bg-indigo-600 hover:bg-indigo-500 text-white rounded w-full flex items-center justify-center py-0.5 leading-none"
           >
             {action.icon}

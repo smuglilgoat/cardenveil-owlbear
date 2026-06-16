@@ -1,4 +1,5 @@
 <script>
+  import { tooltip } from './tooltip.js';
   /** @type {{ logs: object[], myId: string, isGM?: boolean }} */
   let { logs, myId, isGM = false } = $props();
 
@@ -18,6 +19,7 @@
 <div class="shrink-0">
   <button
     onclick={() => visible = !visible}
+    use:tooltip={"Afficher / masquer le journal des actions"}
     class="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-gray-400 hover:text-gray-200 transition-colors"
     style="background: rgba(15,15,25,0.6); border-top: 1px solid rgba(255,255,255,0.06);"
   >

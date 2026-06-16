@@ -4,6 +4,7 @@
   import CardDisplay from "./CardDisplay.svelte";
   import ActionLog from "./ActionLog.svelte";
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES } from "./deck.js";
+  import { tooltip } from "./tooltip.js";
 
   let { gameState, myId, myName, party, onAction } = $props();
 
@@ -237,6 +238,28 @@
     },
   ];
 
+  const RACE_PASSIVE_TIP = /** @type {{ [key: string]: string }} */ ({
+    'haut-elfe': 'Passif : Vous avez +1 carte en main',
+    'tieffelin': 'Passif : Vous pouvez choisir de piocher du Pique un tour sur deux',
+    'aasimar':   'Passif : Quand vous utilisez un token, vous créez automatiquement une carte cristallisée Cœur',
+    'halfling':  'Passif : À chaque pioche, piochez 2 cartes puis choisissez-en 1',
+    'sporelin':  'Passif : Vous pouvez échanger une carte gratuitement avec un allié',
+  });
+
+  const TOKEN_CARTE_TIP = /** @type {{ [key: string]: string }} */ ({
+    force:   'Piocher une carte',
+    agilite: 'Échanger une carte avec une couleur spécifique, la valeur reste aléatoire',
+    esprit:  'Crée un Spirit Slot qui étend la taille de la main. Vous pouvez cristalliser des cartes en consommant des Spirit Slots',
+    social:  'Échanger une carte avec un allié',
+  });
+
+  const TOKEN_COMBAT_TIP = /** @type {{ [key: string]: string }} */ ({
+    force:   'Attaque supplémentaire',
+    agilite: 'Rendre une attaque de zone jusqu\'à 3 cibles',
+    esprit:  'Marque une cible, les dégâts se répètent au prochain tour',
+    social:  'Faire attaquer un allié',
+  });
+
   // Other players available for social trade (exclude self and the GM's real OBR ID)
   let partyIds = $derived(new Set(party.map((/** @type {any} */ p) => p.id)));
 
@@ -309,7 +332,7 @@
       <h2 class="text-white font-semibold text-sm flex items-center gap-1.5">
         {myName}
         {#if player.race}
-          <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900 text-indigo-300 font-semibold">
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-900 text-indigo-300 font-semibold" use:tooltip={RACE_PASSIVE_TIP[player.race] ?? ''}>
             {RACES.find(r => r.id === player.race)?.label ?? player.race}
           </span>
         {/if}
@@ -325,6 +348,7 @@
     <!-- ── Popover hand toggle ───────────────────────────────────────── -->
     <button
       onclick={togglePopover}
+      use:tooltip={popoverVisible ? "Fermer l'éventail" : "Afficher les cartes en éventail sur la table"}
       class="w-full text-xs py-1.5 rounded-lg font-semibold transition-colors border"
       class:bg-indigo-600={popoverVisible}
       class:border-indigo-500={popoverVisible}
@@ -348,6 +372,7 @@
               <CardDisplay {card} faceDown={!!card._pending} />
               <button
                 onclick={() => onAction({ type: 'HALFLING_CHOOSE', playerId: myId, cardId: card.id })}
+                use:tooltip={"Conserver cette carte et défausser l'autre"}
                 disabled={!!card._pending}
                 class="text-xs px-3 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg disabled:opacity-40">
                 Choisir
@@ -392,6 +417,7 @@
           </div>
           <button
             onclick={cancelAction}
+            use:tooltip={"Fermer sans accepter l'échange"}
             class="text-xs text-gray-500 hover:text-gray-300 underline"
             >Annuler</button
           >
@@ -399,12 +425,14 @@
           <div class="flex gap-2">
             <button
               onclick={() => startAccept(ex)}
+              use:tooltip={"Accepter l'échange et donner une carte en retour"}
               class="flex-1 text-xs py-1.5 bg-green-700 hover:bg-green-600 text-white rounded-lg"
             >
               Accepter
             </button>
             <button
               onclick={() => declineExchange(ex)}
+              use:tooltip={"Refuser l'échange, la carte revient au proposeur"}
               class="flex-1 text-xs py-1.5 bg-red-800 hover:bg-red-700 text-red-200 rounded-lg"
             >
               Refuser
@@ -439,6 +467,7 @@
         <div class="flex gap-2">
           <button
             onclick={() => { ctok?.use(); choosingToken = null; }}
+            use:tooltip={TOKEN_CARTE_TIP[choosingToken ?? ''] ?? ''}
             class="flex-1 py-2 rounded-lg text-xs font-semibold text-white text-center"
             style="background: {TOKEN_COLOR[choosingToken ?? '']}30; border: 1px solid {TOKEN_COLOR[choosingToken ?? '']};"
           >
@@ -447,13 +476,14 @@
           </button>
           <button
             onclick={() => useCombat(choosingToken ?? '', ctok?.label ?? choosingToken ?? '')}
+            use:tooltip={TOKEN_COMBAT_TIP[choosingToken ?? ''] ?? ''}
             class="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs font-semibold text-gray-200 text-center border border-gray-600"
           >
             <div>Combat</div>
             <div class="text-[10px] opacity-60 mt-0.5">Dépenser sans effet</div>
           </button>
         </div>
-        <button onclick={() => choosingToken = null} class="text-xs text-gray-500 hover:text-gray-300 underline">Annuler</button>
+        <button onclick={() => choosingToken = null} use:tooltip={"Fermer sans utiliser de token"} class="text-xs text-gray-500 hover:text-gray-300 underline">Annuler</button>
       </div>
     {/if}
 
@@ -485,6 +515,7 @@
             {#each SUITS_INFO as s}
               <button
                 onclick={() => agilitePickSuit(s.symbol)}
+                use:tooltip={"Piocher une carte " + s.label + " aléatoire"}
                 class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold border transition-colors"
                 class:text-red-400={s.isRed}
                 class:border-red-800={s.isRed}
@@ -527,6 +558,7 @@
             {#each otherPlayerIds as id}
               <button
                 onclick={() => socialPickTarget(id)}
+                use:tooltip={"Proposer l'échange à " + getPlayerName(id)}
                 class="w-full text-left text-xs px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
               >
                 {getPlayerName(id)}
@@ -544,10 +576,12 @@
           </p>
           <div class="flex gap-2">
             <button onclick={() => { onAction({ type: 'DRAW', playerId: myId }); cancelAction(); }}
+              use:tooltip={"Pioche normale. Vous pourrez piocher du Pique au prochain tour"}
               class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold">
               Piocher normalement
             </button>
             <button onclick={() => { onAction({ type: 'DRAW_SPADE', playerId: myId }); cancelAction(); }}
+              use:tooltip={"Pioche un Pique ce tour. Vous ne pourrez pas piocher du Pique au prochain tour"}
               class="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs font-semibold border border-gray-600">
               ♠ Piocher un Pique
             </button>
@@ -580,6 +614,7 @@
             {#each otherPlayerIds as id}
               <button
                 onclick={() => sporelinPickTarget(id)}
+                use:tooltip={"Échanger une carte avec " + getPlayerName(id) + " (gratuit)"}
                 class="w-full text-left text-xs px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
               >
                 {getPlayerName(id)}
@@ -595,6 +630,7 @@
 
         <button
           onclick={cancelAction}
+          use:tooltip={"Annuler l'action en cours"}
           class="text-xs text-gray-500 hover:text-gray-300 underline"
         >
           Annuler
@@ -654,6 +690,7 @@
     <button
       onclick={drawCard}
       disabled={drawBlocked}
+      use:tooltip={player.pendingHalfling ? "Choisissez d'abord une carte parmi les deux piochées" : mustCrystallize ? "Défaussez d'abord, le maximum de cartes en main est atteint" : handFull ? "Défaussez d'abord, le maximum de cartes en main est atteint" : "Piocher une carte"}
       class="w-full py-2 text-sm font-medium text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
       class:bg-amber-700={mustCrystallize}
       class:hover:bg-amber-800={mustCrystallize}
@@ -701,6 +738,7 @@
       <button
         onclick={startSporelinExchange}
         disabled={sporelinBlocked}
+        use:tooltip={"Si vous avez Sporelin, vous pouvez échanger une carte avec chacun de vos alliés"}
         class="w-full py-1.5 text-xs font-semibold bg-purple-800 hover:bg-purple-700 text-purple-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
       >
         🍄 Échange Sporelin (gratuit)
@@ -745,6 +783,7 @@
             <button
               onclick={() => choosingToken = tok.key}
               disabled={tok.disabled() || busy}
+              use:tooltip={"Utiliser le token " + tok.label}
               class="text-[10px] px-2 py-1 rounded-lg font-semibold shrink-0 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               style="background:{TOKEN_COLOR[tok.key]}20;color:{TOKEN_COLOR[
                 tok.key
