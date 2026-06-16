@@ -1,6 +1,6 @@
 <script>
-  /** @type {{ card: object, faceDown?: boolean, actions?: Array<{icon?: string, label: string, onClick: () => void}>, crystallized?: boolean }} */
-  let { card, faceDown = false, actions = [], crystallized = false } = $props();
+  /** @type {{ card: object, faceDown?: boolean, actions?: Array<{icon?: string, label: string, onClick: () => void}>, crystallized?: boolean, fatiguePenalty?: number }} */
+  let { card, faceDown = false, actions = [], crystallized = false, fatiguePenalty = 0 } = $props();
 </script>
 
 {#if faceDown}
@@ -45,6 +45,13 @@
     >
       {card.value}<br /><span class="text-[10px]">{card.suit}</span>
     </div>
+
+    <!-- Fatigue penalty badge -->
+    {#if fatiguePenalty > 0}
+      <div class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-600 border border-amber-400 flex items-center justify-center text-[8px] font-bold text-white leading-none z-10 pointer-events-none" title="Fatigue : −{fatiguePenalty}">
+        −{fatiguePenalty}
+      </div>
+    {/if}
 
     <!-- Hover action overlay -->
     {#if actions.length > 0}

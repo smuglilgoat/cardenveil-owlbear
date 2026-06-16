@@ -15,6 +15,9 @@ const SUIT_BY_ID = {
 
 const SUIT_SORT_ORDER = { '♥': 0, '♣': 1, '♦': 2, '♠': 3 };
 
+/** Fatigue level → card penalty mapping: level 0=0, 1=-1, 2=-2, 3=-4, 4=-6 */
+export const FATIGUE_PENALTY = [0, 1, 2, 4, 6];
+
 export function sortCards(cards) {
   return [...cards].sort((a, b) => {
     if (a._pending && !b._pending) return 1;
@@ -169,6 +172,7 @@ export function createEmptyPlayer(name = '') {
     maxDrawValue:  13,
     grayedCards:   [],
     spiritBounds:  0,
+    fatigue:       0,
   };
 }
 
@@ -614,6 +618,20 @@ export function applyAction(state, action) {
         e => e.from !== GM_CHAR_ID && e.to !== GM_CHAR_ID,
       );
       return { state: { ...state, gmCharacterId: null, pendingExchanges, players }, log: null };
+    }
+
+    case 'SET_FATIGUE': {
+      if (!isGM(state, action.playerId)) return { state, log: null };
+      const p = state.players[action.targetId];
+      if (!p) return { state, log: null };
+      const level = clamp(Number(action.level), 0, 4);
+      const s = {
+        ...state,
+        players: { ...state.players, [action.targetId]: {
+          ...p, fatigue: level,
+        }},
+      };
+      return { state: addLog(s, 'gm', 'MJ', `fatigue de ${p.name} → niveau ${level}`), log: null };
     }
 
     default:
