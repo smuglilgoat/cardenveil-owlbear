@@ -184,7 +184,7 @@
       key: "agilite",
       label: "Agilité",
       desc: "Échanger → pioche spécialisée",
-      disabled: () => player.tokens.agilite <= 0 || player.hand.length === 0,
+      disabled: () => player.tokens.agilite <= 0,
       use: startAgilite,
     },
     {
@@ -198,7 +198,7 @@
       key: "social",
       label: "Social",
       desc: "Échanger avec un autre joueur",
-      disabled: () => player.tokens.social <= 0 || player.hand.length === 0 || spiritLocked,
+      disabled: () => player.tokens.social <= 0,
       use: startSocial,
     },
   ];

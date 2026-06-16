@@ -271,8 +271,7 @@
     {
       key: "agilite",
       label: "Agilité",
-      disabled: () =>
-        !player || player.tokens.agilite <= 0 || player.hand.length === 0,
+      disabled: () => !player || player.tokens.agilite <= 0,
       use: startAgilite,
     },
     {
@@ -284,8 +283,7 @@
     {
       key: "social",
       label: "Social",
-      disabled: () =>
-        !player || player.tokens.social <= 0 || player.hand.length === 0 || spiritLocked,
+      disabled: () => !player || player.tokens.social <= 0,
       use: startSocial,
     },
   ];
