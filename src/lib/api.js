@@ -134,7 +134,7 @@ function markOptimisticDraws(prevState, optimisticState, action) {
   }
 
   // AASIMAR auto-heart: after any token-consuming action, mark the new crystallized card as pending
-  if (['DRAW_FORCE', 'USE_AGILITE', 'USE_ESPRIT', 'SPEND_TOKEN', 'PROPOSE_EXCHANGE'].includes(type)) {
+  if (['DRAW_FORCE', 'USE_AGILITE', 'USE_ESPRIT', 'SPEND_TOKEN'].includes(type)) {
     const pid = action.playerId;
     const player = optimisticState.players[pid];
     if (player?.race === 'aasimar') {
@@ -149,6 +149,29 @@ function markOptimisticDraws(prevState, optimisticState, action) {
             [pid]: { ...player, crystallized: updated },
           },
         };
+      }
+    }
+  }
+
+  // AASIMAR auto-heart on ACCEPT_EXCHANGE: the sender (who spent the Social token) gets the Heart
+  if (type === 'ACCEPT_EXCHANGE') {
+    const ex = (prevState.pendingExchanges ?? []).find(e => e.id === action.exchangeId);
+    if (ex) {
+      const senderId = ex.from;
+      const sender = optimisticState.players[senderId];
+      if (sender?.race === 'aasimar') {
+        const prevCrystLen = prevState.players[senderId]?.crystallized?.length ?? 0;
+        const cryst = sender.crystallized;
+        if (cryst.length > prevCrystLen) {
+          const updated = [...cryst.slice(0, -1), makePendingCard()];
+          return {
+            ...optimisticState,
+            players: {
+              ...optimisticState.players,
+              [senderId]: { ...sender, crystallized: updated },
+            },
+          };
+        }
       }
     }
   }
