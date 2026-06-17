@@ -279,7 +279,9 @@
 
   async function openPopover() {
     const n = cardCount();
-    const width = Math.max(400, n * 64 + 120);
+    const isSporelin = player?.race === 'sporelin';
+    const baseWidth = isSporelin ? 500 : 400;
+    const width = Math.max(baseWidth, n * 64 + 120);
     const height = 400;
     const vw = await OBR.viewport.getWidth();
     const vh = await OBR.viewport.getHeight();
@@ -310,10 +312,11 @@
     }
   }
 
-  // Reopen popover to resize when hand count changes while visible
+  // Reopen popover to resize when hand count or race changes while visible
   $effect(() => {
     const n = cardCount();
-    if (popoverVisible && n >= 0) openPopover();
+    const race = player?.race;
+    if (popoverVisible && n >= 0 && race !== undefined) openPopover();
   });
 
   onDestroy(async () => {
