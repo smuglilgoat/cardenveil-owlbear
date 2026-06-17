@@ -439,7 +439,6 @@ export function applyAction(state: any, action: any): { state: any; log: any } {
         tokens: { ...p.tokens, social: p.tokens.social - 1 },
         hand: p.hand.filter((c: any) => c.id !== action.cardId),
       };
-      updatedPlayer = maybeAasimarHeart(updatedPlayer);
       const s = {
         ...state,
         pendingExchanges: [...(state.pendingExchanges ?? []), exchange],
@@ -457,12 +456,14 @@ export function applyAction(state: any, action: any): { state: any; log: any } {
       if (!recipient || !sender) return { state, log: null };
       const myCard = recipient.hand.find((c: any) => c.id === action.cardId);
       if (!myCard) return { state, log: null };
+      let updatedSender = { ...sender, hand: [...sender.hand, myCard] };
+      updatedSender = maybeAasimarHeart(updatedSender);
       const s = {
         ...state,
         pendingExchanges: state.pendingExchanges.filter((e: any) => e.id !== ex.id),
         players: {
           ...state.players,
-          [ex.from]: { ...sender, hand: [...sender.hand, myCard] },
+          [ex.from]: updatedSender,
           [ex.to]: { ...recipient, hand: [...recipient.hand.filter((c: any) => c.id !== myCard.id), ex.fromCard] },
         },
       };
