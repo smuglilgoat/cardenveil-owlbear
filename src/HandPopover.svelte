@@ -787,7 +787,7 @@
                       }}
                       disabled={(player.spiritBounds ?? 0) <= 0}
                       class="px-2.5 py-1 text-[11px] font-bold bg-blue-700 hover:bg-blue-600 text-white rounded-lg shadow-lg disabled:opacity-40"
-                      title="Cristalliser (−1 Spirit Bound)">✦</button
+                      title="Cristalliser (−1 Spirit Slot)">✦</button
                     >
                   {/if}
                   {#if !isCrystallized}

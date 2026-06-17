@@ -121,7 +121,7 @@
     cancelAction();
   }
 
-  // ── Token: Esprit → ajoute 1 Spirit Bound ────────────────────────────
+  // ── Token: Esprit → ajoute 1 Spirit Slot ────────────────────────────
   function useEsprit() {
     if (player.tokens.esprit <= 0) return;
     onAction({ type: 'USE_ESPRIT', playerId: myId });
@@ -225,7 +225,7 @@
     {
       key: "esprit",
       label: "Esprit",
-      desc: "+1 Spirit Bound (slot de main)",
+      desc: "+1 Spirit Slot (slot de main)",
       disabled: () => player.tokens.esprit <= 0,
       use: useEsprit,
     },
@@ -671,7 +671,7 @@
                   ...(!spiritLocked && !isGrayed ? [{ icon: "▶️", label: "Défausser", onClick: () => discardCard(card) }] : []),
                   {
                     icon: "✦",
-                    label: (player.spiritBounds ?? 0) > 0 ? "Cristalliser (−1 Spirit Bound)" : "Cristalliser (aucun Spirit Bound)",
+                    label: (player.spiritBounds ?? 0) > 0 ? "Cristalliser (−1 Spirit Slot)" : "Cristalliser (aucun Spirit Slot)",
                     onClick: () => crystallizeCard(card),
                   },
                   { icon: isGrayed ? "◐" : "◑", label: isGrayed ? "Débloquer" : "Bloquer", onClick: () => toggleGray(card) },

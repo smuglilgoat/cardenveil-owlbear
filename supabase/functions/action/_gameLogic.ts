@@ -298,7 +298,7 @@ export function applyAction(state: any, action: any): { state: any; log: any } {
           spiritBounds: (p.spiritBounds ?? 0) - 1,
         }},
       };
-      return { state: addLog(s, action.playerId, p.name, `cristallise ${card.value}${card.suit} (−1 Spirit Bound)`), log: null };
+      return { state: addLog(s, action.playerId, p.name, `cristallise ${card.value}${card.suit} (−1 Spirit Slot)`), log: null };
     }
 
     case 'USE_AGILITE': {
@@ -331,7 +331,7 @@ export function applyAction(state: any, action: any): { state: any; log: any } {
           spiritBounds: (p.spiritBounds ?? 0) + 1,
         }},
       };
-      return { state: addLog(s, action.playerId, p.name, `token Esprit : +1 Spirit Bound (total ${(p.spiritBounds ?? 0) + 1})`), log: null };
+      return { state: addLog(s, action.playerId, p.name, `token Esprit : +1 Spirit Slot (total ${(p.spiritBounds ?? 0) + 1})`), log: null };
     }
 
     case 'PROPOSE_EXCHANGE': {

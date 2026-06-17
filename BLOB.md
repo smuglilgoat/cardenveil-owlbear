@@ -78,7 +78,7 @@ Contains the **action reducer** that handles all 28 action types:
 | `DISCARD` | Discard from hand/crystallized | Any/GM |
 | `CRYSTALLIZE` | Move card to crystallized | Any (self) |
 | `USE_AGILITE` | Spend Agilité for specialized draw | Any (self) |
-| `USE_ESPRIT` | Spend Esprit for +1 Spirit Bound | Any (self) |
+| `USE_ESPRIT` | Spend Esprit for +1 Spirit Slot | Any (self) |
 | `PROPOSE_EXCHANGE` | Initiate card exchange | Any (self) |
 | `ACCEPT_EXCHANGE` | Accept incoming exchange | Recipient |
 | `DECLINE_EXCHANGE` | Decline incoming exchange | Recipient |
