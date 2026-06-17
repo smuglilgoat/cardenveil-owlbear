@@ -197,6 +197,7 @@ export function createInitialGameState() {
     gmCharacterId:    null,
     players:          {},
     logs:             [],
+    initiativeUrl:    null,
   };
 }
 
@@ -803,6 +804,14 @@ export function applyAction(state, action) {
       return { state: addLog(s, action.playerId, p.name, `échange Sporelin : propose ${card.value}${card.suit} → ${targetName}`), log: null };
     }
 
+    case 'SET_INITIATIVE_URL': {
+      if (!isGM(state, action.playerId)) return { state, log: null };
+      const url = action.url ? String(action.url).slice(0, 2048) : null;
+      const s = { ...state, initiativeUrl: url };
+      const msg = url ? `a défini l'URL du tracker d'initiative` : `a retiré l'URL du tracker d'initiative`;
+      return { state: addLog(s, 'gm', 'MJ', msg), log: null };
+    }
+
     default:
       return { state, log: null };
   }
@@ -853,6 +862,7 @@ export function hydrateState(raw) {
     gmCharacterId:    raw.gmCharacterId ?? null,
     players,
     logs:             raw.logs ?? [],
+    initiativeUrl:    raw.initiativeUrl ?? null,
   };
 }
 
@@ -879,5 +889,6 @@ export function dehydrateState(state) {
     gmCharacterId:    state.gmCharacterId,
     players,
     logs:             state.logs ?? [],
+    initiativeUrl:    state.initiativeUrl ?? null,
   };
 }

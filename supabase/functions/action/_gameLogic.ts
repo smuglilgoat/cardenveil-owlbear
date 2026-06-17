@@ -67,6 +67,7 @@ export function createInitialGameState() {
     gmCharacterId: null as string | null,
     players: {} as Record<string, any>,
     logs: [] as any[],
+    initiativeUrl: null as string | null,
   };
 }
 
@@ -125,6 +126,7 @@ export function hydrateState(raw: any) {
     gmCharacterId:    raw.gmCharacterId ?? null,
     players,
     logs:             raw.logs ?? [],
+    initiativeUrl:    raw.initiativeUrl ?? null,
   };
 }
 
@@ -147,6 +149,7 @@ export function dehydrateState(state: any) {
     gmCharacterId:    state.gmCharacterId,
     players,
     logs:             state.logs ?? [],
+    initiativeUrl:    state.initiativeUrl ?? null,
   };
 }
 
@@ -558,6 +561,14 @@ export function applyAction(state: any, action: any): { state: any; log: any } {
         (e: any) => e.from !== GM_CHAR_ID && e.to !== GM_CHAR_ID,
       );
       return { state: { ...state, gmCharacterId: null, pendingExchanges, players }, log: null };
+    }
+
+    case 'SET_INITIATIVE_URL': {
+      if (!isGM(state, action.playerId)) return { state, log: null };
+      const url = action.url ? String(action.url).slice(0, 2048) : null;
+      const s = { ...state, initiativeUrl: url };
+      const msg = url ? `a défini l'URL du tracker d'initiative` : `a retiré l'URL du tracker d'initiative`;
+      return { state: addLog(s, 'gm', 'MJ', msg), log: null };
     }
 
     default:
