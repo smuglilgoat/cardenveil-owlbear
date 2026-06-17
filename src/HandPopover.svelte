@@ -803,7 +803,7 @@
                       class:hover:bg-gray-300={isGrayed}
                       class:text-white={!isGrayed}
                       class:text-gray-800={isGrayed}
-                      title={isGrayed ? "Dégrisonner" : "Grisonner"}>◑</button
+                      title={isGrayed ? "Débloquer" : "Bloquer"}>◑</button
                     >
                   {/if}
                 </div>

@@ -674,7 +674,7 @@
                     label: (player.spiritBounds ?? 0) > 0 ? "Cristalliser (−1 Spirit Bound)" : "Cristalliser (aucun Spirit Bound)",
                     onClick: () => crystallizeCard(card),
                   },
-                  { icon: isGrayed ? "◐" : "◑", label: isGrayed ? "Dégrisonner" : "Grisonner", onClick: () => toggleGray(card) },
+                  { icon: isGrayed ? "◐" : "◑", label: isGrayed ? "Débloquer" : "Bloquer", onClick: () => toggleGray(card) },
                 ]}
               />
               {#if isGrayed}
