@@ -843,6 +843,17 @@
           <span class="text-purple-300 text-[9px] font-bold">♠</span>
         {/if}
       </button>
+      {#if player.race === 'sporelin' && player.hand.length > 0}
+        <button
+          onclick={() => { active = null; startSporelinExchange(); }}
+          disabled={sporelinBlocked}
+          use:tooltip={"Si vous avez Sporelin, vous pouvez échanger une carte avec chacun de vos alliés"}
+          class="text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+          style="background: #7c3aed; white-space: nowrap; flex-shrink: 0;"
+        >
+          <span>🍄 Échange</span>
+        </button>
+      {/if}
     </div>
     <div
       class="shrink-0 flex items-center justify-center px-2 py-1.5 relative bottom-[-60px]"
@@ -868,18 +879,6 @@
           <span class="leading-none mt-0.5 opacity-80">{tok.label}</span>
         </button>
       {/each}
-      {#if player.race === 'sporelin' && player.hand.length > 0}
-        <button
-          onclick={() => { active = null; startSporelinExchange(); }}
-          disabled={sporelinBlocked}
-          use:tooltip={"Si vous avez Sporelin, vous pouvez échanger une carte avec chacun de vos alliés"}
-          class="flex-1 flex flex-col items-center py-1 mx-1 border text-[9px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          style="background: #213547; border-color: #a855f750; color: #a855f7;"
-        >
-          <span class="text-[11px] leading-none font-bold">🍄</span>
-          <span class="leading-none mt-0.5 opacity-80">Sporelin</span>
-        </button>
-      {/if}
     </div>
   {/if}
 </div>
