@@ -5,6 +5,8 @@
   import PlayerHand from './PlayerHand.svelte';
   import { startRealtime, stopRealtime, dispatch, fetchState } from './api.js';
 
+  let { onGameChange = null } = $props();
+
   let ready     = $state(false);
   let myId      = $state(null);
   let myName    = $state('');
@@ -60,6 +62,11 @@
       addToast(e?.message ?? String(e));
     }
   }
+
+  // Propagate game state upward so App.svelte can use it (e.g. initiative URL)
+  $effect(() => {
+    onGameChange?.({ gameState, myRole, myId, onAction });
+  });
 
   let unsubParty = null;
 
