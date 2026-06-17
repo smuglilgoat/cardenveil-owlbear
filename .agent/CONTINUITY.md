@@ -31,9 +31,11 @@
 - `[2026-06-16T23:00Z]` `[CODE]` Pre-existing LSP errors (implicit `any` types in Svelte) are not caused by race changes
 - `[2026-06-16T23:30Z]` `[CODE]` 81 buttons across 7 files needed tooltips — Svelte action pattern (`use:tooltip`) was chosen over wrapper component for minimal markup
 - `[2026-06-17T18:55Z]` `[CODE]` Three copies of the reducer exist: `_gameLogic.js` (Netlify), `_gameLogic.ts` (Supabase Edge), `deck.js` (client) — all must stay in sync for state shape + action handlers
-- `[2026-06-17T18:55Z]` `[CODE]` Supabase `_gameLogic.ts` is behind the Netlify version (missing race/fatigue actions) but uses `default` catch-all so unknown actions pass through harmlessly
+- `[2026-06-17T19:12Z]` `[CODE]` Supabase `_gameLogic.ts` was silently broken — race passives, fatigue, and 5 action types fell through to `default` case. Now synced to match Netlify source of truth.
+- `[2026-06-17T19:12Z]` `[CODE]` Dispatch flow: Supabase Edge Function is primary, Netlify is fallback. Both must have identical reducers.
 
 ## [OUTCOMES]
 - `[2026-06-16T23:00Z]` `[CODE]` Race passives: 6 files changed, 796 insertions, 101 deletions
 - `[2026-06-16T23:30Z]` `[CODE]` Tooltips: 7 files changed, 205 insertions, 7 deletions
 - `[2026-06-17T18:55Z]` `[CODE]` GM initiative URL: 5 files changed, 100 insertions, 31 deletions
+- `[2026-06-17T19:12Z]` `[CODE]` Supabase reducer sync: 1 file changed, 223 insertions, 36 deletions
