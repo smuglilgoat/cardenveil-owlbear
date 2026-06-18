@@ -272,36 +272,46 @@
   // ── Popover hand ─────────────────────────────────────────────────────
   const POPOVER_ID = "com.cardenveil/hand";
   let popoverVisible = $state(false);
+  let lastPopoverWidth = $state(0);
+  let isOpeningPopover = false;
 
   function cardCount() {
     return (player?.hand.length ?? 0) + (player?.crystallized.length ?? 0);
   }
 
   async function openPopover() {
-    const n = cardCount();
-    const isSporelin = player?.race === 'sporelin';
-    const baseWidth = isSporelin ? 500 : 400;
-    const width = Math.max(baseWidth, n * 64 + 160);
-    const height = 400;
-    const vw = await OBR.viewport.getWidth();
-    const vh = await OBR.viewport.getHeight();
-    await OBR.popover.open({
-      id: POPOVER_ID,
-      url: `${window.location.origin}/hand.html`,
-      width,
-      height,
-      anchorPosition: { left: vw / 2, top: vh - 56 },
-      anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
-      transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
-      disableClickAway: true,
-      hidePaper: true,
-    });
-    popoverVisible = true;
+    if (isOpeningPopover) return;
+    isOpeningPopover = true;
+    try {
+      const n = cardCount();
+      const isSporelin = player?.race === 'sporelin';
+      const baseWidth = isSporelin ? 500 : 400;
+      const width = Math.max(baseWidth, n * 64 + 160);
+      const height = 400;
+      const vw = await OBR.viewport.getWidth();
+      const vh = await OBR.viewport.getHeight();
+      await OBR.popover.open({
+        id: POPOVER_ID,
+        url: `${window.location.origin}/hand.html`,
+        width,
+        height,
+        anchorPosition: { left: vw / 2, top: vh - 56 },
+        anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+        transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+        disableClickAway: true,
+        hidePaper: true,
+      });
+      popoverVisible = true;
+      lastPopoverWidth = width;
+    } finally {
+      isOpeningPopover = false;
+    }
   }
 
   async function closePopover() {
     await OBR.popover.close(POPOVER_ID);
     popoverVisible = false;
+    lastPopoverWidth = 0;
   }
 
   async function togglePopover() {
@@ -315,8 +325,13 @@
   // Reopen popover to resize when hand count or race changes while visible
   $effect(() => {
     const n = cardCount();
-    const race = player?.race;
-    if (popoverVisible && n >= 0 && race !== undefined) openPopover();
+    const isSporelin = player?.race === 'sporelin';
+    const baseWidth = isSporelin ? 500 : 400;
+    const width = Math.max(baseWidth, n * 64 + 160);
+    
+    if (popoverVisible && width !== lastPopoverWidth) {
+      openPopover();
+    }
   });
 
   onDestroy(async () => {
