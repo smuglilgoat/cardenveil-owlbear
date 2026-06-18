@@ -746,7 +746,7 @@
                     ></div>
                   {/if}
                   <!-- Fatigue penalty badge -->
-                  {#if FATIGUE_PENALTY[player?.fatigue ?? 0] > 0}
+                  {#if FATIGUE_PENALTY[player?.fatigue ?? 0] > 0 && i === n - 1}
                     <div class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-600 border border-amber-400 flex items-center justify-center text-[9px] font-bold text-white leading-none z-10 pointer-events-none" title="Fatigue : −{FATIGUE_PENALTY[player?.fatigue ?? 0]}">
                       −{FATIGUE_PENALTY[player?.fatigue ?? 0]}
                     </div>
