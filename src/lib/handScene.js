@@ -10,8 +10,8 @@ const CARD_W   = 120;  // must match PNG_W in scripts/generate-cards.js
 const CARD_H   = 180;  // must match PNG_H
 const CARD_DPI = 100;  // at 100 dpi, card is 1.2×1.8 OBR grid units
 const SPACING   = 0.85;
-const MAX_ROT   = 14;
-const ARC_DIP   = 0.15;
+const MAX_ROT   = 0;
+const ARC_DIP   = 0;
 const BOTTOM_GAP = 1.2;
 
 let _onAction        = null;

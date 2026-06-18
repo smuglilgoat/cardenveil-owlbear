@@ -350,17 +350,12 @@
     social:  'Faire attaquer un allié',
   });
 
-  // ── Fan geometry ──────────────────────────────────────────────────────
-  const MAX_ROT = 20;
+  // ── Card geometry (straight line) ────────────────────────────────────
   const SPREAD_X = 64;
-  const ARC_Y = 22;
 
-  function fanStyle(i, n) {
+  function cardTx(i, n) {
     const t = n > 1 ? i / (n - 1) - 0.5 : 0;
-    const rot = t * MAX_ROT * 2;
-    const tx = t * SPREAD_X * (n - 1);
-    const ty = Math.abs(t) * ARC_Y * 2;
-    return `transform: translateX(${tx}px) translateY(${ty}px) rotate(${rot}deg);`;
+    return t * SPREAD_X * (n - 1);
   }
 
   const SUIT_COLOR = {
@@ -679,7 +674,7 @@
           class="relative flex items-end justify-center"
           style="width: {Math.max(
             300,
-            allCards.length * SPREAD_X + 120,
+            allCards.length * SPREAD_X + 160,
           )}px; height: 200px;"
         >
           {#each allCards as { card, isCrystallized }, i (card.id)}
@@ -691,25 +686,20 @@
               !isCrystallized &&
               !isGrayed}
             {@const n = allCards.length}
+            {@const btnAlign = n > 1 ? (i === 0 ? 'left' : i === n - 1 ? 'right' : 'center') : 'center'}
 
             <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
             <div
               class="absolute bottom-0 left-1/2 cursor-pointer transition-all duration-150"
               style="
-                {fanStyle(i, n)}
+                transform: translateX({cardTx(i, n)}px){isActive ? ' translateY(-28px)' : ''};
                 margin-left: -40px;
                 z-index: {isActive ? 50 : i};
-                transform-origin: bottom center;
                 filter: {isActive
                 ? 'drop-shadow(0 -8px 12px rgba(99,102,241,0.8))'
                 : isSelectable
                   ? 'drop-shadow(0 0 8px rgba(250,204,21,0.7))'
                   : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
-                {isActive
-                ? 'transform: ' +
-                  fanStyle(i, n).replace('transform:', '').replace(';', '') +
-                  ' translateY(-28px);'
-                : ''}
               "
               onclick={() => onCardClick(card, isCrystallized)}
             >
@@ -767,7 +757,7 @@
               <!-- Per-card action buttons when active -->
               {#if isActive && !action && !interactionFrozen}
                 <div
-                  class="absolute -top-[52px] left-1/2 -translate-x-1/2 flex gap-1 z-50"
+                  class="absolute -top-[52px] flex gap-1 z-50 {btnAlign === 'left' ? 'left-0' : btnAlign === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'}"
                 >
                   {#if isCrystallized || (!spiritLocked && !isGrayed)}
                     <button
