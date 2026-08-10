@@ -14,6 +14,7 @@
 
   let action = $state(null);
   let actionCard = $state(null);
+  let minimized = $state(false);
 
   let unsubParty = null;
 
@@ -24,6 +25,24 @@
     } catch (e) {
       console.error('Dispatch failed:', e);
     }
+  }
+
+  async function toggleMinimize() {
+    minimized = !minimized;
+    const height = minimized ? 40 : 240;
+    const vw = await OBR.viewport.getWidth();
+    const vh = await OBR.viewport.getHeight();
+    await OBR.popover.open({
+      id: 'com.cardenveil/hand',
+      url: `${window.location.origin}/hand.html`,
+      width: 400,
+      height,
+      anchorPosition: { left: vw / 2, top: vh - 56 },
+      anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+      transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+      disableClickAway: true,
+      hidePaper: true,
+    });
   }
 
   onMount(() => {
@@ -375,9 +394,21 @@
       <p class="text-xs text-gray-400">Chargement...</p>
     </div>
   {:else}
+    <!-- ── Minimize toggle ─────────────────────────────────────────── -->
+    <div class="shrink-0 flex items-center justify-end px-2 py-1" style="min-height: 28px;">
+      <button
+        onclick={toggleMinimize}
+        class="text-[10px] px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+        title={minimized ? "Agrandir la main" : "Réduire la main"}
+      >
+        {minimized ? "▲" : "▼"}
+      </button>
+    </div>
+
+    {#if !minimized}
     <!-- ── Popup area: token mechanic prompts above the cards ─────────── -->
     <div
-      class="flex-1 flex flex-col items-center justify-end pb-1 overflow-visible pointer-events-none relative bottom-[-70px]"
+      class="flex-1 flex flex-col items-center justify-end pb-1 overflow-visible pointer-events-none relative"
     >
       {#if player.pendingHalfling}
         <div
@@ -664,8 +695,8 @@
 
     <!-- ── Card fan ────────────────────────────────────────────────────── -->
     <div
-      class="shrink-0 relative flex items-end justify-center overflow-visible bottom-[-40px]"
-      style="height: 200px;"
+      class="shrink-0 relative flex items-end justify-center overflow-visible"
+      style="height: 160px;"
     >
       {#if allCards.length === 0}
         <p class="text-[10px] text-gray-600 pb-2">Aucune carte</p>
@@ -675,7 +706,7 @@
           style="width: {Math.max(
             300,
             allCards.length * SPREAD_X + 160,
-          )}px; height: 200px;"
+          )}px; height: 160px;"
         >
           {#each allCards as { card, isCrystallized }, i (card.id)}
             {@const isActive = active?.card.id === card.id}
@@ -806,7 +837,7 @@
 
     <!-- ── Bottom bar: Draw + Token buttons ──────────────────────────── -->
     <div
-      class="shrink-0 flex items-center justify-center px-2 py-1.5 relative bottom-[-50px]"
+      class="shrink-0 flex items-center justify-center px-2 py-1.5 relative"
       style="z-index: 100;"
     >
       <!-- Draw button -->
@@ -814,7 +845,7 @@
         onclick={drawCard}
         disabled={drawBlocked}
         use:tooltip={player.pendingHalfling ? "Choisissez d'abord une carte parmi les deux piochées" : mustCrystallize ? "Défaussez d'abord, le maximum de cartes en main est atteint" : handFull ? "Défaussez d'abord, le maximum de cartes en main est atteint" : "Piocher une carte"}
-        class="text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+        class="text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:cursor-not-allowed flex items-center gap-2"
         style="background: {mustCrystallize
           ? '#b45309'
           : '#4f46e5'}; white-space: nowrap; flex-shrink: 0;"
@@ -838,7 +869,7 @@
           onclick={() => { active = null; startSporelinExchange(); }}
           disabled={sporelinBlocked}
           use:tooltip={"Si vous avez Sporelin, vous pouvez échanger une carte avec chacun de vos alliés"}
-          class="text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+          class="text-[11px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors disabled:cursor-not-allowed flex items-center gap-2"
           style="background: #7c3aed; white-space: nowrap; flex-shrink: 0;"
         >
           <span>🍄 Échange</span>
@@ -846,7 +877,7 @@
       {/if}
     </div>
     <div
-      class="shrink-0 flex items-center justify-center px-2 py-1.5 relative bottom-[-60px]"
+      class="shrink-0 flex items-center justify-center px-2 py-1.5 relative"
     >
       <!-- Token buttons -->
       {#each TOKENS as tok}
@@ -870,5 +901,6 @@
         </button>
       {/each}
     </div>
+    {/if}
   {/if}
 </div>
