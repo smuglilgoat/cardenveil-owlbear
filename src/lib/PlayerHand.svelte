@@ -287,7 +287,7 @@
       const isSporelin = player?.race === 'sporelin';
       const baseWidth = isSporelin ? 500 : 400;
       const width = Math.max(baseWidth, n * 64 + 160);
-      const height = 320;
+      const height = 240;
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({

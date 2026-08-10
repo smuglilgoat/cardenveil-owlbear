@@ -14,6 +14,7 @@
 
   let action = $state(null);
   let actionCard = $state(null);
+  let minimized = $state(false);
 
   let unsubParty = null;
 
@@ -24,6 +25,24 @@
     } catch (e) {
       console.error('Dispatch failed:', e);
     }
+  }
+
+  async function toggleMinimize() {
+    minimized = !minimized;
+    const height = minimized ? 40 : 240;
+    const vw = await OBR.viewport.getWidth();
+    const vh = await OBR.viewport.getHeight();
+    await OBR.popover.open({
+      id: 'com.cardenveil/hand',
+      url: `${window.location.origin}/hand.html`,
+      width: 400,
+      height,
+      anchorPosition: { left: vw / 2, top: vh - 56 },
+      anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+      transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+      disableClickAway: true,
+      hidePaper: true,
+    });
   }
 
   onMount(() => {
@@ -375,16 +394,18 @@
       <p class="text-xs text-gray-400">Chargement...</p>
     </div>
   {:else}
-    <!-- ── Close button ───────────────────────────────────────────── -->
+    <!-- ── Minimize toggle ─────────────────────────────────────────── -->
     <div class="shrink-0 flex items-center justify-end px-2 py-1" style="min-height: 28px;">
       <button
-        onclick={() => OBR.popover.close('com.cardenveil/hand')}
+        onclick={toggleMinimize}
         class="text-[10px] px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
-        title="Fermer la main"
+        title={minimized ? "Agrandir la main" : "Réduire la main"}
       >
-        ✕
+        {minimized ? "▲" : "▼"}
       </button>
     </div>
+
+    {#if !minimized}
     <!-- ── Popup area: token mechanic prompts above the cards ─────────── -->
     <div
       class="flex-1 flex flex-col items-center justify-end pb-1 overflow-visible pointer-events-none relative"
@@ -880,5 +901,6 @@
         </button>
       {/each}
     </div>
+    {/if}
   {/if}
 </div>
