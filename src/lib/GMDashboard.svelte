@@ -1,4 +1,6 @@
 <script>
+  import { onDestroy } from "svelte";
+  import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
   import TokenPanel from "./TokenPanel.svelte";
   import ActionLog from "./ActionLog.svelte";
@@ -47,6 +49,70 @@
     (gameState.pendingExchanges ?? []).find((e) => e.from === GM_CHAR_ID) ??
       null,
   );
+
+  // ── GM Character Hand Popover ─────────────────────────────────────────
+  const GM_POPOVER_ID = "com.cardenveil/gm-hand";
+  let gmPopoverVisible = $state(false);
+  let lastGmPopoverWidth = $state(0);
+  let isOpeningGmPopover = false;
+
+  function gmCardCount() {
+    return (gmChar?.hand.length ?? 0) + (gmChar?.crystallized.length ?? 0);
+  }
+
+  async function openGmPopover() {
+    if (isOpeningGmPopover) return;
+    isOpeningGmPopover = true;
+    try {
+      const n = gmCardCount();
+      const width = Math.max(400, n * 64 + 160);
+      const height = 320;
+      const vw = await OBR.viewport.getWidth();
+      const vh = await OBR.viewport.getHeight();
+      await OBR.popover.open({
+        id: GM_POPOVER_ID,
+        url: `${window.location.origin}/hand.html?playerId=${GM_CHAR_ID}`,
+        width,
+        height,
+        anchorPosition: { left: vw / 2, top: vh - 56 },
+        anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+        transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+        disableClickAway: true,
+        hidePaper: true,
+      });
+      gmPopoverVisible = true;
+      lastGmPopoverWidth = width;
+    } finally {
+      isOpeningGmPopover = false;
+    }
+  }
+
+  async function closeGmPopover() {
+    await OBR.popover.close(GM_POPOVER_ID);
+    gmPopoverVisible = false;
+    lastGmPopoverWidth = 0;
+  }
+
+  async function toggleGmPopover() {
+    if (gmPopoverVisible) {
+      await closeGmPopover();
+    } else {
+      await openGmPopover();
+    }
+  }
+
+  // Reopen popover to resize when hand count changes while visible
+  $effect(() => {
+    const n = gmCardCount();
+    const width = Math.max(400, n * 64 + 160);
+    if (gmPopoverVisible && width !== lastGmPopoverWidth) {
+      openGmPopover();
+    }
+  });
+
+  onDestroy(async () => {
+    if (gmPopoverVisible) await OBR.popover.close(GM_POPOVER_ID).catch(() => {});
+  });
 
   // All exchanges between regular players (neither side is the GM char)
   let allPlayerExchanges = $derived(
@@ -483,6 +549,20 @@
 
     {#if gmChar}
       <div class="px-3 py-3 space-y-3">
+        <!-- Popover toggle -->
+        <button
+          onclick={toggleGmPopover}
+          class="w-full text-xs py-1.5 rounded-lg font-semibold transition-colors border"
+          class:bg-indigo-600={gmPopoverVisible}
+          class:border-indigo-500={gmPopoverVisible}
+          class:text-white={gmPopoverVisible}
+          class:bg-transparent={!gmPopoverVisible}
+          class:border-gray-600={!gmPopoverVisible}
+          class:text-gray-400={!gmPopoverVisible}
+        >
+          {gmPopoverVisible ? "🃏 Main affichée" : "🃏 Afficher la main"}
+        </button>
+
         <!-- Hand size + draw -->
         <div class="flex items-center gap-2">
           <span class="text-xs text-gray-400">Main max :</span>

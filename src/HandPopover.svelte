@@ -28,7 +28,9 @@
 
   onMount(() => {
     OBR.onReady(async () => {
-      myId = await OBR.player.getId();
+      const params = new URLSearchParams(window.location.search);
+      const playerIdParam = params.get('playerId');
+      myId = playerIdParam || await OBR.player.getId();
       roomId = OBR.room.id;
       party = await OBR.party.getPlayers();
       ready = true;
