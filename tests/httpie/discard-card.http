@@ -1,0 +1,13 @@
+# Discard Card Action
+POST http://localhost:8888/.netlify/functions/state
+Content-Type: application/json
+
+{
+  "roomId": "test-room-123",
+  "action": {
+    "type": "DISCARD",
+    "playerId": "player-1",
+    "cardId": "n-S-5-abc123",
+    "from": "hand"
+  }
+}

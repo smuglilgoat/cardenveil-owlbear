@@ -1,0 +1,11 @@
+# Draw Card Action
+POST http://localhost:8888/.netlify/functions/state
+Content-Type: application/json
+
+{
+  "roomId": "test-room-123",
+  "action": {
+    "type": "DRAW",
+    "playerId": "player-1"
+  }
+}
