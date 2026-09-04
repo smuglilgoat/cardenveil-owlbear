@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cardenveil — Fiche de personnage</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Inter', system-ui, sans-serif; }
+    body { background: #0b0e13; color: #eff2f9; }
+    .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: #353d4c; border-radius: 2px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #9ba5b7; border-radius: 2px; }
+    .tab-active { background: #49387a; color: #eff2f9; }
+    .tab-inactive { background: #1a1e27; color: #9ba5b7; }
+    .tab-inactive:hover { background: #232836; }
+    .skill-row { transition: background 0.15s; }
+    .skill-row:hover { background: #232836; }
+    .capacity-card { transition: all 0.2s; }
+    .capacity-card:hover { background: #232836; }
+    .equip-slot { transition: all 0.15s; }
+    .equip-slot:hover { background: #232836; }
+    .narrative-card { transition: all 0.15s; }
+    .narrative-card:hover { border-color: #49387a; }
+    .pill { transition: all 0.15s; }
+    .pill:hover { opacity: 0.85; }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            base: '#0b0e13',
+            panel: '#13161e',
+            card: '#1a1e27',
+            border: '#353d4c',
+            txt: '#eff2f9',
+            txt2: '#9ba5b7',
+            stat: {
+              force: '#d1474f',
+              agilite: '#51a863',
+              esprit: '#7559ba',
+              social: '#5489db',
+            },
+            accent: '#49387a',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+<div class="w-[760px] h-[1120px] bg-base rounded-2xl border border-border overflow-hidden flex flex-col relative">
+
+  <!-- ═══ TOP BAR ═══ -->
+  <div class="h-10 bg-panel flex items-center px-4 shrink-0">
+    <span class="text-sm font-bold text-txt tracking-wide">CARDENVEIL</span>
+    <span class="text-xs font-medium text-txt2 ml-6">Quota · Demi-Elfe · Niveau 1</span>
+    <div class="ml-auto">
+      <button class="px-4 py-1.5 bg-card rounded-full text-[10px] font-semibold text-txt2 hover:text-txt transition-colors">
+        ÉDITION &nbsp;OFF
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ CHARACTER HEADER ═══ -->
+  <div class="px-4 pt-4 pb-3 shrink-0">
+    <div class="flex gap-4">
+      <!-- Portrait -->
+      <div class="w-20 h-24 bg-card rounded-lg flex flex-col items-center justify-center shrink-0">
+        <span class="text-[9px] font-bold text-txt2">PORTRAIT</span>
+      </div>
+
+      <!-- Identity -->
+      <div class="flex-1">
+        <h1 class="text-2xl font-bold text-txt">Quota</h1>
+        <p class="text-xs font-medium text-txt2 mt-1">Demi-Elfe · Loyal Bon</p>
+        <div class="flex gap-2 mt-3">
+          <span class="px-3 py-1 bg-card rounded-full text-[10px] font-semibold text-txt">XP dép. 0</span>
+          <span class="px-3 py-1 bg-card rounded-full text-[10px] font-semibold text-txt">XP dispo. 0</span>
+          <span class="px-3 py-1 bg-card rounded-full text-[10px] font-semibold text-txt">Niv. 1</span>
+        </div>
+      </div>
+
+      <!-- HP Block -->
+      <div class="w-[358px] h-24 bg-panel rounded-[10px] p-4 shrink-0">
+        <div class="flex items-baseline gap-2">
+          <span class="text-[10px] font-bold text-txt2">PV</span>
+        </div>
+        <div class="flex items-baseline gap-1 mt-1">
+          <span class="text-3xl font-bold text-txt">54</span>
+          <span class="text-base font-semibold text-txt2">/ 70</span>
+        </div>
+        <div class="absolute right-56 top-16 flex flex-col gap-1">
+          <span class="text-[10px] font-semibold text-txt2">TEMP —</span>
+          <span class="text-[9px] font-bold text-txt2">FATIGUE</span>
+          <span class="text-sm font-medium text-txt">● &nbsp;● &nbsp;● &nbsp;● &nbsp;●</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STATS ROW ═══ -->
+    <div class="grid grid-cols-4 gap-2 mt-3">
+      <div class="bg-card rounded-lg p-2.5">
+        <div class="text-[9px] font-bold text-txt2">FORCE</div>
+        <div class="flex items-center justify-between mt-0.5">
+          <span class="text-lg font-bold text-stat-force">16</span>
+          <span class="text-lg font-bold text-txt">+3</span>
+        </div>
+      </div>
+      <div class="bg-card rounded-lg p-2.5">
+        <div class="text-[9px] font-bold text-txt2">AGILITÉ</div>
+        <div class="flex items-center justify-between mt-0.5">
+          <span class="text-lg font-bold text-stat-agilite">6</span>
+          <span class="text-lg font-bold text-txt">-2</span>
+        </div>
+      </div>
+      <div class="bg-card rounded-lg p-2.5">
+        <div class="text-[9px] font-bold text-txt2">ESPRIT</div>
+        <div class="flex items-center justify-between mt-0.5">
+          <span class="text-lg font-bold text-stat-esprit">10</span>
+          <span class="text-lg font-bold text-txt">+0</span>
+        </div>
+      </div>
+      <div class="bg-card rounded-lg p-2.5">
+        <div class="text-[9px] font-bold text-txt2">SOCIAL</div>
+        <div class="flex items-center justify-between mt-0.5">
+          <span class="text-lg font-bold text-stat-social">14</span>
+          <span class="text-lg font-bold text-txt">+2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DEFENSE / DERIVED ROW ═══ -->
+    <div class="grid grid-cols-3 gap-2 mt-2">
+      <!-- Parade -->
+      <div class="bg-panel rounded-[10px] p-3">
+        <div class="text-[10px] font-bold text-txt2 mb-1">PARADE</div>
+        <div class="flex items-center gap-2">
+          <span class="text-[42px] font-bold text-txt leading-none">9</span>
+          <div class="flex flex-col gap-0.5">
+            <div class="flex items-center gap-1">
+              <span class="text-base font-bold text-txt2">=</span>
+              <span class="text-xl font-bold text-teal-400">2</span>
+              <span class="text-base font-bold text-txt2">+</span>
+              <span class="text-xl font-bold text-orange-400">3</span>
+              <span class="text-base font-bold text-txt2">+</span>
+              <span class="text-xl font-bold text-txt2">4</span>
+            </div>
+            <div class="flex gap-3 text-[9px] font-medium text-txt2">
+              <span>Déflexion</span>
+              <span>Garde</span>
+              <span>Bonus</span>
+            </div>
+          </div>
+        </div>
+        <div class="text-[10px] font-semibold text-txt2 mt-1">Armure 2</div>
+      </div>
+
+      <!-- Initiative -->
+      <div class="bg-panel rounded-[10px] p-3">
+        <div class="text-[10px] font-bold text-txt2 mb-1">INITIATIVE</div>
+        <div class="flex items-baseline gap-1">
+          <span class="text-4xl font-bold text-stat-agilite">6</span>
+          <span class="text-[10px] font-medium text-txt2 ml-2">Bonus +0</span>
+        </div>
+        <div class="text-[9px] text-txt2 mt-3">Jet / ordre de tour</div>
+      </div>
+
+      <!-- Mouvement -->
+      <div class="bg-panel rounded-[10px] p-3">
+        <div class="text-[10px] font-bold text-txt2 mb-1">MOUVEMENT</div>
+        <div class="flex items-baseline gap-1">
+          <span class="text-4xl font-bold text-stat-social">15</span>
+          <span class="text-sm font-bold text-txt2">m</span>
+          <span class="text-[10px] font-medium text-txt2 ml-2">Bonus +0</span>
+        </div>
+        <div class="text-[9px] text-txt2 mt-3">Déplacement disponible</div>
+      </div>
+    </div>
+
+    <!-- ═══ SMALL PILLS ROW ═══ -->
+    <div class="grid grid-cols-5 gap-2 mt-2">
+      <div class="bg-card rounded-md px-2 py-1.5">
+        <div class="text-[8px] font-bold text-txt2">SEUIL MISS</div>
+        <div class="text-sm font-bold text-txt">1</div>
+      </div>
+      <div class="bg-card rounded-md px-2 py-1.5">
+        <div class="text-[8px] font-bold text-txt2">BNS ATTAQUE</div>
+        <div class="text-sm font-bold text-txt">—</div>
+      </div>
+      <div class="bg-card rounded-md px-2 py-1.5">
+        <div class="text-[8px] font-bold text-txt2">CANALISATION</div>
+        <div class="text-sm font-bold text-txt">4</div>
+      </div>
+      <div class="bg-card rounded-md px-2 py-1.5">
+        <div class="text-[8px] font-bold text-txt2">VOLONTÉ</div>
+        <div class="text-sm font-bold text-txt">1</div>
+      </div>
+      <div class="bg-accent rounded-md px-3 py-1.5 flex items-center justify-between">
+        <span class="text-[10px] font-bold text-txt">TOTEM &nbsp;Token</span>
+        <span class="text-[9px] font-medium text-txt2">Voir effet →</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CONTENT VIEWPORT ═══ -->
+  <div id="content" class="flex-1 bg-panel rounded-[10px] mx-4 overflow-y-auto scrollbar-thin p-4">
+
+    <!-- TAB: COMPÉTENCES -->
+    <div id="tab-competences" class="tab-content">
+      <h2 class="text-sm font-bold text-txt mb-1">COMPÉTENCES</h2>
+      <p class="text-[10px] text-txt2 mb-4">Cliquer sur une compétence lance directement le jet — 📌 épingler au mode compact</p>
+
+      <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+        <!-- FORCE -->
+        <div>
+          <div class="text-[11px] font-bold text-stat-force mb-2">FORCE</div>
+          <div class="space-y-1">
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-force rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Athlétisme +3</span>
+              <span class="ml-auto text-[9px] text-txt2">📌</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-force rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Résilience +3</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AGILITÉ -->
+        <div>
+          <div class="text-[11px] font-bold text-stat-agilite mb-2">AGILITÉ</div>
+          <div class="space-y-1">
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-agilite rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Acrobaties -2</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-agilite rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Discrétion -2</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-agilite rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Escamotage -2</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ESPRIT -->
+        <div>
+          <div class="text-[11px] font-bold text-stat-esprit mb-2">ESPRIT</div>
+          <div class="space-y-1">
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-esprit rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Arcanes +0</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-esprit rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Investigation +0</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-esprit rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Perception +0</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-esprit rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Culture +0</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-esprit rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Nature +0</span>
+              <span class="ml-auto text-[9px] text-txt2">📌</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SOCIAL -->
+        <div>
+          <div class="text-[11px] font-bold text-stat-social mb-2">SOCIAL</div>
+          <div class="space-y-1">
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-social rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Persuasion +2</span>
+              <span class="ml-auto text-[9px] text-txt2">📌</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-social rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Tromperie +2</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-social rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Intimidation +2</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-social rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Représentation +2</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-social rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Perspicacité +2</span>
+            </div>
+            <div class="skill-row flex items-center gap-3 bg-card rounded-md px-3 py-2 cursor-pointer">
+              <div class="w-1 h-6 bg-stat-social rounded-full"></div>
+              <span class="text-[11px] font-medium text-txt">Dressage +2</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: CAPACITÉS -->
+    <div id="tab-capacites" class="tab-content hidden">
+      <h2 class="text-sm font-bold text-txt mb-1">CAPACITÉS</h2>
+      <p class="text-[10px] text-txt2 mb-4">La valeur en dés est l'élément automatisable et cliquable.</p>
+
+      <div class="space-y-3">
+        <!-- Garde fulminante -->
+        <div class="capacity-card bg-card rounded-lg p-3 flex gap-3">
+          <div class="w-20 h-20 bg-accent rounded-md flex items-center justify-center shrink-0">
+            <span class="text-[9px] font-bold text-txt2">IMAGE</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-bold text-txt">Garde fulminante</div>
+            <div class="text-[10px] font-medium text-txt2 mt-0.5">Cœur · Réaction</div>
+            <div class="text-[10px] text-txt2 mt-1.5">Protection immédiate après une attaque ennemie.</div>
+          </div>
+          <div class="text-right shrink-0 flex flex-col items-end gap-1">
+            <div class="text-[8px] font-bold text-txt2">COÛT</div>
+            <div class="text-lg font-bold text-txt">6</div>
+            <button class="w-24 h-12 bg-slate-500 rounded-lg text-base font-bold text-txt hover:bg-slate-400 transition-colors">4d6</button>
+            <span class="text-base text-txt2">?</span>
+          </div>
+        </div>
+
+        <!-- Punition des partisans -->
+        <div class="capacity-card bg-card rounded-lg p-3 flex gap-3">
+          <div class="w-20 h-20 bg-accent rounded-md flex items-center justify-center shrink-0">
+            <span class="text-[9px] font-bold text-txt2">IMAGE</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-bold text-txt">Punition des partisans</div>
+            <div class="text-[10px] font-medium text-txt2 mt-0.5">Carreau · Action</div>
+            <div class="text-[10px] text-txt2 mt-1.5">Frappe les ennemis marqués comme partisans.</div>
+          </div>
+          <div class="text-right shrink-0 flex flex-col items-end gap-1">
+            <div class="text-[8px] font-bold text-txt2">COÛT</div>
+            <div class="text-lg font-bold text-txt">11</div>
+            <button class="w-24 h-12 bg-slate-500 rounded-lg text-base font-bold text-txt hover:bg-slate-400 transition-colors">8d6</button>
+            <span class="text-base text-txt2">?</span>
+          </div>
+        </div>
+
+        <!-- Ordre tactique -->
+        <div class="capacity-card bg-card rounded-lg p-3 flex gap-3">
+          <div class="w-20 h-20 bg-accent rounded-md flex items-center justify-center shrink-0">
+            <span class="text-[9px] font-bold text-txt2">IMAGE</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-bold text-txt">Ordre tactique</div>
+            <div class="text-[10px] font-medium text-txt2 mt-0.5">Trèfle · Bonus action</div>
+            <div class="text-[10px] text-txt2 mt-1.5">Donne un ordre et soutient la coordination du groupe.</div>
+          </div>
+          <div class="text-right shrink-0 flex flex-col items-end gap-1">
+            <div class="text-[8px] font-bold text-txt2">COÛT</div>
+            <div class="text-lg font-bold text-txt">5</div>
+            <button class="w-24 h-12 bg-slate-500 rounded-lg text-base font-bold text-txt hover:bg-slate-400 transition-colors">3d6</button>
+            <span class="text-base text-txt2">?</span>
+          </div>
+        </div>
+
+        <!-- Prise de contrôle -->
+        <div class="capacity-card bg-card rounded-lg p-3 flex gap-3">
+          <div class="w-20 h-20 bg-accent rounded-md flex items-center justify-center shrink-0">
+            <span class="text-[9px] font-bold text-txt2">IMAGE</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-bold text-txt">Prise de contrôle</div>
+            <div class="text-[10px] font-medium text-txt2 mt-0.5">Pique · Action</div>
+            <div class="text-[10px] text-txt2 mt-1.5">Contrôle temporairement une cible selon la sauvegarde.</div>
+          </div>
+          <div class="text-right shrink-0 flex flex-col items-end gap-1">
+            <div class="text-[8px] font-bold text-txt2">COÛT</div>
+            <div class="text-lg font-bold text-txt">10</div>
+            <button class="w-24 h-12 bg-slate-500 rounded-lg text-base font-bold text-txt hover:bg-slate-400 transition-colors">2d8</button>
+            <span class="text-base text-txt2">?</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: INVENTAIRE -->
+    <div id="tab-inventaire" class="tab-content hidden">
+      <h2 class="text-sm font-bold text-txt mb-4">ÉQUIPEMENT</h2>
+
+      <div class="grid grid-cols-3 gap-3 mb-6">
+        <div class="equip-slot bg-card rounded-lg p-3 cursor-pointer">
+          <div class="flex items-center gap-3">
+            <span class="text-xl text-txt2">◈</span>
+            <div>
+              <div class="text-xs font-bold text-txt">Amulette</div>
+              <div class="text-[9px] font-semibold text-txt2">—</div>
+            </div>
+          </div>
+          <div class="text-[9px] text-txt2 mt-2">Protection magique légère…</div>
+          <div class="text-right text-xs font-bold text-txt mt-1">›</div>
+        </div>
+        <div class="equip-slot bg-card rounded-lg p-3 cursor-pointer">
+          <div class="flex items-center gap-3">
+            <span class="text-xl text-txt2">⛑</span>
+            <div>
+              <div class="text-xs font-bold text-txt">Casque</div>
+              <div class="text-[9px] font-semibold text-txt2">Défl. 0 · Vol. 0</div>
+            </div>
+          </div>
+          <div class="text-[9px] text-txt2 mt-2">Casque équipé, détails…</div>
+          <div class="text-right text-xs font-bold text-txt mt-1">›</div>
+        </div>
+        <div class="equip-slot bg-card rounded-lg p-3 cursor-pointer">
+          <div class="flex items-center gap-3">
+            <span class="text-xl text-txt2">🧥</span>
+            <div>
+              <div class="text-xs font-bold text-txt">Cape</div>
+              <div class="text-[9px] font-semibold text-txt2">—</div>
+            </div>
+          </div>
+          <div class="text-[9px] text-txt2 mt-2">Cape de voyage et enchantement…</div>
+          <div class="text-right text-xs font-bold text-txt mt-1">›</div>
+        </div>
+        <div class="equip-slot bg-card rounded-lg p-3 cursor-pointer">
+          <div class="flex items-center gap-3">
+            <span class="text-xl text-txt2">🧤</span>
+            <div>
+              <div class="text-xs font-bold text-txt">Gantelets</div>
+              <div class="text-[9px] font-semibold text-txt2">Défl. 0 · Init. 0</div>
+            </div>
+          </div>
+          <div class="text-[9px] text-txt2 mt-2">Gantelets équipés, détails…</div>
+          <div class="text-right text-xs font-bold text-txt mt-1">›</div>
+        </div>
+        <div class="equip-slot bg-card rounded-lg p-3 cursor-pointer">
+          <div class="flex items-center gap-3">
+            <span class="text-xl text-txt2">🛡</span>
+            <div>
+              <div class="text-xs font-bold text-txt">Plastron</div>
+              <div class="text-[9px] font-semibold text-txt2">Défl. 2 · Arm. 2</div>
+            </div>
+          </div>
+          <div class="text-[9px] text-txt2 mt-2">Plastron renforcé actuellement équipé</div>
+          <div class="text-right text-xs font-bold text-txt mt-1">›</div>
+        </div>
+        <div class="equip-slot bg-card rounded-lg p-3 cursor-pointer">
+          <div class="flex items-center gap-3">
+            <span class="text-xl text-txt2">💍</span>
+            <div>
+              <div class="text-xs font-bold text-txt">Anneau</div>
+              <div class="text-[9px] font-semibold text-txt2">—</div>
+            </div>
+          </div>
+          <div class="text-[9px] text-txt2 mt-2">Anneau et propriété magique…</div>
+          <div class="text-right text-xs font-bold text-txt mt-1">›</div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs font-bold text-txt">INVENTAIRE</h2>
+        <button class="px-3 py-1 bg-accent rounded-full text-[10px] font-semibold text-txt hover:opacity-85 transition-opacity">+ Ajouter un objet</button>
+      </div>
+
+      <div class="space-y-1">
+        <div class="bg-card rounded-md px-3 py-2.5 flex items-center gap-3">
+          <span class="text-[8px] font-bold text-txt2 w-20">Arme</span>
+          <span class="text-[9px] font-medium text-txt2">Épées droites · Dague</span>
+        </div>
+        <div class="bg-card rounded-md px-3 py-2.5 flex items-center">
+          <span class="text-xs font-semibold text-txt flex-1">Dague</span>
+          <span class="text-xs font-bold text-txt w-12 text-center">1d4</span>
+          <span class="text-[9px] text-txt2 w-52 text-right">Parade 2 · Finesse, Légère, Lancer</span>
+        </div>
+
+        <div class="bg-card rounded-md px-3 py-2.5 flex items-center gap-3 mt-2">
+          <span class="text-[8px] font-bold text-txt2 w-20">Consommable</span>
+          <span class="text-[9px] font-medium text-txt2">Potions · Soin</span>
+        </div>
+        <div class="bg-card rounded-md px-3 py-2.5 flex items-center">
+          <span class="text-xs font-semibold text-txt flex-1">Potion de soin</span>
+          <span class="text-xs font-bold text-txt w-12 text-center">x2</span>
+          <span class="text-[9px] text-txt2 w-52 text-right">Restaure des PV.</span>
+        </div>
+
+        <div class="bg-card rounded-md px-3 py-2.5 flex items-center gap-3 mt-2">
+          <span class="text-[8px] font-bold text-txt2 w-20">Divers</span>
+          <span class="text-[9px] font-medium text-txt2">Matériel · Voyage</span>
+        </div>
+        <div class="bg-card rounded-md px-3 py-2.5 flex items-center">
+          <span class="text-xs font-semibold text-txt flex-1">Corde</span>
+          <span class="text-xs font-bold text-txt w-12 text-center">x1</span>
+          <span class="text-[9px] text-txt2 w-52 text-right">Corde résistante de 15 mètres.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: NARRATIF -->
+    <div id="tab-narratif" class="tab-content hidden">
+      <h2 class="text-sm font-bold text-txt mb-4">ASPECTS NARRATIFS</h2>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div class="narrative-card bg-card rounded-lg p-3 border border-transparent">
+          <div class="text-[9px] font-bold text-txt2 mb-2">BACKGROUND</div>
+          <div class="text-[10px] text-txt leading-relaxed">Ancien mercenaire devenu aventurier après une série d'événements qui ont changé sa vision du monde…</div>
+          <div class="text-right mt-2"><span class="text-[9px] font-semibold text-txt2">Développer →</span></div>
+        </div>
+        <div class="narrative-card bg-card rounded-lg p-3 border border-transparent">
+          <div class="text-[9px] font-bold text-txt2 mb-2">OBJECTIF</div>
+          <div class="text-[10px] text-txt leading-relaxed">Retrouver la trace de son ancien groupe et comprendre ce qui s'est réellement passé…</div>
+          <div class="text-right mt-2"><span class="text-[9px] font-semibold text-txt2">Développer →</span></div>
+        </div>
+        <div class="narrative-card bg-card rounded-lg p-3 border border-transparent">
+          <div class="text-[9px] font-bold text-txt2 mb-2">PERSONNALITÉ</div>
+          <div class="text-[10px] text-txt leading-relaxed">Pragmatique, observateur et direct. Préfère agir plutôt que débattre inutilement…</div>
+          <div class="text-right mt-2"><span class="text-[9px] font-semibold text-txt2">Développer →</span></div>
+        </div>
+        <div class="narrative-card bg-card rounded-lg p-3 border border-transparent">
+          <div class="text-[9px] font-bold text-txt2 mb-2">CROYANCES</div>
+          <div class="text-[10px] text-txt leading-relaxed">La loyauté se gagne par les actes. Les promesses seules ne valent rien…</div>
+          <div class="text-right mt-2"><span class="text-[9px] font-semibold text-txt2">Développer →</span></div>
+        </div>
+        <div class="narrative-card bg-card rounded-lg p-3 border border-transparent">
+          <div class="text-[9px] font-bold text-txt2 mb-2">CICATRICES</div>
+          <div class="text-[10px] text-txt leading-relaxed">Une ancienne blessure rappelle une confrontation particulièrement violente…</div>
+          <div class="text-right mt-2"><span class="text-[9px] font-semibold text-txt2">Développer →</span></div>
+        </div>
+        <div class="narrative-card bg-card rounded-lg p-3 border border-transparent">
+          <div class="text-[9px] font-bold text-txt2 mb-2">PULSION</div>
+          <div class="text-[10px] text-txt leading-relaxed">Protéger ceux qu'il considère comme faisant partie de son groupe…</div>
+          <div class="text-right mt-2"><span class="text-[9px] font-semibold text-txt2">Développer →</span></div>
+        </div>
+        <div class="narrative-card bg-card rounded-lg p-3 border border-transparent">
+          <div class="text-[9px] font-bold text-txt2 mb-2">INSTINCT</div>
+          <div class="text-[10px] text-txt leading-relaxed">Toujours identifier une sortie avant de commencer une confrontation…</div>
+          <div class="text-right mt-2"><span class="text-[9px] font-semibold text-txt2">Développer →</span></div>
+        </div>
+        <div class="narrative-card bg-card rounded-lg p-3 border border-transparent">
+          <div class="text-[9px] font-bold text-txt2 mb-2">LIENS</div>
+          <div class="text-[10px] text-txt leading-relaxed">Plusieurs relations importantes avec les membres de son ancien groupe…</div>
+          <div class="text-right mt-2"><span class="text-[9px] font-semibold text-txt2">Développer →</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: MAÎTRISES -->
+    <div id="tab-maitrises" class="tab-content hidden">
+      <h2 class="text-sm font-bold text-txt mb-1">MAÎTRISES & ÉVOLUTION</h2>
+      <div class="flex gap-2 mb-5 mt-2">
+        <span class="px-3 py-1 bg-card rounded-full text-[10px] font-semibold text-txt">XP dépensés 0</span>
+        <span class="px-3 py-1 bg-card rounded-full text-[10px] font-semibold text-txt">XP disponibles 0</span>
+      </div>
+
+      <div class="bg-card rounded-lg p-4 mb-3">
+        <div class="text-[10px] font-bold text-txt2 mb-3">MAÎTRISES D'ARMES</div>
+        <div class="flex gap-3 flex-wrap">
+          <span class="pill px-4 py-1.5 bg-accent rounded-full text-[10px] font-semibold text-txt">Épées droites · Niveau 1</span>
+          <span class="pill px-4 py-1.5 bg-panel rounded-full text-[10px] font-semibold text-txt">Arcs · Non maîtrisé</span>
+          <span class="pill px-4 py-1.5 bg-panel rounded-full text-[10px] font-semibold text-txt">Boucliers · Niveau 1</span>
+        </div>
+      </div>
+
+      <div class="bg-card rounded-lg p-4 mb-3">
+        <div class="text-[10px] font-bold text-txt2 mb-3">MAÎTRISES ÉLÉMENTAIRES</div>
+        <div class="flex gap-3 flex-wrap">
+          <span class="pill px-4 py-1.5 bg-accent rounded-full text-[10px] font-semibold text-txt">Feu · Initié</span>
+          <span class="pill px-4 py-1.5 bg-panel rounded-full text-[10px] font-semibold text-txt">Lumière · Initié</span>
+          <span class="pill px-4 py-1.5 bg-panel rounded-full text-[10px] font-semibold text-txt">Ombre · Non maîtrisé</span>
+        </div>
+      </div>
+
+      <div class="bg-card rounded-lg p-4 mb-3">
+        <div class="text-[10px] font-bold text-txt2 mb-3">FEATS</div>
+        <div class="flex gap-3 flex-wrap">
+          <span class="pill px-4 py-1.5 bg-accent rounded-full text-[10px] font-semibold text-txt">Combattant vigilant</span>
+          <span class="pill px-4 py-1.5 bg-panel rounded-full text-[10px] font-semibold text-txt">Réflexes aiguisés</span>
+          <span class="pill px-4 py-1.5 bg-panel rounded-full text-[10px] font-semibold text-txt">Aucun autre feat</span>
+        </div>
+      </div>
+
+      <div class="bg-card rounded-lg p-4">
+        <div class="text-[10px] font-bold text-txt2 mb-3">ÉVOLUTIONS MÉCANIQUES</div>
+        <div class="flex gap-3 flex-wrap">
+          <span class="pill px-4 py-1.5 bg-accent rounded-full text-[10px] font-semibold text-txt">Garde améliorée</span>
+          <span class="pill px-4 py-1.5 bg-panel rounded-full text-[10px] font-semibold text-txt">Canalisation renforcée</span>
+          <span class="pill px-4 py-1.5 bg-panel rounded-full text-[10px] font-semibold text-txt">Maîtrise de couleur : Cœur</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: NOTES -->
+    <div id="tab-notes" class="tab-content hidden">
+      <h2 class="text-sm font-bold text-txt mb-4">NOTES</h2>
+
+      <!-- Toolbar -->
+      <div class="bg-card rounded-md px-2 py-2 flex gap-2 mb-4">
+        <button class="px-4 py-1 bg-accent rounded-full text-[10px] font-semibold text-txt">B</button>
+        <button class="px-4 py-1 bg-accent rounded-full text-[10px] font-semibold text-txt">U</button>
+        <button class="px-4 py-1 bg-panel rounded-full text-[10px] font-semibold text-txt">T-</button>
+        <button class="px-4 py-1 bg-panel rounded-full text-[10px] font-semibold text-txt">T+</button>
+        <button class="px-3 py-1 bg-panel rounded-full text-[10px] font-semibold text-txt">• Liste</button>
+        <button class="px-3 py-1 bg-panel rounded-full text-[10px] font-semibold text-txt">☐</button>
+        <button class="px-3 py-1 bg-panel rounded-full text-[10px] font-semibold text-txt">—</button>
+      </div>
+
+      <!-- Editor -->
+      <div class="bg-card rounded-lg p-4 min-h-[400px]">
+        <div class="text-lg font-bold text-txt mb-3">Notes de session</div>
+        <div class="text-xs font-semibold text-txt mb-3">Session 12 — Port Enclume</div>
+        <div class="text-xs text-txt leading-relaxed space-y-2">
+          <p>• Vérifier la piste donnée par le marchand.</p>
+          <p>• Le symbole sur la porte ressemble à celui trouvé dans la crypte.</p>
+          <p>Hypothèse : les deux événements sont probablement liés.</p>
+          <p>Penser à demander au groupe ce qu'il souhaite faire avant de quitter la ville.</p>
+        </div>
+        <div class="text-[9px] font-medium text-txt2 mt-8 pt-3 border-t border-border">Écriture libre — gras — souligné — taille du texte — listes</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══ BOTTOM NAV ═══ -->
+  <div class="h-16 bg-panel flex items-center gap-1.5 px-2 shrink-0">
+    <button onclick="switchTab('competences')" id="nav-competences" class="flex-1 h-11 rounded-md text-[9px] font-semibold tab-active transition-colors">COMPÉTENCES</button>
+    <button onclick="switchTab('capacites')" id="nav-capacites" class="flex-1 h-11 rounded-md text-[9px] font-semibold tab-inactive transition-colors">CAPACITÉS</button>
+    <button onclick="switchTab('inventaire')" id="nav-inventaire" class="flex-1 h-11 rounded-md text-[9px] font-semibold tab-inactive transition-colors">INVENTAIRE</button>
+    <button onclick="switchTab('narratif')" id="nav-narratif" class="flex-1 h-11 rounded-md text-[9px] font-semibold tab-inactive transition-colors">NARRATIF</button>
+    <button onclick="switchTab('maitrises')" id="nav-maitrises" class="flex-1 h-11 rounded-md text-[9px] font-semibold tab-inactive transition-colors">MAÎTRISES</button>
+    <button onclick="switchTab('notes')" id="nav-notes" class="flex-1 h-11 rounded-md text-[9px] font-semibold tab-inactive transition-colors">NOTES</button>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(tab) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    // Deactivate all nav buttons
+    document.querySelectorAll('[id^="nav-"]').forEach(el => {
+      el.classList.remove('tab-active');
+      el.classList.add('tab-inactive');
+    });
+    // Show selected tab
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    // Activate selected nav button
+    const navBtn = document.getElementById('nav-' + tab);
+    navBtn.classList.remove('tab-inactive');
+    navBtn.classList.add('tab-active');
+  }
+</script>
+
+</body>
+</html>

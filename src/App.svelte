@@ -1,5 +1,8 @@
 <script>
+  import { onMount } from 'svelte';
   import CardGame from './lib/CardGame.svelte';
+  import CharacterSheet from './lib/CharacterSheet.svelte';
+  import OBR from '@owlbear-rodeo/sdk';
 
   let activeTab = $state('game');
 
@@ -20,6 +23,13 @@
   let myId      = $state(null);
   /** @type {((action: any) => Promise<void>) | null} */
   let onAction  = $state(null);
+  /** @type {string | null} */
+  let roomId    = $state(null);
+
+  onMount(async () => {
+    await OBR.onReady();
+    roomId = OBR.room.id;
+  });
 
   function handleGameChange(data) {
     gameState = data.gameState;
@@ -86,12 +96,18 @@
 
     {#if visited.has('sheet')}
       <div class="absolute inset-0" style:display={activeTab !== 'sheet' ? 'none' : ''}>
-        <iframe
-          title="Character Sheet"
-          src="https://cardenveil-sheet.pages.dev/"
-          class="w-full h-full border-0"
-          sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
-        ></iframe>
+        {#if myId && roomId}
+          <CharacterSheet
+            playerId={myId}
+            {roomId}
+            {gameState}
+            {onAction}
+          />
+        {:else}
+          <div class="w-full h-full flex items-center justify-center">
+            <div class="text-gray-400">Chargement...</div>
+          </div>
+        {/if}
       </div>
     {/if}
 

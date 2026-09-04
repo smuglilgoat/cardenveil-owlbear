@@ -1,0 +1,262 @@
+
+    <!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="globals.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="architecture-pages" ><div class="text-wrapper" >PAGES DE LA FICHE</div>
+<div class="element-comptences" ></div>
+<div class="div" >1. Compétences</div>
+<div class="text-wrapper-2" >Skills, défenses, valeurs dérivées</div>
+<div class="element-capacits" ></div>
+<div class="text-wrapper-3" >2. Capacités</div>
+<p class="p" >Préparées, coûts, couleurs, incantation, sauvegardes</p>
+<div class="element-inventaire" ></div>
+<div class="text-wrapper-4" >3. Inventaire</div>
+<p class="text-wrapper-5" >Armes, équipement porté, objets, ressources</p>
+<div class="element-aspects-narratifs" ></div>
+<div class="text-wrapper-6" >4. Aspects narratifs</div>
+<p class="text-wrapper-7" >Background, objectif, personnalité, croyances, liens, traits</p>
+<div class="element-matrises-volution" ></div>
+<div class="element-ma-trises-volution" >5. Maîtrises &amp; évolution</div>
+<p class="text-wrapper-8" >XP, feats, maîtrises armes/éléments, progression mécanique</p></div>
+</body>
+</html>
+
+@import url("https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css");
+* {
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0px;
+  min-height: 100%;
+}
+/* a blue color as a generic focus style */
+button:focus-visible {
+  outline: 2px solid #4a90e2 !important;
+  outline: -webkit-focus-ring-color auto 5px !important;
+}
+a {
+  text-decoration: none;
+}
+/* @FONTWARNING[{"type": "restricted", "family": "Inter-Bold", "weight": "700", "style": "normal", "allowsCrossOrigin": false}] */
+
+@font-face {
+  font-family: "Inter-Bold";
+  src: local("Inter-Bold");
+}
+/* @FONTWARNING[{"type": "restricted", "family": "Inter-SemiBold", "weight": "600", "style": "normal", "allowsCrossOrigin": false}] */
+
+@font-face {
+  font-family: "Inter-SemiBold";
+  src: local("Inter-SemiBold");
+}
+/* @FONTWARNING[{"type": "restricted", "family": "Inter-Regular", "weight": "400", "style": "normal", "allowsCrossOrigin": false}] */
+
+@font-face {
+  font-family: "Inter-Regular";
+  src: local("Inter-Regular");
+}
+
+.architecture-pages {
+  background-color: #151a22;
+  border: 1px solid;
+  border-color: #383f51;
+  width: 100%;
+  min-width: 520px;
+  min-height: 410px;
+  position: relative;
+}
+
+.architecture-pages .text-wrapper {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  font-family: "Inter-Bold", Helvetica;
+  font-weight: 700;
+  color: #eff2f9;
+  font-size: 14px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .element-comptences {
+  position: absolute;
+  top: 52px;
+  left: 18px;
+  width: 484px;
+  height: 54px;
+  background-color: #1c212b;
+  border-radius: 7px;
+}
+
+.architecture-pages .div {
+  position: absolute;
+  top: 62px;
+  left: 30px;
+  font-family: "Inter-SemiBold", Helvetica;
+  font-weight: 600;
+  color: #eff2f9;
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .text-wrapper-2 {
+  position: absolute;
+  top: 81px;
+  left: 30px;
+  width: 450px;
+  font-family: "Inter-Regular", Helvetica;
+  font-weight: 400;
+  color: #9ea8ba;
+  font-size: 10px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .element-capacits {
+  position: absolute;
+  top: 118px;
+  left: 18px;
+  width: 484px;
+  height: 54px;
+  background-color: #1c212b;
+  border-radius: 7px;
+}
+
+.architecture-pages .text-wrapper-3 {
+  position: absolute;
+  top: 128px;
+  left: 30px;
+  font-family: "Inter-SemiBold", Helvetica;
+  font-weight: 600;
+  color: #eff2f9;
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .p {
+  position: absolute;
+  top: 147px;
+  left: 30px;
+  width: 450px;
+  font-family: "Inter-Regular", Helvetica;
+  font-weight: 400;
+  color: #9ea8ba;
+  font-size: 10px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .element-inventaire {
+  position: absolute;
+  top: 184px;
+  left: 18px;
+  width: 484px;
+  height: 54px;
+  background-color: #1c212b;
+  border-radius: 7px;
+}
+
+.architecture-pages .text-wrapper-4 {
+  position: absolute;
+  top: 194px;
+  left: 30px;
+  font-family: "Inter-SemiBold", Helvetica;
+  font-weight: 600;
+  color: #eff2f9;
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .text-wrapper-5 {
+  position: absolute;
+  top: 213px;
+  left: 30px;
+  width: 450px;
+  font-family: "Inter-Regular", Helvetica;
+  font-weight: 400;
+  color: #9ea8ba;
+  font-size: 10px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .element-aspects-narratifs {
+  position: absolute;
+  top: 250px;
+  left: 18px;
+  width: 484px;
+  height: 54px;
+  background-color: #1c212b;
+  border-radius: 7px;
+}
+
+.architecture-pages .text-wrapper-6 {
+  position: absolute;
+  top: 260px;
+  left: 30px;
+  font-family: "Inter-SemiBold", Helvetica;
+  font-weight: 600;
+  color: #eff2f9;
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .text-wrapper-7 {
+  position: absolute;
+  top: 279px;
+  left: 30px;
+  width: 450px;
+  font-family: "Inter-Regular", Helvetica;
+  font-weight: 400;
+  color: #9ea8ba;
+  font-size: 10px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .element-matrises-volution {
+  position: absolute;
+  top: 316px;
+  left: 18px;
+  width: 484px;
+  height: 54px;
+  background-color: #1c212b;
+  border-radius: 7px;
+}
+
+.architecture-pages .element-ma-trises-volution {
+  position: absolute;
+  top: 326px;
+  left: 30px;
+  font-family: "Inter-SemiBold", Helvetica;
+  font-weight: 600;
+  color: #eff2f9;
+  font-size: 12px;
+  letter-spacing: 0;
+  line-height: normal;
+}
+
+.architecture-pages .text-wrapper-8 {
+  position: absolute;
+  top: 345px;
+  left: 30px;
+  width: 450px;
+  font-family: "Inter-Regular", Helvetica;
+  font-weight: 400;
+  color: #9ea8ba;
+  font-size: 10px;
+  letter-spacing: 0;
+  line-height: normal;
+}

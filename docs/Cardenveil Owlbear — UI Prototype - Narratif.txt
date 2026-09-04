@@ -1,0 +1,133 @@
+<div data-layer="V2 — Narratif" class="V2Narratif w-[760px] h-[1120px] relative bg-zinc-950 rounded-2xl outline outline-1 outline-offset-[-1px] outline-gray-700 overflow-hidden">
+  <div data-layer="top" class="Top w-[760px] h-10 left-0 top-0 absolute bg-zinc-900"></div>
+  <div data-layer="CARDENVEIL" class="Cardenveil left-[16px] top-[12px] absolute justify-start text-slate-100 text-sm font-bold font-['Inter']">CARDENVEIL</div>
+  <div data-layer="Quota • Demi-Elfe • Niveau 1" class="QuotaDemiElfeNiveau1 left-[132px] top-[13px] absolute justify-start text-slate-400 text-xs font-medium font-['Inter']">Quota • Demi-Elfe • Niveau 1</div>
+  <div data-layer="ÉDITION  OFF" class="DitionOff w-28 h-7 left-[628px] top-[7px] absolute bg-gray-900 rounded-2xl"></div>
+  <div data-layer="ÉDITION OFF" class="DitionOff left-[638px] top-[14px] absolute justify-start text-slate-400 text-[10px] font-semibold font-['Inter']">ÉDITION  OFF</div>
+  <div data-layer="portrait" class="Portrait w-20 h-24 left-[16px] top-[56px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="PORTRAIT" class="Portrait left-[29px] top-[98px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">PORTRAIT</div>
+  <div data-layer="Quota" class="Quota left-[112px] top-[56px] absolute justify-start text-slate-100 text-2xl font-bold font-['Inter']">Quota</div>
+  <div data-layer="Demi-Elfe • Loyal Bon" class="DemiElfeLoyalBon left-[112px] top-[87px] absolute justify-start text-slate-400 text-xs font-medium font-['Inter']">Demi-Elfe • Loyal Bon</div>
+  <div data-layer="XP dép. 0" class="XpDP0 w-20 h-7 left-[112px] top-[116px] absolute bg-gray-900 rounded-2xl"></div>
+  <div data-layer="XP dép. 0" class="XpDP0 left-[122px] top-[123px] absolute justify-start text-slate-100 text-[10px] font-semibold font-['Inter']">XP dép. 0</div>
+  <div data-layer="XP dispo. 0" class="XpDispo0 w-24 h-7 left-[206px] top-[116px] absolute bg-gray-900 rounded-2xl"></div>
+  <div data-layer="XP dispo. 0" class="XpDispo0 left-[216px] top-[123px] absolute justify-start text-slate-100 text-[10px] font-semibold font-['Inter']">XP dispo. 0</div>
+  <div data-svg-wrapper data-layer="Niv. 1" class="Niv1 left-[306px] top-[116px] absolute">
+    <svg width="62" height="28" viewBox="0 0 62 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="62" height="28" rx="14" fill="#1B1F28"/>
+    </svg>
+  </div>
+  <div data-layer="Niv. 1" class="Niv1 left-[316px] top-[123px] absolute justify-start text-slate-100 text-[10px] font-semibold font-['Inter']">Niv. 1</div>
+  <div data-layer="hp" class="Hp w-96 h-24 left-[386px] top-[56px] absolute bg-zinc-900 rounded-[10px]"></div>
+  <div data-layer="PV" class="Pv left-[402px] top-[68px] absolute justify-start text-slate-400 text-[10px] font-bold font-['Inter']">PV</div>
+  <div data-layer="54" class="left-[402px] top-[84px] absolute justify-start text-slate-100 text-3xl font-bold font-['Inter']">54</div>
+  <div data-layer="/ 70" class="70 left-[446px] top-[94px] absolute justify-start text-slate-400 text-base font-semibold font-['Inter']">/ 70</div>
+  <div data-layer="TEMP —" class="Temp left-[514px] top-[70px] absolute justify-start text-slate-400 text-[10px] font-semibold font-['Inter']">TEMP —</div>
+  <div data-layer="FATIGUE" class="Fatigue left-[514px] top-[98px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">FATIGUE</div>
+  <div data-layer="? ? ? ? ?" class="left-[514px] top-[116px] absolute justify-start text-slate-100 text-sm font-medium font-['Inter']">?  ?  ?  ?  ?</div>
+  <div data-layer="FORCE" class="Force w-44 h-14 left-[16px] top-[166px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="FORCE" class="Force left-[26px] top-[174px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">FORCE</div>
+  <div data-layer="16" class="left-[26px] top-[190px] absolute justify-start text-red-500 text-lg font-bold font-['Inter']">16</div>
+  <div data-layer="+3" class="3 left-[138px] top-[188px] absolute justify-start text-slate-100 text-lg font-bold font-['Inter']">+3</div>
+  <div data-layer="AGILITÉ" class="Agilit w-44 h-14 left-[200px] top-[166px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="AGILITÉ" class="Agilit left-[210px] top-[174px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">AGILITÉ</div>
+  <div data-layer="6" class="left-[210px] top-[190px] absolute justify-start text-green-500 text-lg font-bold font-['Inter']">6</div>
+  <div data-layer="-2" class="2 left-[322px] top-[188px] absolute justify-start text-slate-100 text-lg font-bold font-['Inter']">-2</div>
+  <div data-layer="ESPRIT" class="Esprit w-44 h-14 left-[384px] top-[166px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="ESPRIT" class="Esprit left-[394px] top-[174px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">ESPRIT</div>
+  <div data-layer="10" class="left-[394px] top-[190px] absolute justify-start text-slate-500 text-lg font-bold font-['Inter']">10</div>
+  <div data-layer="+0" class="0 left-[506px] top-[188px] absolute justify-start text-slate-100 text-lg font-bold font-['Inter']">+0</div>
+  <div data-layer="SOCIAL" class="Social w-44 h-14 left-[568px] top-[166px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="SOCIAL" class="Social left-[578px] top-[174px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">SOCIAL</div>
+  <div data-layer="14" class="left-[578px] top-[190px] absolute justify-start text-blue-500 text-lg font-bold font-['Inter']">14</div>
+  <div data-layer="+2" class="2 left-[690px] top-[188px] absolute justify-start text-slate-100 text-lg font-bold font-['Inter']">+2</div>
+  <div data-layer="Parade hero" class="ParadeHero w-80 h-28 left-[16px] top-[234px] absolute bg-zinc-900 rounded-[10px]"></div>
+  <div data-layer="PARADE" class="Parade left-[30px] top-[246px] absolute justify-start text-slate-400 text-[10px] font-bold font-['Inter']">PARADE</div>
+  <div data-layer="9" class="left-[30px] top-[267px] absolute justify-start text-slate-100 text-5xl font-bold font-['Inter']">9</div>
+  <div data-layer="=" class="left-[91px] top-[278px] absolute justify-start text-slate-400 text-lg font-bold font-['Inter']">=</div>
+  <div data-layer="2" class="left-[125px] top-[264px] absolute justify-start text-teal-400 text-xl font-bold font-['Inter']">2</div>
+  <div data-layer="Déflexion" class="DFlexion left-[115px] top-[292px] absolute justify-start text-slate-400 text-[9px] font-medium font-['Inter']">Déflexion</div>
+  <div data-layer="+" class="left-[178px] top-[278px] absolute justify-start text-slate-400 text-base font-bold font-['Inter']">+</div>
+  <div data-layer="3" class="left-[211px] top-[264px] absolute justify-start text-orange-400 text-xl font-bold font-['Inter']">3</div>
+  <div data-layer="Garde" class="Garde left-[205px] top-[292px] absolute justify-start text-slate-400 text-[9px] font-medium font-['Inter']">Garde</div>
+  <div data-layer="+" class="left-[258px] top-[278px] absolute justify-start text-slate-400 text-base font-bold font-['Inter']">+</div>
+  <div data-layer="4" class="left-[289px] top-[264px] absolute justify-start text-slate-500 text-xl font-bold font-['Inter']">4</div>
+  <div data-layer="Bonus" class="Bonus left-[284px] top-[292px] absolute justify-start text-slate-400 text-[9px] font-medium font-['Inter']">Bonus</div>
+  <div data-layer="Armure 2" class="Armure2 left-[30px] top-[320px] absolute justify-start text-slate-400 text-[10px] font-semibold font-['Inter']">Armure 2</div>
+  <div data-layer="Initiative hero" class="InitiativeHero w-48 h-28 left-[346px] top-[234px] absolute bg-zinc-900 rounded-[10px]"></div>
+  <div data-layer="INITIATIVE" class="Initiative left-[362px] top-[248px] absolute justify-start text-slate-400 text-[10px] font-bold font-['Inter']">INITIATIVE</div>
+  <div data-layer="6" class="left-[362px] top-[271px] absolute justify-start text-green-500 text-4xl font-bold font-['Inter']">6</div>
+  <div data-layer="Bonus +0" class="Bonus0 left-[407px] top-[286px] absolute justify-start text-slate-400 text-[10px] font-medium font-['Inter']">Bonus +0</div>
+  <div data-layer="Jet / ordre de tour" class="JetOrdreDeTour left-[362px] top-[321px] absolute justify-start text-slate-400 text-[9px] font-normal font-['Inter']">Jet / ordre de tour</div>
+  <div data-layer="Movement hero" class="MovementHero w-48 h-28 left-[548px] top-[234px] absolute bg-zinc-900 rounded-[10px]"></div>
+  <div data-layer="MOUVEMENT" class="Mouvement left-[564px] top-[248px] absolute justify-start text-slate-400 text-[10px] font-bold font-['Inter']">MOUVEMENT</div>
+  <div data-layer="15" class="left-[564px] top-[271px] absolute justify-start text-blue-500 text-4xl font-bold font-['Inter']">15</div>
+  <div data-layer="m" class="M left-[608px] top-[287px] absolute justify-start text-slate-400 text-sm font-bold font-['Inter']">m</div>
+  <div data-layer="Bonus +0" class="Bonus0 left-[648px] top-[286px] absolute justify-start text-slate-400 text-[10px] font-medium font-['Inter']">Bonus +0</div>
+  <div data-layer="Déplacement disponible" class="DPlacementDisponible left-[564px] top-[321px] absolute justify-start text-slate-400 text-[9px] font-normal font-['Inter']">Déplacement disponible</div>
+  <div data-layer="Seuil Miss" class="SeuilMiss w-32 h-11 left-[16px] top-[360px] absolute bg-gray-900 rounded-md"></div>
+  <div data-layer="SEUIL MISS" class="SeuilMiss left-[24px] top-[367px] absolute justify-start text-slate-400 text-[8px] font-bold font-['Inter']">SEUIL MISS</div>
+  <div data-layer="1" class="left-[24px] top-[381px] absolute justify-start text-slate-100 text-sm font-bold font-['Inter']">1</div>
+  <div data-layer="Bns attaque" class="BnsAttaque w-32 h-11 left-[146px] top-[360px] absolute bg-gray-900 rounded-md"></div>
+  <div data-layer="BNS ATTAQUE" class="BnsAttaque left-[154px] top-[367px] absolute justify-start text-slate-400 text-[8px] font-bold font-['Inter']">BNS ATTAQUE</div>
+  <div data-layer="—" class="left-[154px] top-[381px] absolute justify-start text-slate-100 text-sm font-bold font-['Inter']">—</div>
+  <div data-layer="Canalisation" class="Canalisation w-32 h-11 left-[276px] top-[360px] absolute bg-gray-900 rounded-md"></div>
+  <div data-layer="CANALISATION" class="Canalisation left-[284px] top-[367px] absolute justify-start text-slate-400 text-[8px] font-bold font-['Inter']">CANALISATION</div>
+  <div data-layer="4" class="left-[284px] top-[381px] absolute justify-start text-slate-100 text-sm font-bold font-['Inter']">4</div>
+  <div data-layer="Volonté" class="Volont w-32 h-11 left-[406px] top-[360px] absolute bg-gray-900 rounded-md"></div>
+  <div data-layer="VOLONTÉ" class="Volont left-[414px] top-[367px] absolute justify-start text-slate-400 text-[8px] font-bold font-['Inter']">VOLONTÉ</div>
+  <div data-layer="1" class="left-[414px] top-[381px] absolute justify-start text-slate-100 text-sm font-bold font-['Inter']">1</div>
+  <div data-layer="totem compact" class="TotemCompact w-48 h-11 left-[544px] top-[360px] absolute bg-indigo-900 rounded-md"></div>
+  <div data-layer="TOTEM Token" class="TotemToken left-[556px] top-[368px] absolute justify-start text-slate-100 text-[10px] font-bold font-['Inter']">TOTEM  Token</div>
+  <div data-layer="Voir effet ›" class="VoirEffet left-[660px] top-[384px] absolute justify-start text-slate-400 text-[9px] font-medium font-['Inter']">Voir effet ›</div>
+  <div data-layer="nav" class="Nav w-[760px] h-16 left-0 top-[1058px] absolute bg-zinc-900"></div>
+  <div data-layer="COMPÉTENCES" class="CompTences w-28 h-11 left-[8px] top-[1066px] absolute bg-gray-900 rounded-md"></div>
+  <div data-layer="COMPÉTENCES" class="CompTences w-28 left-[15px] top-[1083px] absolute justify-start text-slate-400 text-[9px] font-semibold font-['Inter']">COMPÉTENCES</div>
+  <div data-layer="CAPACITÉS" class="CapacitS w-28 h-11 left-[133px] top-[1066px] absolute bg-gray-900 rounded-md"></div>
+  <div data-layer="CAPACITÉS" class="CapacitS w-28 left-[140px] top-[1083px] absolute justify-start text-slate-400 text-[9px] font-semibold font-['Inter']">CAPACITÉS</div>
+  <div data-layer="INVENTAIRE" class="Inventaire w-28 h-11 left-[258px] top-[1066px] absolute bg-gray-900 rounded-md"></div>
+  <div data-layer="INVENTAIRE" class="Inventaire w-28 left-[265px] top-[1083px] absolute justify-start text-slate-400 text-[9px] font-semibold font-['Inter']">INVENTAIRE</div>
+  <div data-layer="NARRATIF" class="Narratif w-28 h-11 left-[383px] top-[1066px] absolute bg-indigo-900 rounded-md"></div>
+  <div data-layer="NARRATIF" class="Narratif w-28 left-[390px] top-[1083px] absolute justify-start text-slate-100 text-[9px] font-semibold font-['Inter']">NARRATIF</div>
+  <div data-layer="MAÎTRISES" class="MaTrises w-28 h-11 left-[508px] top-[1066px] absolute bg-gray-900 rounded-md"></div>
+  <div data-layer="MAÎTRISES" class="MaTrises w-28 left-[515px] top-[1083px] absolute justify-start text-slate-400 text-[9px] font-semibold font-['Inter']">MAÎTRISES</div>
+  <div data-layer="NOTES" class="Notes w-28 h-11 left-[633px] top-[1066px] absolute bg-gray-900 rounded-md"></div>
+  <div data-layer="NOTES" class="Notes w-28 left-[640px] top-[1083px] absolute justify-start text-slate-400 text-[9px] font-semibold font-['Inter']">NOTES</div>
+  <div data-layer="content viewport" class="ContentViewport w-[728px] h-[626px] left-[16px] top-[420px] absolute bg-zinc-900 rounded-[10px]"></div>
+  <div data-layer="SCROLL" class="Scroll left-[700px] top-[430px] absolute justify-start text-slate-400 text-[8px] font-bold font-['Inter']">SCROLL</div>
+  <div data-layer="scroll rail" class="ScrollRail w-1 h-[570px] left-[728px] top-[448px] absolute bg-gray-700 rounded-xs"></div>
+  <div data-layer="scroll thumb" class="ScrollThumb w-1 h-32 left-[728px] top-[448px] absolute bg-slate-400 rounded-xs"></div>
+  <div data-layer="ASPECTS NARRATIFS" class="AspectsNarratifs left-[30px] top-[438px] absolute justify-start text-slate-100 text-sm font-bold font-['Inter']">ASPECTS NARRATIFS</div>
+  <div data-layer="Background" class="Background w-80 h-28 left-[30px] top-[474px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="BACKGROUND" class="Background left-[42px] top-[484px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">BACKGROUND</div>
+  <div data-layer="Ancien mercenaire devenu aventurier après une série d’événements qui ont changé sa vision du monde…" class="AncienMercenaireDevenuAventurierAprSUneSRieDVNementsQuiOntChangSaVisionDuMonde w-72 left-[42px] top-[506px] absolute justify-start text-slate-100 text-[10px] font-normal font-['Inter']">Ancien mercenaire devenu aventurier après une série d’événements qui ont changé sa vision du monde…</div>
+  <div data-layer="Développer ›" class="DVelopper left-[262px] top-[565px] absolute justify-start text-slate-500 text-[9px] font-semibold font-['Inter']">Développer  ›</div>
+  <div data-layer="Objectif" class="Objectif w-80 h-28 left-[382px] top-[474px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="OBJECTIF" class="Objectif left-[394px] top-[484px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">OBJECTIF</div>
+  <div data-layer="Retrouver la trace de son ancien groupe et comprendre ce qui s’est réellement passé…" class="RetrouverLaTraceDeSonAncienGroupeEtComprendreCeQuiSEstREllementPass w-72 left-[394px] top-[506px] absolute justify-start text-slate-100 text-[10px] font-normal font-['Inter']">Retrouver la trace de son ancien groupe et comprendre ce qui s’est réellement passé…</div>
+  <div data-layer="Développer ›" class="DVelopper left-[614px] top-[565px] absolute justify-start text-slate-500 text-[9px] font-semibold font-['Inter']">Développer  ›</div>
+  <div data-layer="Personnalité" class="Personnalit w-80 h-28 left-[30px] top-[606px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="PERSONNALITÉ" class="Personnalit left-[42px] top-[616px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">PERSONNALITÉ</div>
+  <div data-layer="Pragmatique, observateur et direct. Préfère agir plutôt que débattre inutilement…" class="PragmatiqueObservateurEtDirectPrFReAgirPlutTQueDBattreInutilement w-72 left-[42px] top-[638px] absolute justify-start text-slate-100 text-[10px] font-normal font-['Inter']">Pragmatique, observateur et direct. Préfère agir plutôt que débattre inutilement…</div>
+  <div data-layer="Développer ›" class="DVelopper left-[262px] top-[697px] absolute justify-start text-slate-500 text-[9px] font-semibold font-['Inter']">Développer  ›</div>
+  <div data-layer="Croyances" class="Croyances w-80 h-28 left-[382px] top-[606px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="CROYANCES" class="Croyances left-[394px] top-[616px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">CROYANCES</div>
+  <div data-layer="La loyauté se gagne par les actes. Les promesses seules ne valent rien…" class="LaLoyautSeGagneParLesActesLesPromessesSeulesNeValentRien w-72 left-[394px] top-[638px] absolute justify-start text-slate-100 text-[10px] font-normal font-['Inter']">La loyauté se gagne par les actes. Les promesses seules ne valent rien…</div>
+  <div data-layer="Développer ›" class="DVelopper left-[614px] top-[697px] absolute justify-start text-slate-500 text-[9px] font-semibold font-['Inter']">Développer  ›</div>
+  <div data-layer="Cicatrices" class="Cicatrices w-80 h-28 left-[30px] top-[738px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="CICATRICES" class="Cicatrices left-[42px] top-[748px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">CICATRICES</div>
+  <div data-layer="Une ancienne blessure rappelle une confrontation particulièrement violente…" class="UneAncienneBlessureRappelleUneConfrontationParticuliRementViolente w-72 left-[42px] top-[770px] absolute justify-start text-slate-100 text-[10px] font-normal font-['Inter']">Une ancienne blessure rappelle une confrontation particulièrement violente…</div>
+  <div data-layer="Développer ›" class="DVelopper left-[262px] top-[829px] absolute justify-start text-slate-500 text-[9px] font-semibold font-['Inter']">Développer  ›</div>
+  <div data-layer="Pulsion" class="Pulsion w-80 h-28 left-[382px] top-[738px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="PULSION" class="Pulsion left-[394px] top-[748px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">PULSION</div>
+  <div data-layer="Protéger ceux qu’il considère comme faisant partie de son groupe…" class="ProtGerCeuxQuIlConsidReCommeFaisantPartieDeSonGroupe w-72 left-[394px] top-[770px] absolute justify-start text-slate-100 text-[10px] font-normal font-['Inter']">Protéger ceux qu’il considère comme faisant partie de son groupe…</div>
+  <div data-layer="Développer ›" class="DVelopper left-[614px] top-[829px] absolute justify-start text-slate-500 text-[9px] font-semibold font-['Inter']">Développer  ›</div>
+  <div data-layer="Instinct" class="Instinct w-80 h-28 left-[30px] top-[870px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="INSTINCT" class="Instinct left-[42px] top-[880px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">INSTINCT</div>
+  <div data-layer="Toujours identifier une sortie avant de commencer une confrontation…" class="ToujoursIdentifierUneSortieAvantDeCommencerUneConfrontation w-72 left-[42px] top-[902px] absolute justify-start text-slate-100 text-[10px] font-normal font-['Inter']">Toujours identifier une sortie avant de commencer une confrontation…</div>
+  <div data-layer="Développer ›" class="DVelopper left-[262px] top-[961px] absolute justify-start text-slate-500 text-[9px] font-semibold font-['Inter']">Développer  ›</div>
+  <div data-layer="Liens" class="Liens w-80 h-28 left-[382px] top-[870px] absolute bg-gray-900 rounded-lg"></div>
+  <div data-layer="LIENS" class="Liens left-[394px] top-[880px] absolute justify-start text-slate-400 text-[9px] font-bold font-['Inter']">LIENS</div>
+  <div data-layer="Plusieurs relations importantes avec les membres de son ancien groupe…" class="PlusieursRelationsImportantesAvecLesMembresDeSonAncienGroupe w-72 left-[394px] top-[902px] absolute justify-start text-slate-100 text-[10px] font-normal font-['Inter']">Plusieurs relations importantes avec les membres de son ancien groupe…</div>
+  <div data-layer="Développer ›" class="DVelopper left-[614px] top-[961px] absolute justify-start text-slate-500 text-[9px] font-semibold font-['Inter']">Développer  ›</div>
+</div>
