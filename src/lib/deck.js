@@ -813,6 +813,21 @@ export function applyAction(state, action) {
       return { state: addLog(s, 'gm', 'MJ', msg), log: null };
     }
 
+    case 'USE_CAPACITY': {
+      // Log-only: capacity costs are visual (card value + suit), no hand/token changes.
+      const p = state.players[action.playerId];
+      if (!p) return { state, log: null };
+      const capacityName = typeof action.capacityName === 'string' ? action.capacityName.slice(0, 120) : '';
+      const formula = typeof action.formula === 'string' ? action.formula.slice(0, 32) : '';
+      const total = Number(action.total);
+      if (!capacityName || !formula || !Number.isFinite(total)) return { state, log: null };
+      const rolls = Array.isArray(action.rolls)
+        ? action.rolls.map((n) => Number(n)).filter((n) => Number.isFinite(n)).slice(0, 64)
+        : [];
+      const detail = rolls.length > 0 ? ` [${rolls.join(', ')}]` : '';
+      return { state: addLog(state, action.playerId, p.name, `utilise « ${capacityName} » (${formula}) : ${total}${detail}`), log: null };
+    }
+
     default:
       return { state, log: null };
   }

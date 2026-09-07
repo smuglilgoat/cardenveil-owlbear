@@ -164,7 +164,7 @@
     }
   }
 
-  function handleDiceRoll(formula) {
+  function handleDiceRoll(capacityName, formula) {
     try {
       const result = rollDice(formula);
       diceResult = {
@@ -172,6 +172,14 @@
         ...result,
         timestamp: new Date().toLocaleTimeString()
       };
+      onAction({
+        type: 'USE_CAPACITY',
+        playerId,
+        capacityName,
+        formula,
+        total: result.total,
+        rolls: result.rolls,
+      });
     } catch (err) {
       diceResult = { error: err.message };
     }
@@ -585,7 +593,7 @@
                     </div>
                     {#if capacity.value?.main}
                       <button
-                        onclick={() => checkUnsavedChanges(() => handleDiceRoll(capacity.value.main))}
+                        onclick={() => checkUnsavedChanges(() => handleDiceRoll(capacity.name || 'Capacité', capacity.value.main))}
                         class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold rounded transition-colors"
                       >
                         {capacity.value.main}

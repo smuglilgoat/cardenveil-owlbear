@@ -454,15 +454,68 @@ describe('Game Logic', () => {
         initialState.players['player-1'].hand = [makeCard('♠', '5')];
         initialState.players['player-1'].tokens = { force: 0, agilite: 0, esprit: 0, social: 0 };
         initialState.discard = [makeCard('♥', '7')];
-        
+
         const { state } = applyAction(initialState, {
           type: 'HARD_RESET',
           playerId: 'gm-player',
         });
-        
+
         expect(state.players['player-1'].hand.length).toBe(0);
         expect(state.players['player-1'].tokens).toEqual({ force: 3, agilite: 3, esprit: 3, social: 3 });
         expect(state.discard.length).toBe(0);
+      });
+    });
+
+    describe('USE_CAPACITY', () => {
+      it('should log capacity use with dice result without touching hand or tokens', () => {
+        const card = makeCard('♥', '5');
+        initialState.players['player-1'].hand = [card];
+        initialState.players['player-1'].tokens = { force: 1, agilite: 2, esprit: 3, social: 0 };
+
+        const { state } = applyAction(initialState, {
+          type: 'USE_CAPACITY',
+          playerId: 'player-1',
+          capacityName: 'Garde fulminante',
+          formula: '4d6',
+          total: 14,
+          rolls: [6, 4, 3, 1],
+        });
+
+        expect(state.logs.length).toBe(1);
+        expect(state.logs[0].playerId).toBe('player-1');
+        expect(state.logs[0].msg).toContain('Garde fulminante');
+        expect(state.logs[0].msg).toContain('4d6');
+        expect(state.logs[0].msg).toContain('14');
+        expect(state.players['player-1'].hand).toHaveLength(1);
+        expect(state.players['player-1'].tokens).toEqual({ force: 1, agilite: 2, esprit: 3, social: 0 });
+        expect(state.discard).toHaveLength(0);
+      });
+
+      it('should be a no-op for unknown players', () => {
+        const { state } = applyAction(initialState, {
+          type: 'USE_CAPACITY',
+          playerId: 'unknown-player',
+          capacityName: 'Garde fulminante',
+          formula: '4d6',
+          total: 14,
+          rolls: [6, 4, 3, 1],
+        });
+
+        expect(state.logs).toHaveLength(0);
+        expect(state).toBe(initialState);
+      });
+
+      it('should be a no-op when capacity payload is invalid', () => {
+        const invalidActions = [
+          { type: 'USE_CAPACITY', playerId: 'player-1', formula: '4d6', total: 14 },
+          { type: 'USE_CAPACITY', playerId: 'player-1', capacityName: 'Garde fulminante', total: 14 },
+          { type: 'USE_CAPACITY', playerId: 'player-1', capacityName: 'Garde fulminante', formula: '4d6' },
+        ];
+
+        for (const action of invalidActions) {
+          const { state } = applyAction(initialState, action);
+          expect(state.logs).toHaveLength(0);
+        }
       });
     });
   });
