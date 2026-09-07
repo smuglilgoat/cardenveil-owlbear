@@ -46,3 +46,17 @@ turns; my first commit landed on main by mistake — moved to branch
 ## Follow-ups
 - Test edit popup + sheet popover + dice popover live in OBR.
 - Capacity pin key uses name (duplicate names share pin state).
+
+## Addendum — GM data fix + popover position/drag (2026-09-08)
+- GMDashboard `viewCharacterSheet` stored the raw Supabase row in
+  `viewingSheet.sheet` (payload is `row.data`) → GM modal showed no data and
+  crashed `Cannot read properties of undefined (reading 'nom')` on Modifier
+  (binds like `viewingSheet.sheet.identity.nom`). Fixed: unwrap `row.data` and
+  merge every section onto `createEmptyCharacterSheet()` defaults (guards older
+  sheets missing newer sections).
+- Sheet popover default anchor moved to viewport top-right
+  (anchorPosition vw/0, RIGHT/TOP origins).
+- `hidePaper: true` removed from the sheet popover so OBR's paper chrome
+  provides the drag handle (hidePaper popovers have no draggable frame).
+- Commits `1ea6a2f` on `agent/sheet-edit-popup` (main reset to `ab56aab`
+  after the env again started the turn on main).
