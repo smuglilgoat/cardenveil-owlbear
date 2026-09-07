@@ -268,13 +268,26 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
   }
 }
 
+const DICE_FORMULA_RE = /^(\d+)d(\d+)([+-]\d+)?$/;
+
+/**
+ * Check whether a string is a rollable dice formula (e.g. "4d6", "2d8+3").
+ * Capacity values like "X" or "20 PVs Temporaires" are not rollable.
+ * @param {unknown} value - Value to check
+ * @returns {boolean}
+ */
+export function isDiceFormula(value) {
+  return typeof value === 'string' && DICE_FORMULA_RE.test(value.trim());
+}
+
 /**
  * Roll dice based on a formula like "4d6" or "2d8+3"
  * @param {string} formula - Dice formula (e.g., "4d6", "2d8+3")
  * @returns {{total: number, rolls: number[], modifier: number}}
  */
 export function rollDice(formula) {
-  const match = formula.match(/^(\d+)d(\d+)([+-]\d+)?$/);
+  const text = typeof formula === 'string' ? formula.trim() : '';
+  const match = text.match(DICE_FORMULA_RE);
   if (!match) {
     throw new Error(`Invalid dice formula: ${formula}`);
   }

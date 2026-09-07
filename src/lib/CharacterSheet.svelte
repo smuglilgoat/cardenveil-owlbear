@@ -6,6 +6,7 @@
     deleteCharacterSheet,
     importCharacterSheet,
     createEmptyCharacterSheet,
+    isDiceFormula,
     rollDice,
     subscribeToCharacterSheet
   } from './characterSheet.js';
@@ -591,7 +592,7 @@
                         <span>Usage: {capacity.usage || '—'}</span>
                       </div>
                     </div>
-                    {#if capacity.value?.main}
+                    {#if capacity.value?.main && isDiceFormula(capacity.value.main)}
                       <button
                         onclick={() => checkUnsavedChanges(() => handleDiceRoll(capacity.name || 'Capacité', capacity.value.main))}
                         class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold rounded transition-colors"
@@ -606,13 +607,19 @@
           </div>
 
           {#if diceResult}
-            <div class="mt-4 bg-indigo-900 border border-indigo-700 rounded-lg p-4">
-              <div class="text-sm text-indigo-200 mb-1">Résultat du lancer ({diceResult.timestamp})</div>
-              <div class="text-2xl font-bold text-white">{diceResult.total}</div>
-              <div class="text-xs text-indigo-300 mt-1">
-                {diceResult.formula}: {diceResult.rolls.join(', ')}{diceResult.modifier ? ` ${diceResult.modifier > 0 ? '+' : ''}${diceResult.modifier}` : ''}
+            {#if diceResult.error}
+              <div class="mt-4 bg-red-900 border border-red-700 rounded-lg p-4">
+                <div class="text-sm text-red-200">Formule invalide : {diceResult.error}</div>
               </div>
-            </div>
+            {:else}
+              <div class="mt-4 bg-indigo-900 border border-indigo-700 rounded-lg p-4">
+                <div class="text-sm text-indigo-200 mb-1">Résultat du lancer ({diceResult.timestamp})</div>
+                <div class="text-2xl font-bold text-white">{diceResult.total}</div>
+                <div class="text-xs text-indigo-300 mt-1">
+                  {diceResult.formula}: {(diceResult.rolls ?? []).join(', ')}{diceResult.modifier ? ` ${diceResult.modifier > 0 ? '+' : ''}${diceResult.modifier}` : ''}
+                </div>
+              </div>
+            {/if}
           {/if}
         </div>
 
