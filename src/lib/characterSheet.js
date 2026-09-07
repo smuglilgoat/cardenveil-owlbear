@@ -269,7 +269,7 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
 }
 
 const STANDARD_DICE_RE = /^(\d*)\s*d\s*(\d+)\s*([+-]\s*\d+)?$/i;
-const STAT_DICE_RE = /^mod\s+([a-zàâäéèêëîïôöùûüç]+)\s*d\s*(\d+)\s*([+-]\s*\d+)?$/i;
+const STAT_DICE_RE = /^(?:(\d+)\s*)?mod\s+([a-zàâäéèêëîïôöùûüç]+)\s*d\s*(\d+)\s*([+-]\s*\d+)?$/i;
 
 const STAT_KEYS = ['force', 'agilite', 'esprit', 'social'];
 
@@ -295,9 +295,10 @@ export function statModifier(score) {
 /**
  * Parse a dice formula into { count, sides, modifier, formula }.
  * Supports standard ("4d6", "4D6", "2d8+3", "d6") and stat-based
- * ("Mod Esprit D6" → Esprit modifier dice) forms. For stat-based forms,
- * `stats` must provide the raw score; the dice count is the stat modifier
- * (minimum 1). Returns null when unparseable.
+ * ("Mod Esprit D6" → Esprit modifier dice, "3 Mod Esprit D6" → 3 ×
+ * modifier dice) forms. For stat-based forms, `stats` must provide the
+ * raw score; the dice count is the stat modifier times the optional
+ * leading multiplier (minimum 1). Returns null when unparseable.
  * @param {unknown} value - Formula to parse
  * @param {Object} [stats] - Raw stat scores ({ force, agilite, esprit, social })
  * @returns {{count: number, sides: number, modifier: number, formula: string}|null}
@@ -319,13 +320,15 @@ export function parseDiceFormula(value, stats = {}) {
 
   match = text.match(STAT_DICE_RE);
   if (match) {
-    const key = normalizeStatName(match[1]);
+    const key = normalizeStatName(match[2]);
     const score = Number(stats?.[key]);
     if (!key || !Number.isFinite(score)) return null;
-    const count = Math.max(1, statModifier(score));
-    const sides = parseInt(match[2], 10);
+    const multiplier = match[1] === undefined ? 1 : parseInt(match[1], 10);
+    if (!(multiplier >= 1)) return null;
+    const count = Math.max(1, multiplier * statModifier(score));
+    const sides = parseInt(match[3], 10);
     if (!(sides >= 2)) return null;
-    const modifier = match[3] ? parseInt(match[3].replace(/\s+/g, ''), 10) : 0;
+    const modifier = match[4] ? parseInt(match[4].replace(/\s+/g, ''), 10) : 0;
     return { count, sides, modifier, formula: format(count, sides, modifier) };
   }
 

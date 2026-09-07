@@ -42,6 +42,12 @@ describe('Character Sheet dice helpers', () => {
       expect(isDiceFormula('Mod Foo D6', { foo: 18 })).toBe(false);
     });
 
+    it('should accept leading multipliers on stat-based formulas', () => {
+      expect(isDiceFormula('3 Mod Esprit D6', { esprit: 18 })).toBe(true);
+      expect(isDiceFormula('4 Mod Esprit D6', { esprit: 18 })).toBe(true);
+      expect(isDiceFormula('0 Mod Esprit D6', { esprit: 18 })).toBe(false);
+    });
+
     it('should reject non-string values', () => {
       expect(isDiceFormula(null)).toBe(false);
       expect(isDiceFormula(undefined)).toBe(false);
@@ -111,6 +117,18 @@ describe('Character Sheet dice helpers', () => {
       expect(result.formula).toBe('1d6');
     });
 
+    it('should multiply the modifier dice by a leading multiplier', () => {
+      // Esprit 18 → modifier +4 → 3 × 4 = 12d6
+      const triple = rollDice('3 Mod Esprit D6', { esprit: 18 });
+      expect(triple.rolls).toHaveLength(12);
+      expect(triple.formula).toBe('12d6');
+
+      // Esprit 18 → modifier +4 → 4 × 4 = 16d6
+      const quad = rollDice('4 Mod Esprit D6', { esprit: 18 });
+      expect(quad.rolls).toHaveLength(16);
+      expect(quad.formula).toBe('16d6');
+    });
+
     it('should throw for stat-based formulas without usable stats', () => {
       expect(() => rollDice('Mod Esprit D6')).toThrow('Invalid dice formula');
       expect(() => rollDice('Mod Esprit D6', {})).toThrow('Invalid dice formula');
@@ -128,6 +146,12 @@ describe('Character Sheet dice helpers', () => {
     it('should resolve stat-based formulas against provided stats', () => {
       expect(parseDiceFormula('Mod Esprit D6', { esprit: 18 })).toEqual({ count: 4, sides: 6, modifier: 0, formula: '4d6' });
       expect(parseDiceFormula('Mod Force D8+2', { force: 16 })).toEqual({ count: 3, sides: 8, modifier: 2, formula: '3d8+2' });
+    });
+
+    it('should apply leading multipliers to stat-based dice counts', () => {
+      expect(parseDiceFormula('3 Mod Esprit D6', { esprit: 18 })).toEqual({ count: 12, sides: 6, modifier: 0, formula: '12d6' });
+      expect(parseDiceFormula('4 Mod Esprit D6', { esprit: 18 })).toEqual({ count: 16, sides: 6, modifier: 0, formula: '16d6' });
+      expect(parseDiceFormula('0 Mod Esprit D6', { esprit: 18 })).toBeNull();
     });
 
     it('should return null for unparseable values', () => {
