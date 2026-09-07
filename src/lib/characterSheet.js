@@ -268,34 +268,95 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
   }
 }
 
-const DICE_FORMULA_RE = /^(\d+)d(\d+)([+-]\d+)?$/;
+const STANDARD_DICE_RE = /^(\d*)\s*d\s*(\d+)\s*([+-]\s*\d+)?$/i;
+const STAT_DICE_RE = /^mod\s+([a-zàâäéèêëîïôöùûüç]+)\s*d\s*(\d+)\s*([+-]\s*\d+)?$/i;
+
+const STAT_KEYS = ['force', 'agilite', 'esprit', 'social'];
 
 /**
- * Check whether a string is a rollable dice formula (e.g. "4d6", "2d8+3").
- * Capacity values like "X" or "20 PVs Temporaires" are not rollable.
- * @param {unknown} value - Value to check
- * @returns {boolean}
+ * Normalize a stat name (case- and accent-insensitive) to a stat key.
+ * @param {string} name - Stat name (e.g. "Esprit", "agilité")
+ * @returns {string|null} Stat key or null when unknown
  */
-export function isDiceFormula(value) {
-  return typeof value === 'string' && DICE_FORMULA_RE.test(value.trim());
+function normalizeStatName(name) {
+  const normalized = String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return STAT_KEYS.includes(normalized) ? normalized : null;
 }
 
 /**
- * Roll dice based on a formula like "4d6" or "2d8+3"
- * @param {string} formula - Dice formula (e.g., "4d6", "2d8+3")
- * @returns {{total: number, rolls: number[], modifier: number}}
+ * Compute a stat modifier from a raw score (e.g. 18 → +4).
+ * @param {unknown} score - Raw stat score
+ * @returns {number}
  */
-export function rollDice(formula) {
-  const text = typeof formula === 'string' ? formula.trim() : '';
-  const match = text.match(DICE_FORMULA_RE);
-  if (!match) {
+export function statModifier(score) {
+  return Math.floor((Number(score) - 10) / 2);
+}
+
+/**
+ * Parse a dice formula into { count, sides, modifier, formula }.
+ * Supports standard ("4d6", "4D6", "2d8+3", "d6") and stat-based
+ * ("Mod Esprit D6" → Esprit modifier dice) forms. For stat-based forms,
+ * `stats` must provide the raw score; the dice count is the stat modifier
+ * (minimum 1). Returns null when unparseable.
+ * @param {unknown} value - Formula to parse
+ * @param {Object} [stats] - Raw stat scores ({ force, agilite, esprit, social })
+ * @returns {{count: number, sides: number, modifier: number, formula: string}|null}
+ */
+export function parseDiceFormula(value, stats = {}) {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  const format = (count, sides, modifier) =>
+    `${count}d${sides}${modifier ? `${modifier > 0 ? '+' : ''}${modifier}` : ''}`;
+
+  let match = text.match(STANDARD_DICE_RE);
+  if (match) {
+    const count = match[1] === '' ? 1 : parseInt(match[1], 10);
+    const sides = parseInt(match[2], 10);
+    const modifier = match[3] ? parseInt(match[3].replace(/\s+/g, ''), 10) : 0;
+    if (!(count >= 1) || !(sides >= 2)) return null;
+    return { count, sides, modifier, formula: format(count, sides, modifier) };
+  }
+
+  match = text.match(STAT_DICE_RE);
+  if (match) {
+    const key = normalizeStatName(match[1]);
+    const score = Number(stats?.[key]);
+    if (!key || !Number.isFinite(score)) return null;
+    const count = Math.max(1, statModifier(score));
+    const sides = parseInt(match[2], 10);
+    if (!(sides >= 2)) return null;
+    const modifier = match[3] ? parseInt(match[3].replace(/\s+/g, ''), 10) : 0;
+    return { count, sides, modifier, formula: format(count, sides, modifier) };
+  }
+
+  return null;
+}
+
+/**
+ * Check whether a string is a rollable dice formula
+ * (e.g. "4d6", "4D6", "2d8+3", "d6", "Mod Esprit D6" with stats).
+ * Capacity values like "X" or "20 PVs Temporaires" are not rollable.
+ * @param {unknown} value - Value to check
+ * @param {Object} [stats] - Raw stat scores, required for stat-based formulas
+ * @returns {boolean}
+ */
+export function isDiceFormula(value, stats = {}) {
+  return parseDiceFormula(value, stats) !== null;
+}
+
+/**
+ * Roll dice based on a formula like "4d6", "2d8+3" or "Mod Esprit D6"
+ * @param {string} formula - Dice formula
+ * @param {Object} [stats] - Raw stat scores, required for stat-based formulas
+ * @returns {{total: number, rolls: number[], modifier: number, formula: string}}
+ */
+export function rollDice(formula, stats = {}) {
+  const parsed = parseDiceFormula(formula, stats);
+  if (!parsed) {
     throw new Error(`Invalid dice formula: ${formula}`);
   }
 
-  const count = parseInt(match[1], 10);
-  const sides = parseInt(match[2], 10);
-  const modifier = match[3] ? parseInt(match[3], 10) : 0;
-
+  const { count, sides, modifier } = parsed;
   const rolls = [];
   for (let i = 0; i < count; i++) {
     rolls.push(Math.floor(Math.random() * sides) + 1);
@@ -304,7 +365,7 @@ export function rollDice(formula) {
   const sum = rolls.reduce((a, b) => a + b, 0);
   const total = sum + modifier;
 
-  return { total, rolls, modifier };
+  return { total, rolls, modifier, formula: parsed.formula };
 }
 
 /**

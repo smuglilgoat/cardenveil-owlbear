@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, rollDice } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier } = await import('../../src/lib/characterSheet.js');
 
 describe('Character Sheet dice helpers', () => {
   describe('isDiceFormula', () => {
@@ -20,12 +20,26 @@ describe('Character Sheet dice helpers', () => {
       expect(isDiceFormula(' 3d6 ')).toBe(true);
     });
 
+    it('should accept common variants (uppercase, spaces, bare die)', () => {
+      expect(isDiceFormula('4D6')).toBe(true);
+      expect(isDiceFormula('2D8+3')).toBe(true);
+      expect(isDiceFormula('2d6 + 3')).toBe(true);
+      expect(isDiceFormula('d6')).toBe(true);
+      expect(isDiceFormula('d20')).toBe(true);
+    });
+
     it('should reject non-dice capacity values', () => {
       expect(isDiceFormula('X')).toBe(false);
       expect(isDiceFormula('20 PVs Temporaires')).toBe(false);
-      expect(isDiceFormula('Mod Esprit D6')).toBe(false);
       expect(isDiceFormula('')).toBe(false);
-      expect(isDiceFormula('d6')).toBe(false);
+      expect(isDiceFormula('2nd attack')).toBe(false);
+    });
+
+    it('should require stats for stat-based formulas', () => {
+      expect(isDiceFormula('Mod Esprit D6')).toBe(false);
+      expect(isDiceFormula('Mod Esprit D6', { esprit: 18 })).toBe(true);
+      expect(isDiceFormula('Mod Esprit D6', {})).toBe(false);
+      expect(isDiceFormula('Mod Foo D6', { foo: 18 })).toBe(false);
     });
 
     it('should reject non-string values', () => {
@@ -59,6 +73,77 @@ describe('Character Sheet dice helpers', () => {
       expect(() => rollDice('X')).toThrow('Invalid dice formula');
       expect(() => rollDice('20 PVs Temporaires')).toThrow('Invalid dice formula');
       expect(() => rollDice('')).toThrow('Invalid dice formula');
+    });
+
+    it('should handle uppercase and spaced variants like isDiceFormula accepts', () => {
+      const upper = rollDice('4D6');
+      expect(upper.rolls).toHaveLength(4);
+
+      const spaced = rollDice('2d6 + 3');
+      expect(spaced.modifier).toBe(3);
+      expect(spaced.total).toBe(spaced.rolls.reduce((a, b) => a + b, 0) + 3);
+
+      const bare = rollDice('d6');
+      expect(bare.rolls).toHaveLength(1);
+    });
+
+    it('should resolve stat-based formulas to modifier dice', () => {
+      // Esprit 18 → modifier +4 → 4d6
+      const result = rollDice('Mod Esprit D6', { esprit: 18 });
+      expect(result.rolls).toHaveLength(4);
+      expect(result.formula).toBe('4d6');
+      for (const roll of result.rolls) {
+        expect(roll).toBeGreaterThanOrEqual(1);
+        expect(roll).toBeLessThanOrEqual(6);
+      }
+    });
+
+    it('should handle stat names case- and accent-insensitively', () => {
+      expect(rollDice('mod esprit d6', { esprit: 18 }).rolls).toHaveLength(4);
+      expect(rollDice('Mod Agilité D8', { agilite: 14 }).rolls).toHaveLength(2);
+      expect(rollDice('MOD FORCE D6', { force: 16 }).rolls).toHaveLength(3);
+    });
+
+    it('should clamp stat-based dice to a minimum of one die', () => {
+      // Esprit 10 → modifier +0 → clamped to 1d6
+      const result = rollDice('Mod Esprit D6', { esprit: 10 });
+      expect(result.rolls).toHaveLength(1);
+      expect(result.formula).toBe('1d6');
+    });
+
+    it('should throw for stat-based formulas without usable stats', () => {
+      expect(() => rollDice('Mod Esprit D6')).toThrow('Invalid dice formula');
+      expect(() => rollDice('Mod Esprit D6', {})).toThrow('Invalid dice formula');
+      expect(() => rollDice('Mod Foo D6', { foo: 18 })).toThrow('Invalid dice formula');
+    });
+  });
+
+  describe('parseDiceFormula', () => {
+    it('should parse standard formulas', () => {
+      expect(parseDiceFormula('4d6')).toEqual({ count: 4, sides: 6, modifier: 0, formula: '4d6' });
+      expect(parseDiceFormula('2d8+3')).toEqual({ count: 2, sides: 8, modifier: 3, formula: '2d8+3' });
+      expect(parseDiceFormula('d6')).toEqual({ count: 1, sides: 6, modifier: 0, formula: '1d6' });
+    });
+
+    it('should resolve stat-based formulas against provided stats', () => {
+      expect(parseDiceFormula('Mod Esprit D6', { esprit: 18 })).toEqual({ count: 4, sides: 6, modifier: 0, formula: '4d6' });
+      expect(parseDiceFormula('Mod Force D8+2', { force: 16 })).toEqual({ count: 3, sides: 8, modifier: 2, formula: '3d8+2' });
+    });
+
+    it('should return null for unparseable values', () => {
+      expect(parseDiceFormula('X')).toBeNull();
+      expect(parseDiceFormula('20 PVs Temporaires')).toBeNull();
+      expect(parseDiceFormula(null)).toBeNull();
+    });
+  });
+
+  describe('statModifier', () => {
+    it('should compute D&D-style modifiers', () => {
+      expect(statModifier(18)).toBe(4);
+      expect(statModifier(16)).toBe(3);
+      expect(statModifier(14)).toBe(2);
+      expect(statModifier(10)).toBe(0);
+      expect(statModifier(6)).toBe(-2);
     });
   });
 });
