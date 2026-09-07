@@ -20,9 +20,11 @@
     saveCharacterSheet,
     deleteCharacterSheet,
     createEmptyCharacterSheet,
+    equipmentStats,
     paradeTotal,
     skillModifier,
     syncSkillBonuses,
+    syncStatsFromEquipment,
     toNumber
   } from "./characterSheet.js";
   import { tooltip } from "./tooltip.js";
@@ -47,6 +49,13 @@
   let viewingSheet = $state(null); // { playerId, sheet, isEditing }
   let sheetLoading = $state(false);
   let sheetError = $state('');
+
+  // Equipment-derived stats for the viewed sheet (only equipment counts)
+  let gmEqStats = $derived(
+    viewingSheet
+      ? equipmentStats(viewingSheet.sheet.equipment, viewingSheet.sheet.weapons)
+      : { deflexion: 0, armure: 0, volonte: 0, garde: 0 }
+  );
 
   // Hard reset two-step state: 0 = idle, 1 = first confirm, 2 = second confirm
   let resetStep = $state(0);
@@ -412,7 +421,7 @@
     if (!viewingSheet) return;
     sheetLoading = true;
     try {
-      viewingSheet.sheet = syncSkillBonuses(viewingSheet.sheet);
+      viewingSheet.sheet = syncStatsFromEquipment(syncSkillBonuses(viewingSheet.sheet));
       await saveCharacterSheet(viewingSheet.playerId, OBR.room.id, viewingSheet.sheet);
       viewingSheet.exists = true;
       viewingSheet.isEditing = false;
@@ -1442,28 +1451,30 @@
                 <div>
                   <div class="text-[8px] font-bold text-txt2 text-gray-400">PARADE</div>
                   <div class="text-2xl font-bold text-white">
-                    {paradeTotal(viewingSheet.sheet.defense)}
+                    {paradeTotal({ deflexion: gmEqStats.deflexion, gardeBonus: gmEqStats.garde, bonus: viewingSheet.sheet.defense?.bonus })}
                   </div>
                 </div>
                 <div class="flex gap-3 text-xs">
-                  {#each [['deflexion', 'Déflexion'], ['gardeBonus', 'Garde'], ['bonus', 'Bonus']] as [field, label]}
-                    <div class="text-center">
-                      {#if viewingSheet.isEditing}
-                        <input type="text" bind:value={viewingSheet.sheet.defense[field]} class="w-12 px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
-                      {:else}
-                        <div class="font-bold text-white">{toNumber(viewingSheet.sheet.defense?.[field])}</div>
-                      {/if}
-                      <div class="text-[9px] text-gray-400 mt-0.5">{label}</div>
-                    </div>
-                  {/each}
+                  <div class="text-center">
+                    <div class="font-bold text-white">{gmEqStats.deflexion}</div>
+                    <div class="text-[9px] text-gray-400 mt-0.5">Déflexion</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="font-bold text-white">{gmEqStats.garde}</div>
+                    <div class="text-[9px] text-gray-400 mt-0.5">Garde</div>
+                  </div>
+                  <div class="text-center">
+                    {#if viewingSheet.isEditing}
+                      <input type="text" bind:value={viewingSheet.sheet.defense.bonus} class="w-12 px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
+                    {:else}
+                      <div class="font-bold text-white">{toNumber(viewingSheet.sheet.defense?.bonus)}</div>
+                    {/if}
+                    <div class="text-[9px] text-gray-400 mt-0.5">Bonus</div>
+                  </div>
                 </div>
                 <div class="ml-auto text-right">
                   <div class="text-[8px] font-bold text-gray-400">ARMURE</div>
-                  {#if viewingSheet.isEditing}
-                    <input type="text" bind:value={viewingSheet.sheet.defense.armure} class="w-12 px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-white text-center text-xs" />
-                  {:else}
-                    <div class="text-xs text-white">{viewingSheet.sheet.defense?.armure ?? ''}</div>
-                  {/if}
+                  <div class="text-xs text-white">{gmEqStats.armure}</div>
                 </div>
               </div>
             </div>
@@ -1489,10 +1500,10 @@
               {#each [['seuilMiss', 'SEUIL MISS'], ['bonusAttaque', 'BNS ATTAQUE'], ['canalisation', 'CANALISATION'], ['volonte', 'VOLONTÉ']] as [field, label]}
                 <div class="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5">
                   <div class="text-[8px] font-bold text-gray-400">{label}</div>
-                  {#if viewingSheet.isEditing}
+                  {#if viewingSheet.isEditing && field !== 'volonte'}
                     <input type="text" bind:value={viewingSheet.sheet.derived[field]} class="w-full px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-white text-center text-sm" />
                   {:else}
-                    {@const pillValue = viewingSheet.sheet.derived?.[field]}
+                    {@const pillValue = field === 'volonte' ? gmEqStats.volonte : viewingSheet.sheet.derived?.[field]}
                     <div class="text-sm font-bold text-white text-center">{pillValue === '' || pillValue == null ? '—' : pillValue}</div>
                   {/if}
                 </div>

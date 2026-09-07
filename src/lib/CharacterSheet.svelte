@@ -6,12 +6,14 @@
     deleteCharacterSheet,
     importCharacterSheet,
     createEmptyCharacterSheet,
+    equipmentStats,
     isDiceFormula,
     paradeTotal,
     rollDice,
     skillModifier,
     subscribeToCharacterSheet,
     syncSkillBonuses,
+    syncStatsFromEquipment,
     toNumber
   } from './characterSheet.js';
 
@@ -36,6 +38,7 @@
     { id: 'skills', label: 'Compétences' },
     { id: 'capacities', label: 'Capacités' },
     { id: 'equipment', label: 'Équipement' },
+    { id: 'inventaire', label: 'Inventaire' },
     { id: 'narrative', label: 'Narratif' }
   ];
 
@@ -122,7 +125,7 @@
   async function saveEdit() {
     isSaving = true;
     try {
-      editSheet = syncSkillBonuses(editSheet);
+      editSheet = syncStatsFromEquipment(syncSkillBonuses(editSheet));
       await saveCharacterSheet(playerId, roomId, editSheet);
       sheet = editSheet;
       editSheet = null;
@@ -414,6 +417,8 @@
         </div>
 
       {:else if activeTab === 'stats'}
+        {@const eqStats = equipmentStats(isEditing && editSheet ? editSheet.equipment : sheet?.equipment, isEditing && editSheet ? editSheet.weapons : sheet?.weapons)}
+        {@const paradeBonus = isEditing && editSheet ? editSheet.defense?.bonus : sheet.defense?.bonus}
         <div class="max-w-4xl mx-auto space-y-6">
           <h2 class="text-lg font-bold text-white">Attributs</h2>
           <div class="grid grid-cols-2 gap-4">
@@ -472,28 +477,31 @@
           <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
             <div class="flex items-center gap-4">
               <div class="text-4xl font-bold text-white">
-                {paradeTotal(isEditing && editSheet ? editSheet.defense : sheet.defense)}
+                {paradeTotal({ deflexion: eqStats.deflexion, gardeBonus: eqStats.garde, bonus: paradeBonus })}
               </div>
               <div class="flex gap-4 text-sm">
-                {#each [['deflexion', 'Déflexion'], ['gardeBonus', 'Garde'], ['bonus', 'Bonus']] as [field, label]}
-                  <div class="text-center">
-                    {#if isEditing}
-                      <input type="text" bind:value={editSheet.defense[field]} class="w-14 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
-                    {:else}
-                      <div class="font-bold text-white">{toNumber(sheet.defense?.[field])}</div>
-                    {/if}
-                    <div class="text-xs text-gray-400 mt-1">{label}</div>
-                  </div>
-                {/each}
+                <div class="text-center">
+                  <div class="font-bold text-white">{eqStats.deflexion}</div>
+                  <div class="text-xs text-gray-400 mt-1">Déflexion</div>
+                </div>
+                <div class="text-center">
+                  <div class="font-bold text-white">{eqStats.garde}</div>
+                  <div class="text-xs text-gray-400 mt-1">Garde</div>
+                </div>
+                <div class="text-center">
+                  {#if isEditing}
+                    <input type="text" bind:value={editSheet.defense.bonus} class="w-14 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
+                  {:else}
+                    <div class="font-bold text-white">{toNumber(sheet.defense?.bonus)}</div>
+                  {/if}
+                  <div class="text-xs text-gray-400 mt-1">Bonus</div>
+                </div>
               </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
-              <label class="text-sm font-medium text-gray-300">Armure</label>
-              {#if isEditing}
-                <input type="text" bind:value={editSheet.defense.armure} class="w-20 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center text-sm" />
-              {:else}
-                <span class="text-sm text-white">{sheet.defense?.armure ?? ''}</span>
-              {/if}
+              <span class="text-sm font-medium text-gray-300">Armure</span>
+              <span class="text-sm text-white">{eqStats.armure}</span>
+              <span class="text-xs text-gray-500">(équipement)</span>
             </div>
           </div>
 
@@ -522,12 +530,12 @@
             {#each [['seuilMiss', 'Seuil Miss'], ['bonusAttaque', 'Bns Attaque'], ['canalisation', 'Canalisation'], ['volonte', 'Volonté']] as [field, label]}
               <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
                 <label class="block text-xs font-medium text-gray-400 mb-2">{label}</label>
-                {#if isEditing}
+                {#if isEditing && field !== 'volonte'}
                   <input type="text" bind:value={editSheet.derived[field]} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center" />
                 {:else}
-                  {@const derivedValue = sheet.derived?.[field]}
+                  {@const pillValue = field === 'volonte' ? eqStats.volonte : sheet.derived?.[field]}
                   <div class="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold">
-                    {derivedValue === '' || derivedValue == null ? '—' : derivedValue}
+                    {pillValue === '' || pillValue == null ? '—' : pillValue}
                   </div>
                 {/if}
               </div>
@@ -754,6 +762,126 @@
                 {/each}
               </div>
             </div>
+          {/each}
+
+          <div class="flex justify-between items-center">
+            <h2 class="text-lg font-bold text-white">Armes</h2>
+            {#if isEditing}
+              <button
+                onclick={() => {
+                  editSheet.weapons = [...(editSheet.weapons || []), {
+                    nom: '', de: '', forceAgi: '', critique: '', avantage: '',
+                    bonus: '', perfection: '', notes: '', equipped: false
+                  }];
+                }}
+                class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded transition-colors"
+              >
+                + Ajouter
+              </button>
+            {/if}
+          </div>
+          {#each (isEditing && editSheet ? editSheet.weapons : sheet.weapons) || [] as weapon, i}
+            {#if isEditing || weapon?.nom}
+              {@const weaponFields = Object.entries(weapon ?? {}).filter(([field]) => field !== 'nom' && field !== 'equipped')}
+              <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                <div class="flex items-center gap-3 mb-3">
+                  {#if isEditing}
+                    <label class="flex items-center gap-2 text-sm text-gray-300">
+                      <input type="checkbox" bind:checked={editSheet.weapons[i].equipped} class="w-4 h-4" />
+                      Équipée
+                    </label>
+                    <input type="text" placeholder="Nom de l'arme" bind:value={editSheet.weapons[i].nom} class="flex-1 px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white font-bold" />
+                    <button
+                      onclick={() => {
+                        editSheet.weapons.splice(i, 1);
+                        editSheet.weapons = [...editSheet.weapons];
+                      }}
+                      class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
+                    >
+                      Supprimer
+                    </button>
+                  {:else}
+                    {#if weapon?.equipped}
+                      <span class="px-2 py-0.5 bg-indigo-600 text-white text-xs rounded">Équipée</span>
+                    {/if}
+                    <h3 class="text-sm font-bold text-white">{weapon?.nom || 'Sans nom'}</h3>
+                    {#if weapon?.de}
+                      <span class="ml-auto text-sm font-bold text-white">{weapon.de}</span>
+                    {/if}
+                  {/if}
+                </div>
+                <div class="space-y-2">
+                  {#each weaponFields as [field, value]}
+                    {#if isEditing || (value !== '' && value != null)}
+                      <div>
+                        <label class="block text-xs text-gray-400 mb-1">{field}</label>
+                        {#if isEditing}
+                          {#if field === 'notes'}
+                            <textarea bind:value={editSheet.weapons[i][field]} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm" rows="2"></textarea>
+                          {:else}
+                            <input type="text" bind:value={editSheet.weapons[i][field]} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm" />
+                          {/if}
+                        {:else}
+                          <div class="px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm whitespace-pre-wrap">{value || '—'}</div>
+                        {/if}
+                      </div>
+                    {/if}
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          {/each}
+        </div>
+
+      {:else if activeTab === 'inventaire'}
+        <div class="max-w-4xl mx-auto space-y-6">
+          <div class="flex justify-between items-center">
+            <h2 class="text-lg font-bold text-white">Inventaire</h2>
+            {#if isEditing}
+              <button
+                onclick={() => {
+                  editSheet.inventoryItems = [...(editSheet.inventoryItems || []), { name: '', description: '' }];
+                }}
+                class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded transition-colors"
+              >
+                + Ajouter
+              </button>
+            {/if}
+          </div>
+          {#each (isEditing && editSheet ? editSheet.inventoryItems : sheet.inventoryItems) || [] as item, i}
+            {#if isEditing || item?.name}
+              <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                <div class="space-y-2">
+                  {#each Object.entries(item ?? {}).filter(([field]) => field !== 'equipmentData') as [field, value]}
+                    {#if isEditing || (value !== '' && value != null)}
+                      <div>
+                        <label class="block text-xs text-gray-400 mb-1">{field}</label>
+                        {#if isEditing}
+                          {#if field === 'description'}
+                            <textarea bind:value={editSheet.inventoryItems[i][field]} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm" rows="2"></textarea>
+                          {:else}
+                            <input type="text" bind:value={editSheet.inventoryItems[i][field]} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm" />
+                          {/if}
+                        {:else}
+                          <div class="px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm whitespace-pre-wrap">{value || '—'}</div>
+                        {/if}
+                      </div>
+                    {/if}
+                  {/each}
+                  {#if isEditing}
+                    <button
+                      onclick={() => {
+                        editSheet.inventoryItems.splice(i, 1);
+                        editSheet.inventoryItems = [...editSheet.inventoryItems];
+                      }}
+                      class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
+                    >
+                      Supprimer
+                    </button>
+                  {/if}
+                </div>
+              </div>
+            {/if}
           {/each}
         </div>
 

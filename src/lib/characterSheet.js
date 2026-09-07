@@ -309,7 +309,7 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
       equipment: { ...empty.equipment, ...parsed.equipment }
     };
 
-    const synced = syncSkillBonuses(merged);
+    const synced = syncStatsFromEquipment(syncSkillBonuses(merged));
 
     const payloadBytes = JSON.stringify(synced).length;
     if (payloadBytes > MAX_SHEET_BYTES) {
@@ -368,6 +368,52 @@ export function toNumber(value) {
 export function paradeTotal(defense) {
   if (!defense) return 0;
   return toNumber(defense.deflexion) + toNumber(defense.gardeBonus) + toNumber(defense.bonus);
+}
+
+/**
+ * Derive stats from equipped gear. Only the 7 equipment slots and weapons
+ * flagged as equipped count; inventory items never contribute.
+ * Garde is the sum of equipped weapons' parade values.
+ * @param {Object} [equipment] - Equipment slots object
+ * @param {Array} [weapons] - Weapons array (each may carry `equipped: true`)
+ * @returns {{deflexion: number, armure: number, volonte: number, garde: number}}
+ */
+export function equipmentStats(equipment = {}, weapons = []) {
+  const slots = Object.values(equipment ?? {});
+  const sum = (field) => slots.reduce((total, slot) => total + toNumber(slot?.[field]), 0);
+  const garde = (weapons ?? [])
+    .filter((w) => w?.equipped)
+    .reduce((total, w) => total + toNumber(w?.parade), 0);
+  return {
+    deflexion: sum('deflexion'),
+    armure: sum('armure'),
+    volonte: sum('volonte'),
+    garde,
+  };
+}
+
+/**
+ * Overwrite stored defense/derived fields from equipped gear.
+ * `defense.bonus` has no equipment source and is left untouched.
+ * @param {Object} sheet - Character sheet data
+ * @returns {Object} New sheet object with synced fields
+ */
+export function syncStatsFromEquipment(sheet) {
+  if (!sheet) return sheet;
+  const eq = equipmentStats(sheet.equipment, sheet.weapons);
+  return {
+    ...sheet,
+    defense: {
+      ...(sheet.defense ?? {}),
+      deflexion: eq.deflexion,
+      armure: eq.armure,
+      gardeBonus: eq.garde,
+    },
+    derived: {
+      ...(sheet.derived ?? {}),
+      volonte: eq.volonte,
+    },
+  };
 }
 
 /**

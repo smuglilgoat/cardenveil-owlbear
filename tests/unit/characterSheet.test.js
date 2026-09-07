@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -348,6 +348,71 @@ describe('Character Sheet dice helpers', () => {
       expect(paradeTotal(null)).toBe(0);
       expect(paradeTotal(undefined)).toBe(0);
       expect(paradeTotal({})).toBe(0);
+    });
+  });
+
+  describe('equipmentStats', () => {
+    const equipment = {
+      casque: { nom: 'Casque', deflexion: '0', volonte: '3' },
+      plastron: { nom: 'Plastron', deflexion: '1', armure: '0' },
+      gantelets: { nom: '', deflexion: '', initiative: '' },
+      bottes: { nom: '', deflexion: '', vitesse: '' },
+    };
+
+    it('should sum slot stats across equipment', () => {
+      expect(equipmentStats(equipment, [])).toEqual({
+        deflexion: 1,
+        armure: 0,
+        volonte: 3,
+        garde: 0,
+      });
+    });
+
+    it('should only count equipped weapons for garde', () => {
+      const weapons = [
+        { nom: 'Bâton', parade: '4', equipped: true },
+        { nom: 'Épée courte', parade: '3', equipped: false },
+      ];
+      expect(equipmentStats(equipment, weapons).garde).toBe(4);
+      expect(equipmentStats(equipment, []).garde).toBe(0);
+    });
+
+    it('should handle missing equipment and weapons', () => {
+      expect(equipmentStats(null, null)).toEqual({ deflexion: 0, armure: 0, volonte: 0, garde: 0 });
+      expect(equipmentStats({}, undefined)).toEqual({ deflexion: 0, armure: 0, volonte: 0, garde: 0 });
+    });
+  });
+
+  describe('syncStatsFromEquipment', () => {
+    it('should overwrite stored defense and volonte from equipment', () => {
+      const sheet = {
+        defense: { deflexion: 99, gardeBonus: 99, bonus: 4, armure: 99 },
+        derived: { volonte: 99, initiative: 6 },
+        equipment: {
+          casque: { deflexion: '0', volonte: '3' },
+          plastron: { deflexion: '1', armure: '2' },
+        },
+        weapons: [{ nom: 'Bâton', parade: '4', equipped: true }],
+      };
+
+      const synced = syncStatsFromEquipment(sheet);
+
+      expect(synced.defense.deflexion).toBe(1);
+      expect(synced.defense.armure).toBe(2);
+      expect(synced.defense.gardeBonus).toBe(4);
+      expect(synced.defense.bonus).toBe(4);
+      expect(synced.derived.volonte).toBe(3);
+      expect(synced.derived.initiative).toBe(6);
+      // Original sheet untouched
+      expect(sheet.defense.deflexion).toBe(99);
+    });
+
+    it('should pass through sheets without equipment data', () => {
+      const sheet = { defense: { bonus: 1 } };
+      const synced = syncStatsFromEquipment(sheet);
+      expect(synced.defense).toEqual({ bonus: 1, deflexion: 0, armure: 0, gardeBonus: 0 });
+      expect(synced.derived.volonte).toBe(0);
+      expect(syncStatsFromEquipment(null)).toBeNull();
     });
   });
 });
