@@ -23,6 +23,7 @@
   let pendingAction = $state(null);
   let activeTab = $state('identity');
   let diceResult = $state(null);
+  let freeFormula = $state('');
   let importError = $state('');
 
   const TABS = [
@@ -505,6 +506,22 @@
 
       {:else if activeTab === 'capacities'}
         <div class="max-w-4xl mx-auto">
+          <div class="flex gap-2 mb-4">
+            <input
+              type="text"
+              bind:value={freeFormula}
+              placeholder="Lancer libre — ex. 2d20+5"
+              onkeydown={(e) => { if (e.key === 'Enter') checkUnsavedChanges(() => handleDiceRoll('Lancer libre', freeFormula)); }}
+              class="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+            />
+            <button
+              onclick={() => checkUnsavedChanges(() => handleDiceRoll('Lancer libre', freeFormula))}
+              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded transition-colors"
+            >
+              Lancer
+            </button>
+          </div>
+
           <div class="flex justify-between items-center mb-4">
             <h2 class="text-lg font-bold text-white">Capacités</h2>
             {#if isEditing}
