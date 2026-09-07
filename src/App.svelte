@@ -26,9 +26,10 @@
   /** @type {string | null} */
   let roomId    = $state(null);
 
-  onMount(async () => {
-    await OBR.onReady();
-    roomId = OBR.room.id;
+  onMount(() => {
+    OBR.onReady(() => {
+      roomId = OBR.room.id;
+    });
   });
 
   function handleGameChange(data) {
