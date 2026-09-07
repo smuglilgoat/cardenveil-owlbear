@@ -530,7 +530,7 @@
           </div>
 
           <div class="space-y-3">
-            {#each sheet.capacities || [] as capacity, i}
+            {#each (isEditing && editSheet ? editSheet.capacities : sheet.capacities) || [] as capacity, i}
               <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
                 {#if isEditing}
                   <div class="space-y-3">
