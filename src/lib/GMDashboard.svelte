@@ -15,6 +15,12 @@
     RACES,
     handCap,
   } from "./deck.js";
+  import {
+    fetchCharacterSheet,
+    saveCharacterSheet,
+    deleteCharacterSheet,
+    createEmptyCharacterSheet
+  } from "./characterSheet.js";
   import { tooltip } from "./tooltip.js";
 
   let { gameState, party, myId, onAction } = $props();
@@ -32,6 +38,11 @@
   /** @type {{key: string, suit: string, value: string}[]} */
   let selectedCards = $state([]);
   let expandedPlayers = $state(new Set());
+  
+  // Character sheet management
+  let viewingSheet = $state(null); // { playerId, sheet, isEditing }
+  let sheetLoading = $state(false);
+  let sheetError = $state('');
 
   // Hard reset two-step state: 0 = idle, 1 = first confirm, 2 = second confirm
   let resetStep = $state(0);
@@ -367,6 +378,69 @@
   // Cancel any exchange and return the offered card to the sender's hand
   function cancelExchange(exchange) {
     onAction({ type: 'CANCEL_EXCHANGE', playerId: myId, exchangeId: exchange.id });
+  }
+
+  // ── Character Sheet Management ─────────────────────────────────────────
+  async function viewCharacterSheet(playerId) {
+    sheetLoading = true;
+    sheetError = '';
+    try {
+      const sheet = await fetchCharacterSheet(playerId, OBR.room.id);
+      if (!sheet) {
+        viewingSheet = { playerId, sheet: createEmptyCharacterSheet(), isEditing: false, exists: false };
+      } else {
+        viewingSheet = { playerId, sheet, isEditing: false, exists: true };
+      }
+    } catch (err) {
+      sheetError = `Erreur lors du chargement: ${err.message}`;
+      console.error('Failed to load character sheet:', err);
+    } finally {
+      sheetLoading = false;
+    }
+  }
+
+  function closeCharacterSheet() {
+    viewingSheet = null;
+    sheetError = '';
+  }
+
+  async function saveViewingSheet() {
+    if (!viewingSheet) return;
+    sheetLoading = true;
+    try {
+      await saveCharacterSheet(viewingSheet.playerId, OBR.room.id, viewingSheet.sheet);
+      viewingSheet.exists = true;
+      viewingSheet.isEditing = false;
+    } catch (err) {
+      sheetError = `Erreur lors de la sauvegarde: ${err.message}`;
+      console.error('Failed to save character sheet:', err);
+    } finally {
+      sheetLoading = false;
+    }
+  }
+
+  async function deleteViewingSheet() {
+    if (!viewingSheet || !confirm('Êtes-vous sûr de vouloir supprimer cette fiche de personnage ?')) return;
+    sheetLoading = true;
+    try {
+      await deleteCharacterSheet(viewingSheet.playerId, OBR.room.id);
+      viewingSheet.sheet = createEmptyCharacterSheet();
+      viewingSheet.exists = false;
+      viewingSheet.isEditing = false;
+    } catch (err) {
+      sheetError = `Erreur lors de la suppression: ${err.message}`;
+      console.error('Failed to delete character sheet:', err);
+    } finally {
+      sheetLoading = false;
+    }
+  }
+
+  async function resetViewingSheet() {
+    if (!viewingSheet || !confirm('Réinitialiser la fiche de personnage ? Toutes les données seront perdues.')) return;
+    viewingSheet.sheet = createEmptyCharacterSheet();
+    if (viewingSheet.exists) {
+      await saveViewingSheet();
+    }
   }
 </script>
 
@@ -1097,6 +1171,16 @@
                 />
               </div>
             </div>
+
+            <div class="border-t border-gray-700 pt-3">
+              <button
+                onclick={() => viewCharacterSheet(id)}
+                use:tooltip={"Voir et modifier la fiche de personnage de " + getPlayerName(id)}
+                class="w-full text-xs py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg font-semibold"
+              >
+                📜 Fiche de personnage
+              </button>
+            </div>
           </div>
         {/if}
       </div>
@@ -1194,4 +1278,332 @@
       </div>
     {/if}
   </div>
+
+  <!-- ── Character Sheet Modal ───────────────────────────────────────── -->
+  {#if viewingSheet}
+    <div class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+      <div class="bg-gray-900 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="sticky top-0 bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+          <h2 class="text-lg font-bold text-white">
+            Fiche de personnage — {getPlayerName(viewingSheet.playerId)}
+          </h2>
+          <div class="flex gap-2">
+            {#if viewingSheet.isEditing}
+              <button
+                onclick={() => viewingSheet.isEditing = false}
+                disabled={sheetLoading}
+                class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onclick={saveViewingSheet}
+                disabled={sheetLoading}
+                class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-50"
+              >
+                {sheetLoading ? 'Sauvegarde...' : 'Sauvegarder'}
+              </button>
+            {:else}
+              <button
+                onclick={() => viewingSheet.isEditing = true}
+                class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+              >
+                Modifier
+              </button>
+            {/if}
+            {#if viewingSheet.exists}
+              <button
+                onclick={resetViewingSheet}
+                class="px-3 py-1.5 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-lg"
+                use:tooltip={"Réinitialiser la fiche de personnage"}
+              >
+                Réinitialiser
+              </button>
+              <button
+                onclick={deleteViewingSheet}
+                class="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                use:tooltip={"Supprimer la fiche de personnage"}
+              >
+                Supprimer
+              </button>
+            {/if}
+            <button
+              onclick={closeCharacterSheet}
+              class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+
+        {#if sheetError}
+          <div class="px-6 py-3 bg-red-900 border-b border-red-700 text-red-200 text-sm">
+            {sheetError}
+          </div>
+        {/if}
+
+        <div class="p-6 space-y-6">
+          <!-- Identity Section -->
+          <div>
+            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Identité</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Nom</label>
+                {#if viewingSheet.isEditing}
+                  <input
+                    type="text"
+                    bind:value={viewingSheet.sheet.identity.nom}
+                    class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                {:else}
+                  <div class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm">
+                    {viewingSheet.sheet.identity?.nom || '—'}
+                  </div>
+                {/if}
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Race</label>
+                {#if viewingSheet.isEditing}
+                  <input
+                    type="text"
+                    bind:value={viewingSheet.sheet.identity.race}
+                    class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                {:else}
+                  <div class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm">
+                    {viewingSheet.sheet.identity?.race || '—'}
+                  </div>
+                {/if}
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Niveau</label>
+                {#if viewingSheet.isEditing}
+                  <input
+                    type="number"
+                    bind:value={viewingSheet.sheet.identity.niveau}
+                    class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                {:else}
+                  <div class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm">
+                    {viewingSheet.sheet.identity?.niveau || 1}
+                  </div>
+                {/if}
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-1">Alignement</label>
+                {#if viewingSheet.isEditing}
+                  <input
+                    type="text"
+                    bind:value={viewingSheet.sheet.identity.alignement}
+                    class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                {:else}
+                  <div class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm">
+                    {viewingSheet.sheet.identity?.alignement || '—'}
+                  </div>
+                {/if}
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats Section -->
+          <div>
+            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Attributs</h3>
+            <div class="grid grid-cols-4 gap-4">
+              {#each ['force', 'agilite', 'esprit', 'social'] as stat}
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
+                  <label class="block text-xs text-gray-400 mb-2 capitalize">{stat}</label>
+                  {#if viewingSheet.isEditing}
+                    <input
+                      type="number"
+                      bind:value={viewingSheet.sheet.stats[stat]}
+                      class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center text-lg font-bold"
+                    />
+                  {:else}
+                    <div class="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center text-lg font-bold">
+                      {viewingSheet.sheet.stats?.[stat] || 10}
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+
+          <!-- Tokens Section -->
+          <div>
+            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Tokens</h3>
+            <div class="grid grid-cols-4 gap-4">
+              {#each ['force', 'agilite', 'esprit', 'social'] as token}
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
+                  <label class="block text-xs text-gray-400 mb-2 capitalize">{token}</label>
+                  {#if viewingSheet.isEditing}
+                    <input
+                      type="number"
+                      bind:value={viewingSheet.sheet.resources.tokens[token]}
+                      class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center"
+                    />
+                  {:else}
+                    <div class="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold">
+                      {viewingSheet.sheet.resources?.tokens?.[token] || 0}
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+
+          <!-- Skills Section -->
+          <div>
+            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Compétences</h3>
+            <div class="grid grid-cols-2 gap-3">
+              {#each Object.entries(viewingSheet.sheet.skills || {}) as [skill, data]}
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    {#if viewingSheet.isEditing}
+                      <input
+                        type="checkbox"
+                        bind:checked={viewingSheet.sheet.skills[skill].trained}
+                        class="w-4 h-4"
+                      />
+                    {:else}
+                      <div class="w-4 h-4 rounded border-2 {data.trained ? 'bg-indigo-600 border-indigo-600' : 'border-gray-600'}"></div>
+                    {/if}
+                    <span class="text-sm text-white capitalize">{skill}</span>
+                  </div>
+                  {#if viewingSheet.isEditing}
+                    <input
+                      type="number"
+                      bind:value={viewingSheet.sheet.skills[skill].bonus}
+                      class="w-16 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center text-sm"
+                    />
+                  {:else}
+                    <span class="text-sm font-bold text-white">
+                      {data.bonus >= 0 ? '+' : ''}{data.bonus || 0}
+                    </span>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+
+          <!-- Capacities Section -->
+          <div>
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide">Capacités</h3>
+              {#if viewingSheet.isEditing}
+                <button
+                  onclick={() => {
+                    viewingSheet.sheet.capacities = [...(viewingSheet.sheet.capacities || []), {
+                      name: '',
+                      prepared: false,
+                      image: '',
+                      description: '',
+                      value: { main: '', bonus: '' },
+                      cost: { color: '', base: 0, incantationReduction: 0, colorReduction: 0, awakeningReduction: 0, weaponMasteryReduction: 0, total: 0 },
+                      incantation: '',
+                      save: '',
+                      usage: ''
+                    }];
+                  }}
+                  class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded transition-colors"
+                >
+                  + Ajouter
+                </button>
+              {/if}
+            </div>
+            <div class="space-y-3">
+              {#each viewingSheet.sheet.capacities || [] as capacity, i}
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                  {#if viewingSheet.isEditing}
+                    <div class="space-y-3">
+                      <input
+                        type="text"
+                        placeholder="Nom de la capacité"
+                        bind:value={viewingSheet.sheet.capacities[i].name}
+                        class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white font-bold"
+                      />
+                      <textarea
+                        placeholder="Description"
+                        bind:value={viewingSheet.sheet.capacities[i].description}
+                        class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm"
+                        rows="2"
+                      ></textarea>
+                      <div class="grid grid-cols-3 gap-2">
+                        <div>
+                          <label class="block text-xs text-gray-400 mb-1">Coût total</label>
+                          <input type="number" bind:value={viewingSheet.sheet.capacities[i].cost.total} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-sm" />
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-400 mb-1">Couleur</label>
+                          <input type="text" bind:value={viewingSheet.sheet.capacities[i].cost.color} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-sm" />
+                        </div>
+                        <div>
+                          <label class="block text-xs text-gray-400 mb-1">Usage</label>
+                          <input type="text" bind:value={viewingSheet.sheet.capacities[i].usage} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-sm" />
+                        </div>
+                      </div>
+                      <div class="flex gap-2">
+                        <label class="flex items-center gap-2 text-sm text-gray-300">
+                          <input type="checkbox" bind:checked={viewingSheet.sheet.capacities[i].prepared} class="w-4 h-4" />
+                          Préparée
+                        </label>
+                        <button
+                          onclick={() => {
+                            viewingSheet.sheet.capacities.splice(i, 1);
+                            viewingSheet.sheet.capacities = [...viewingSheet.sheet.capacities];
+                          }}
+                          class="ml-auto px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  {:else}
+                    <div class="flex justify-between items-start">
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <h4 class="text-base font-bold text-white">{capacity.name || 'Sans nom'}</h4>
+                          {#if capacity.prepared}
+                            <span class="px-2 py-0.5 bg-indigo-600 text-white text-xs rounded">Préparée</span>
+                          {/if}
+                        </div>
+                        <p class="text-sm text-gray-400 mb-2">{capacity.description || ''}</p>
+                        <div class="flex gap-4 text-xs text-gray-500">
+                          <span>Coût: {capacity.cost?.total || 0} {capacity.cost?.color || ''}</span>
+                          <span>Usage: {capacity.usage || '—'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+
+          <!-- Narrative Section -->
+          <div>
+            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Narratif</h3>
+            <div class="space-y-4">
+              {#each ['background', 'objectif', 'personnalite', 'reputation', 'education', 'croyances', 'cicatrices', 'pulsion', 'maniesEtTics', 'instinct'] as field}
+                <div>
+                  <label class="block text-xs text-gray-400 mb-2 capitalize">{field}</label>
+                  {#if viewingSheet.isEditing}
+                    <textarea
+                      bind:value={viewingSheet.sheet.narrative[field]}
+                      class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                      rows="2"
+                    ></textarea>
+                  {:else}
+                    <div class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm whitespace-pre-wrap">
+                      {viewingSheet.sheet.narrative?.[field] || '—'}
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
