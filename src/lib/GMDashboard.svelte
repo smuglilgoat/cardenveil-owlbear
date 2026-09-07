@@ -398,12 +398,27 @@
     sheetLoading = true;
     sheetError = '';
     try {
-      const sheet = await fetchCharacterSheet(playerId, OBR.room.id);
-      if (!sheet) {
-        viewingSheet = { playerId, sheet: createEmptyCharacterSheet(), isEditing: false, exists: false };
-      } else {
-        viewingSheet = { playerId, sheet, isEditing: false, exists: true };
-      }
+      const row = await fetchCharacterSheet(playerId, OBR.room.id);
+      // fetchCharacterSheet returns the DB row; the sheet payload is row.data.
+      // Merge onto empty defaults so every section is editable even for
+      // sheets stored before newer fields existed.
+      const empty = createEmptyCharacterSheet();
+      const payload = row?.data ?? {};
+      const sheet = {
+        ...empty,
+        ...payload,
+        identity: { ...empty.identity, ...(payload.identity ?? {}) },
+        stats: { ...empty.stats, ...(payload.stats ?? {}) },
+        progression: { ...empty.progression, ...(payload.progression ?? {}) },
+        derived: { ...empty.derived, ...(payload.derived ?? {}) },
+        defense: { ...empty.defense, ...(payload.defense ?? {}) },
+        resources: { ...empty.resources, ...(payload.resources ?? {}) },
+        skills: { ...empty.skills, ...(payload.skills ?? {}) },
+        narrative: { ...empty.narrative, ...(payload.narrative ?? {}) },
+        totem: { ...empty.totem, ...(payload.totem ?? {}) },
+        equipment: { ...empty.equipment, ...(payload.equipment ?? {}) }
+      };
+      viewingSheet = { playerId, sheet, isEditing: false, exists: !!row };
     } catch (err) {
       sheetError = `Erreur lors du chargement: ${err.message}`;
       console.error('Failed to load character sheet:', err);
