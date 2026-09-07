@@ -479,7 +479,7 @@
 </script>
 
 <div
-  class="w-full h-full bg-[#0b0e13] text-[#eff2f9] rounded-2xl border border-[#353d4c] overflow-hidden flex flex-col relative"
+  class="@container w-full h-full bg-[#0b0e13] text-[#eff2f9] rounded-2xl border border-[#353d4c] overflow-hidden flex flex-col relative"
   style="font-family: 'Inter', system-ui, sans-serif;"
 >
   {#if isLoading}
@@ -490,7 +490,7 @@
     <!-- ═══ TOP BAR ═══ -->
     <div class="h-10 bg-[#13161e] flex items-center px-4 shrink-0">
       <span class="text-sm font-bold tracking-wide">CARDENVEIL</span>
-      <span class="text-xs font-medium text-[#9ba5b7] ml-6 truncate">
+      <span class="text-xs font-medium text-[#9ba5b7] ml-6 truncate hidden @2xl:block">
         {view.identity?.nom || '—'} · {view.identity?.race || '—'} · Niveau {view.identity?.niveau ?? 1}
       </span>
       <div class="ml-auto flex items-center gap-1.5 shrink-0">
@@ -498,14 +498,14 @@
           <button
             onclick={cancelEdit}
             disabled={isSaving}
-            class="px-3 py-1.5 bg-[#1a1e27] rounded-full text-[10px] font-semibold text-[#9ba5b7] hover:text-[#eff2f9] transition-colors disabled:opacity-50"
+            class="px-2 @2xl:px-3 py-1.5 bg-[#1a1e27] rounded-full text-[10px] font-semibold text-[#9ba5b7] hover:text-[#eff2f9] transition-colors disabled:opacity-50"
           >
             ANNULER
           </button>
           <button
             onclick={saveEdit}
             disabled={isSaving}
-            class="px-3 py-1.5 bg-[#49387a] rounded-full text-[10px] font-semibold hover:opacity-85 transition-opacity disabled:opacity-50"
+            class="px-2 @2xl:px-3 py-1.5 bg-[#49387a] rounded-full text-[10px] font-semibold hover:opacity-85 transition-opacity disabled:opacity-50"
           >
             {isSaving ? 'SAUVEGARDE...' : 'SAUVEGARDER'}
           </button>
@@ -513,21 +513,21 @@
           <button
             onclick={handleImport}
             title="Importer une fiche JSON"
-            class="px-3 py-1.5 bg-[#1a1e27] rounded-full text-[10px] font-semibold text-[#9ba5b7] hover:text-[#eff2f9] transition-colors"
+            class="px-2 @2xl:px-3 py-1.5 bg-[#1a1e27] rounded-full text-[10px] font-semibold text-[#9ba5b7] hover:text-[#eff2f9] transition-colors"
           >
             IMPORTER
           </button>
           <button
             onclick={() => (showDeleteConfirm = true)}
             title="Supprimer la fiche"
-            class="px-3 py-1.5 bg-[#1a1e27] rounded-full text-[10px] font-semibold text-[#9ba5b7] hover:text-red-400 transition-colors"
+            class="px-2 @2xl:px-3 py-1.5 bg-[#1a1e27] rounded-full text-[10px] font-semibold text-[#9ba5b7] hover:text-red-400 transition-colors"
           >
             SUPPRIMER
           </button>
         {/if}
         <button
           onclick={() => (isEditing ? cancelEdit() : startEdit())}
-          class="px-4 py-1.5 bg-[#1a1e27] rounded-full text-[10px] font-semibold text-[#9ba5b7] hover:text-[#eff2f9] transition-colors"
+          class="px-2.5 @2xl:px-4 py-1.5 bg-[#1a1e27] rounded-full text-[10px] font-semibold text-[#9ba5b7] hover:text-[#eff2f9] transition-colors"
         >
           ÉDITION {isEditing ? 'ON' : 'OFF'}
         </button>
@@ -595,7 +595,7 @@
         </div>
 
         <!-- HP Block -->
-        <div class="w-[358px] max-w-full h-24 bg-[#13161e] rounded-[10px] p-4 relative shrink-0 border border-[#353d4c]/40">
+        <div class="w-full @2xl:w-[358px] h-24 bg-[#13161e] rounded-[10px] p-4 relative shrink-0 border border-[#353d4c]/40">
           <div class="text-[10px] font-bold text-[#9ba5b7]">PV</div>
           {#if isEditing}
             <div class="flex items-baseline gap-1 mt-1">
@@ -645,7 +645,7 @@
 
       <!-- Identity extras (edit mode only) -->
       {#if isEditing}
-        <div class="grid grid-cols-4 gap-2 mt-2">
+        <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2 mt-2">
           {#each IDENTITY_EXTRAS as [field, label]}
             <div>
               <label class="block text-[8px] font-bold text-[#9ba5b7] mb-0.5">{label}</label>
@@ -716,9 +716,9 @@
       </div>
 
       <!-- ═══ DEFENSE / DERIVED ROW ═══ -->
-      <div class="grid grid-cols-3 gap-2 mt-2">
+      <div class="grid grid-cols-2 @2xl:grid-cols-3 gap-2 mt-2">
         <!-- Parade -->
-        <div class="bg-[#13161e] rounded-[10px] p-3 border border-[#353d4c]/40">
+        <div class="col-span-2 @2xl:col-span-1 bg-[#13161e] rounded-[10px] p-3 border border-[#353d4c]/40">
           <div class="text-[10px] font-bold text-[#9ba5b7] mb-1">PARADE</div>
           <div class="flex items-center gap-2">
             <span class="text-[42px] font-bold leading-none">
@@ -798,7 +798,7 @@
       </div>
 
       <!-- ═══ SMALL PILLS ROW ═══ -->
-      <div class="grid grid-cols-5 gap-2 mt-2">
+      <div class="grid grid-cols-2 @2xl:grid-cols-5 gap-2 mt-2">
         <div class="bg-[#1a1e27] rounded-md px-2 py-1.5">
           <div class="text-[8px] font-bold text-[#9ba5b7]">SEUIL MISS</div>
           {#if isEditing}
@@ -845,7 +845,7 @@
         </div>
         <button
           onclick={() => (activeTab = 'capacites')}
-          class="bg-[#49387a] rounded-md px-3 py-1.5 flex items-center justify-between hover:opacity-85 transition-opacity text-left"
+          class="col-span-2 @2xl:col-span-1 bg-[#49387a] rounded-md px-3 py-1.5 flex items-center justify-between hover:opacity-85 transition-opacity text-left"
         >
           <span class="text-[10px] font-bold truncate">
             TOTEM &nbsp;{view.totem?.nom || '—'}
@@ -856,7 +856,7 @@
     </div>
 
     <!-- ═══ CONTENT VIEWPORT ═══ -->
-    <div class="flex-1 min-h-0 bg-[#13161e] rounded-[10px] mx-4 overflow-y-auto scrollbar-thin p-4">
+    <div class="flex-1 min-h-0 bg-[#13161e] rounded-[10px] mx-2 @2xl:mx-4 overflow-y-auto scrollbar-thin p-4">
       {#if activeTab === 'competences'}
         <!-- TAB: COMPÉTENCES -->
         <div>
@@ -864,7 +864,7 @@
           <p class="text-[10px] text-[#9ba5b7] mb-4">
             Cliquer sur une compétence lance directement le jet{#if !isEditing} — 📌 épingler au mode compact{/if}
           </p>
-          <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+          <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-x-6 gap-y-4">
             {#each SKILL_GROUPS as group}
               <div>
                 <div class="text-[11px] font-bold mb-2" style="color: {STAT_COLORS[group.stat]}">
@@ -975,7 +975,7 @@
                       class="w-full px-3 py-2 bg-[#0b0e13] border border-[#353d4c] rounded text-[10px] focus:outline-none focus:border-[#49387a]"
                       rows="2"
                     ></textarea>
-                    <div class="grid grid-cols-4 gap-2">
+                    <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2">
                       <div>
                         <label class="block text-[8px] font-bold text-[#9ba5b7] mb-1">IMAGE (URL)</label>
                         <input
@@ -1009,7 +1009,7 @@
                         />
                       </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-2 @2xl:grid-cols-3 gap-2">
                       <div>
                         <label class="block text-[8px] font-bold text-[#9ba5b7] mb-1">DÉS (formule)</label>
                         <input
@@ -1053,7 +1053,7 @@
                   </div>
                 {:else}
                   <div class="flex gap-3">
-                    <div class="w-20 h-20 bg-[#49387a] rounded-md flex items-center justify-center shrink-0 overflow-hidden">
+                    <div class="w-14 h-14 @2xl:w-20 @2xl:h-20 bg-[#49387a] rounded-md flex items-center justify-center shrink-0 overflow-hidden">
                       {#if capacity.image}
                         <img src={capacity.image} alt={capacity.name || 'Capacité'} class="w-full h-full object-cover" />
                       {:else}
@@ -1069,17 +1069,17 @@
                     </div>
                     <div class="text-right shrink-0 flex flex-col items-end gap-1">
                       <div class="text-[8px] font-bold text-[#9ba5b7]">COÛT</div>
-                      <div class="text-lg font-bold">{capacity.cost?.total ?? 0}</div>
+                      <div class="text-base @2xl:text-lg font-bold">{capacity.cost?.total ?? 0}</div>
                       {#if capacity.value?.main && isDiceFormula(capacity.value.main, view?.stats ?? {})}
                         <button
                           onclick={() => checkUnsavedChanges(() => handleDiceRoll(capacity.name || 'Capacité', capacity.value.main))}
                           title="Lancer les dés"
-                          class="w-24 h-12 bg-slate-500 rounded-lg text-base font-bold hover:bg-slate-400 transition-colors"
+                          class="w-16 h-9 text-sm @2xl:w-24 @2xl:h-12 @2xl:text-base bg-slate-500 rounded-lg font-bold hover:bg-slate-400 transition-colors"
                         >
                           {capacity.value.main}
                         </button>
                       {/if}
-                      <span class="text-base text-[#9ba5b7]" title={capacity.description || ''}>?</span>
+                      <span class="text-base text-[#9ba5b7] hidden @2xl:block" title={capacity.description || ''}>?</span>
                     </div>
                   </div>
                 {/if}
@@ -1137,7 +1137,7 @@
         <div>
           <h2 class="text-sm font-bold mb-4">ÉQUIPEMENT</h2>
 
-          <div class="grid grid-cols-3 gap-3 mb-6">
+          <div class="grid grid-cols-2 @2xl:grid-cols-3 gap-3 mb-6">
             {#each EQUIP_SLOTS as [slot, slotLabel, icon]}
               {@const slotData = (isEditing && editSheet ? editSheet.equipment?.[slot] : view.equipment?.[slot]) ?? {}}
               <div class="equip-slot bg-[#1a1e27] rounded-lg p-3 cursor-pointer hover:bg-[#232836] transition-colors">
@@ -1249,7 +1249,7 @@
                   <div class="bg-[#1a1e27] rounded-md px-3 py-2.5 flex items-center">
                     <span class="text-xs font-semibold flex-1 truncate">{item?.name || '—'}</span>
                     <span class="text-xs font-bold w-12 text-center">{itemCenterValue(item)}</span>
-                    <span class="text-[9px] text-[#9ba5b7] w-52 text-right truncate">{itemNotes(item)}</span>
+                    <span class="text-[9px] text-[#9ba5b7] w-24 @2xl:w-52 text-right truncate">{itemNotes(item)}</span>
                   </div>
                 {/if}
               {/each}
@@ -1311,7 +1311,7 @@
                   {/if}
                 </div>
                 {#if isEditing}
-                  <div class="grid grid-cols-3 gap-2">
+                  <div class="grid grid-cols-2 @2xl:grid-cols-3 gap-2">
                     {#each weaponFields as [field, value]}
                       <div>
                         <label class="block text-[8px] font-bold text-[#9ba5b7] mb-0.5 capitalize">{field}</label>
@@ -1347,7 +1347,7 @@
         <!-- TAB: NARRATIF -->
         <div>
           <h2 class="text-sm font-bold mb-4">ASPECTS NARRATIFS</h2>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-3">
             {#each NARRATIVE_FIELDS as [field, label]}
               <div class="narrative-card bg-[#1a1e27] rounded-lg p-3 border border-transparent hover:border-[#49387a] transition-colors">
                 <div class="text-[9px] font-bold text-[#9ba5b7] mb-2">{label}</div>
@@ -1491,7 +1491,7 @@
     </div>
 
     <!-- ═══ BOTTOM NAV ═══ -->
-    <div class="h-16 bg-[#13161e] flex items-center gap-1.5 px-2 shrink-0">
+    <div class="shrink-0 bg-[#13161e] grid grid-cols-3 gap-1.5 p-2 @2xl:flex @2xl:flex-row @2xl:items-center @2xl:h-16 @2xl:px-2 @2xl:py-0">
       {#each TABS as tab}
         <button
           onclick={() => (activeTab = tab.id)}
@@ -1508,7 +1508,7 @@
   <!-- Unsaved Changes Modal -->
   {#if showUnsavedModal}
     <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
-      <div class="bg-[#13161e] border border-[#353d4c] rounded-lg p-6 max-w-md">
+      <div class="bg-[#13161e] border border-[#353d4c] rounded-lg p-6 w-[92%] max-w-md">
         <h3 class="text-lg font-bold mb-4">Modifications non sauvegardées</h3>
         <p class="text-[#9ba5b7] text-sm mb-6">
           Vous avez des modifications non sauvegardées. Voulez-vous sauvegarder avant de continuer ?
@@ -1543,7 +1543,7 @@
   <!-- Delete Confirmation Modal -->
   {#if showDeleteConfirm}
     <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
-      <div class="bg-[#13161e] border border-[#353d4c] rounded-lg p-6 max-w-md">
+      <div class="bg-[#13161e] border border-[#353d4c] rounded-lg p-6 w-[92%] max-w-md">
         <h3 class="text-lg font-bold mb-4">Confirmer la suppression</h3>
         <p class="text-[#9ba5b7] text-sm mb-6">
           Êtes-vous sûr de vouloir supprimer cette fiche de personnage ? Cette action est irréversible.
