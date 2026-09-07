@@ -442,6 +442,7 @@
         anchorPosition: { left: vw / 2, top: vh - 56 },
         anchorOrigin: { horizontal: 'CENTER', vertical: 'BOTTOM' },
         transformOrigin: { horizontal: 'CENTER', vertical: 'BOTTOM' },
+        disableClickAway: true,
         hidePaper: true
       });
       sheetPopoverOpen = true;
