@@ -7,6 +7,11 @@
 - Aasimar exchange passive fix: **COMPLETED** on branch `fix/aasimar-exchange-passive` (2026-06-17)
 
 ## [DECISIONS]
+- `[2026-09-08T00:00Z]` `[USER]` Character sheet UI must match `docs/character-sheet-prototype.html` exactly (disposition/layout/style); six defaults approved: fill-panel-width (not fixed 760px), 7 equipment slots incl. bottes, maîtrises pills from string arrays, add `notes`+`evolutions` schema fields, keep narrative extras as cards, skill click rolls d20+mod
+- `[2026-09-08T00:00Z]` `[CODE]` Figma palette applied via Tailwind arbitrary values + inline `style` for stat colors; Inter font added to `index.html` only (no app.css change)
+- `[2026-09-08T00:00Z]` `[CODE]` Initiative "Bonus" = agilité modifier; Mouvement bonus omitted — `equipmentStats` has no initiative/mouvement source
+- `[2026-09-08T00:00Z]` `[CODE]` Mastery arrays edited as one-item-per-line textareas, parsed on save; items rendered via `masteryLabel` (string | {nom|name})
+- `[2026-09-08T00:00Z]` `[CODE]` Inventory view groups `inventoryItems` by `type` field (real sheets: Arme/Équipement/Consommable); HTML stripped from descriptions for display
 - `[2026-06-16T23:00Z]` `[USER]` Hard reset preserves player race assignment
 - `[2026-06-16T23:00Z]` `[USER]` DEAL_ALL triggers Halfling passive (draw 2, choose 1)
 - `[2026-06-16T23:00Z]` `[USER]` Sporeling exchange blocked if any pending exchange exists; also blocks DEAL_ALL for that player
@@ -24,10 +29,8 @@
 - `[2026-06-17T19:28Z]` `[CODE]` Moved `maybeAasimarHeart` call from PROPOSE_EXCHANGE to ACCEPT_EXCHANGE for sender. Updated optimistic UI to look up exchange sender.
 
 ## [PROGRESS]
-- `[MILESTONE]` Race passives: all 5 races implemented, merged to main
-- `[MILESTONE]` Tooltips: all buttons across 7 files have hover tooltips, merged to main
-- `[MILESTONE]` GM initiative URL: shared state + UI rewrite, on branch `agent/gm-initiative-url`
-- `[MILESTONE]` Aasimar exchange fix: Heart generation moved to ACCEPT, on branch `fix/aasimar-exchange-passive`
+- `[MILESTONE]` Character sheet system (multi-session arc): Supabase-backed sheets, CRUD/import, GM dashboard, dice rolling (stat formulas + multipliers), USE_CAPACITY reducer, base64-strip import, equipment↔derived stat sync — merged to main at `1cd48fb`
+- `[MILESTONE]` Character sheet Figma UI restyle: 3-zone layout matching `docs/character-sheet-prototype.html`, on branch `agent/sheet-figma-ui` (commit `93614b7`, NOT merged) — 2026-09-08
 
 ## [DISCOVERIES]
 - `[2026-06-16T23:00Z]` `[CODE]` `_gameLogic.js` (server) and `deck.js` (client) are duplicated — both must stay in sync for `createEmptyPlayer`, `hydrateState`, `applyAction`, `handCap`, `maybeAasimarHeart`
