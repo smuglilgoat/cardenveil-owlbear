@@ -350,6 +350,27 @@ export function statModifier(score) {
 }
 
 /**
+ * Coerce any value to a finite number, defaulting to 0.
+ * Sheet fields are often "" or numeric strings.
+ * @param {unknown} value - Value to coerce
+ * @returns {number}
+ */
+export function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Compute total Parade from its components.
+ * @param {Object} [defense] - Defense object ({ deflexion, gardeBonus, bonus })
+ * @returns {number}
+ */
+export function paradeTotal(defense) {
+  if (!defense) return 0;
+  return toNumber(defense.deflexion) + toNumber(defense.gardeBonus) + toNumber(defense.bonus);
+}
+
+/**
  * Parse a dice formula into { count, sides, modifier, formula }.
  * Supports standard ("4d6", "4D6", "2d8+3", "d6") and stat-based
  * ("Mod Esprit D6" → Esprit modifier dice, "3 Mod Esprit D6" → 3 ×

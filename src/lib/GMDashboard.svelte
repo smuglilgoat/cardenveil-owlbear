@@ -20,8 +20,10 @@
     saveCharacterSheet,
     deleteCharacterSheet,
     createEmptyCharacterSheet,
+    paradeTotal,
     skillModifier,
-    syncSkillBonuses
+    syncSkillBonuses,
+    toNumber
   } from "./characterSheet.js";
   import { tooltip } from "./tooltip.js";
 
@@ -1426,6 +1428,72 @@
                     <div class="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center text-lg font-bold">
                       {viewingSheet.sheet.stats?.[stat] || 10}
                     </div>
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+
+          <!-- Parade / Initiative / Mouvement Section -->
+          <div>
+            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Défense & Initiative</h3>
+            <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 mb-3">
+              <div class="flex items-center gap-3">
+                <div>
+                  <div class="text-[8px] font-bold text-txt2 text-gray-400">PARADE</div>
+                  <div class="text-2xl font-bold text-white">
+                    {paradeTotal(viewingSheet.sheet.defense)}
+                  </div>
+                </div>
+                <div class="flex gap-3 text-xs">
+                  {#each [['deflexion', 'Déflexion'], ['gardeBonus', 'Garde'], ['bonus', 'Bonus']] as [field, label]}
+                    <div class="text-center">
+                      {#if viewingSheet.isEditing}
+                        <input type="text" bind:value={viewingSheet.sheet.defense[field]} class="w-12 px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
+                      {:else}
+                        <div class="font-bold text-white">{toNumber(viewingSheet.sheet.defense?.[field])}</div>
+                      {/if}
+                      <div class="text-[9px] text-gray-400 mt-0.5">{label}</div>
+                    </div>
+                  {/each}
+                </div>
+                <div class="ml-auto text-right">
+                  <div class="text-[8px] font-bold text-gray-400">ARMURE</div>
+                  {#if viewingSheet.isEditing}
+                    <input type="text" bind:value={viewingSheet.sheet.defense.armure} class="w-12 px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-white text-center text-xs" />
+                  {:else}
+                    <div class="text-xs text-white">{viewingSheet.sheet.defense?.armure ?? ''}</div>
+                  {/if}
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
+                <div class="text-[8px] font-bold text-gray-400 mb-1">INITIATIVE</div>
+                {#if viewingSheet.isEditing}
+                  <input type="number" bind:value={viewingSheet.sheet.derived.initiative} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
+                {:else}
+                  <div class="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold">{toNumber(viewingSheet.sheet.derived?.initiative)}</div>
+                {/if}
+              </div>
+              <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
+                <div class="text-[8px] font-bold text-gray-400 mb-1">MOUVEMENT</div>
+                {#if viewingSheet.isEditing}
+                  <input type="number" bind:value={viewingSheet.sheet.derived.mouvement} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
+                {:else}
+                  <div class="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold">{toNumber(viewingSheet.sheet.derived?.mouvement)} m</div>
+                {/if}
+              </div>
+            </div>
+            <div class="grid grid-cols-4 gap-2 mt-2">
+              {#each [['seuilMiss', 'SEUIL MISS'], ['bonusAttaque', 'BNS ATTAQUE'], ['canalisation', 'CANALISATION'], ['volonte', 'VOLONTÉ']] as [field, label]}
+                <div class="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5">
+                  <div class="text-[8px] font-bold text-gray-400">{label}</div>
+                  {#if viewingSheet.isEditing}
+                    <input type="text" bind:value={viewingSheet.sheet.derived[field]} class="w-full px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-white text-center text-sm" />
+                  {:else}
+                    {@const pillValue = viewingSheet.sheet.derived?.[field]}
+                    <div class="text-sm font-bold text-white text-center">{pillValue === '' || pillValue == null ? '—' : pillValue}</div>
                   {/if}
                 </div>
               {/each}

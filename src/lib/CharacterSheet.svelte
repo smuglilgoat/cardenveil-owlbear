@@ -7,10 +7,12 @@
     importCharacterSheet,
     createEmptyCharacterSheet,
     isDiceFormula,
+    paradeTotal,
     rollDice,
     skillModifier,
     subscribeToCharacterSheet,
-    syncSkillBonuses
+    syncSkillBonuses,
+    toNumber
   } from './characterSheet.js';
 
   let { playerId, roomId, gameState = null, onAction = () => {} } = $props();
@@ -464,6 +466,72 @@
                 <div class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white">{sheet.derived?.pvTemporaires || 0}</div>
               {/if}
             </div>
+          </div>
+
+          <h2 class="text-lg font-bold text-white mt-8">Parade</h2>
+          <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+            <div class="flex items-center gap-4">
+              <div class="text-4xl font-bold text-white">
+                {paradeTotal(isEditing && editSheet ? editSheet.defense : sheet.defense)}
+              </div>
+              <div class="flex gap-4 text-sm">
+                {#each [['deflexion', 'Déflexion'], ['gardeBonus', 'Garde'], ['bonus', 'Bonus']] as [field, label]}
+                  <div class="text-center">
+                    {#if isEditing}
+                      <input type="text" bind:value={editSheet.defense[field]} class="w-14 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
+                    {:else}
+                      <div class="font-bold text-white">{toNumber(sheet.defense?.[field])}</div>
+                    {/if}
+                    <div class="text-xs text-gray-400 mt-1">{label}</div>
+                  </div>
+                {/each}
+              </div>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+              <label class="text-sm font-medium text-gray-300">Armure</label>
+              {#if isEditing}
+                <input type="text" bind:value={editSheet.defense.armure} class="w-20 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center text-sm" />
+              {:else}
+                <span class="text-sm text-white">{sheet.defense?.armure ?? ''}</span>
+              {/if}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 mt-8">
+            <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+              <h2 class="text-lg font-bold text-white mb-2">Initiative</h2>
+              {#if isEditing}
+                <input type="number" bind:value={editSheet.derived.initiative} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-center text-xl font-bold focus:outline-none focus:border-indigo-500" />
+              {:else}
+                <div class="px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-center text-xl font-bold">{toNumber(sheet.derived?.initiative)}</div>
+              {/if}
+              <div class="text-xs text-gray-500 mt-2 text-center">Jet / ordre de tour</div>
+            </div>
+            <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+              <h2 class="text-lg font-bold text-white mb-2">Mouvement</h2>
+              {#if isEditing}
+                <input type="number" bind:value={editSheet.derived.mouvement} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-center text-xl font-bold focus:outline-none focus:border-indigo-500" />
+              {:else}
+                <div class="px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-center text-xl font-bold">{toNumber(sheet.derived?.mouvement)} m</div>
+              {/if}
+              <div class="text-xs text-gray-500 mt-2 text-center">Déplacement disponible</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-4 gap-4 mt-4">
+            {#each [['seuilMiss', 'Seuil Miss'], ['bonusAttaque', 'Bns Attaque'], ['canalisation', 'Canalisation'], ['volonte', 'Volonté']] as [field, label]}
+              <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
+                <label class="block text-xs font-medium text-gray-400 mb-2">{label}</label>
+                {#if isEditing}
+                  <input type="text" bind:value={editSheet.derived[field]} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center" />
+                {:else}
+                  {@const derivedValue = sheet.derived?.[field]}
+                  <div class="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold">
+                    {derivedValue === '' || derivedValue == null ? '—' : derivedValue}
+                  </div>
+                {/if}
+              </div>
+            {/each}
           </div>
 
           <h2 class="text-lg font-bold text-white mt-8">Tokens</h2>
