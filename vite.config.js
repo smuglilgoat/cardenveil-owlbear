@@ -60,6 +60,7 @@ export default defineConfig({
       input: {
         main: path.resolve('index.html'),
         hand: path.resolve('hand.html'),
+        dice: path.resolve('dice.html'),
       },
     },
   },

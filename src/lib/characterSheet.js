@@ -143,7 +143,9 @@ export function createEmptyCharacterSheet() {
     inventoryItems: [],
     feats: [],
     evolutions: [],
-    notes: ''
+    notes: '',
+    pinnedSkills: [],
+    pinnedCapacities: []
   };
 }
 
