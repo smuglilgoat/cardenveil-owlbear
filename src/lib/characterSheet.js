@@ -141,7 +141,9 @@ export function createEmptyCharacterSheet() {
     weaponMasteries: [],
     elementalMasteries: [],
     inventoryItems: [],
-    feats: []
+    feats: [],
+    evolutions: [],
+    notes: ''
   };
 }
 
