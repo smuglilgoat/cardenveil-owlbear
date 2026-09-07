@@ -30,7 +30,8 @@
 
 ## [PROGRESS]
 - `[MILESTONE]` Character sheet system (multi-session arc): Supabase-backed sheets, CRUD/import, GM dashboard, dice rolling (stat formulas + multipliers), USE_CAPACITY reducer, base64-strip import, equipment↔derived stat sync — merged to main at `1cd48fb`
-- `[MILESTONE]` Character sheet Figma UI restyle: 3-zone layout matching `docs/character-sheet-prototype.html`, on branch `agent/sheet-figma-ui` (commit `93614b7`, NOT merged) — 2026-09-08
+- `[MILESTONE]` Character sheet Figma UI restyle: 3-zone layout matching `docs/character-sheet-prototype.html`, merged to main (2026-09-08)
+- Character sheet 400px adaptation: container-query responsive layout (`@container` root, compact stacked layout at panel width, full prototype layout at >=42rem), on branch `agent/sheet-400px` (commit `a622858`, NOT merged) — 2026-09-08
 
 ## [DISCOVERIES]
 - `[2026-06-16T23:00Z]` `[CODE]` `_gameLogic.js` (server) and `deck.js` (client) are duplicated — both must stay in sync for `createEmptyPlayer`, `hydrateState`, `applyAction`, `handCap`, `maybeAasimarHeart`
