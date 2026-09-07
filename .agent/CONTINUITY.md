@@ -7,6 +7,9 @@
 - Aasimar exchange passive fix: **COMPLETED** on branch `fix/aasimar-exchange-passive` (2026-06-17)
 
 ## [DECISIONS]
+- `[2026-09-08T12:00Z]` `[USER]` Nine polish fixes: fix button overflow, add 📌 favorites (Compétences+Capacités), skill click rolls d20+mod, compact stats header, dice roll as Owlbear popup (animation +), app color schema, app font, COÛT shows card type, capacity type colored
+- `[2026-09-08T12:00Z]` `[CODE]` Dice popup = new `dice.html` vite entry + `OBR.popover.open` (same pattern as GMDashboard hand popover), auto-close 6s, inline panel as fallback; AGENTS.md updated with the exception
+- `[2026-09-08T12:00Z]` `[CODE]` Favorites persist in sheet (immediate save in view mode like token sync); capacity pin key = capacity name or `#index`
 - `[2026-09-08T00:00Z]` `[USER]` Character sheet UI must match `docs/character-sheet-prototype.html` exactly (disposition/layout/style); six defaults approved: fill-panel-width (not fixed 760px), 7 equipment slots incl. bottes, maîtrises pills from string arrays, add `notes`+`evolutions` schema fields, keep narrative extras as cards, skill click rolls d20+mod
 - `[2026-09-08T00:00Z]` `[CODE]` Figma palette applied via Tailwind arbitrary values + inline `style` for stat colors; Inter font added to `index.html` only (no app.css change)
 - `[2026-09-08T00:00Z]` `[CODE]` Initiative "Bonus" = agilité modifier; Mouvement bonus omitted — `equipmentStats` has no initiative/mouvement source
@@ -31,7 +34,8 @@
 ## [PROGRESS]
 - `[MILESTONE]` Character sheet system (multi-session arc): Supabase-backed sheets, CRUD/import, GM dashboard, dice rolling (stat formulas + multipliers), USE_CAPACITY reducer, base64-strip import, equipment↔derived stat sync — merged to main at `1cd48fb`
 - `[MILESTONE]` Character sheet Figma UI restyle: 3-zone layout matching `docs/character-sheet-prototype.html`, merged to main (2026-09-08)
-- Character sheet 400px adaptation: container-query responsive layout (`@container` root, compact stacked layout at panel width, full prototype layout at >=42rem), on branch `agent/sheet-400px` (commit `a622858`, NOT merged) — 2026-09-08
+- `[MILESTONE]` Character sheet 400px adaptation: container-query responsive layout (`@container` root, compact stacked layout at panel width, full prototype layout at >=42rem), merged to main? NO — on branch `agent/sheet-400px` (unmerged)
+- `[MILESTONE]` Character sheet polish (2026-09-08, branch `agent/sheet-polish`, commit `05419ea`, stacked, NOT merged): animated dice popup via OBR.popover (new `dice.html` entry, auto-close 6s, inline fallback), 📌 favorites persisted (pinnedSkills/pinnedCapacities), app palette (#242424/gray/indigo) replacing Figma palette, app font (Inter removed), suit-colored COÛT with card-type symbol, compact header (~half the height), icon-only top-bar buttons when narrow
 
 ## [DISCOVERIES]
 - `[2026-06-16T23:00Z]` `[CODE]` `_gameLogic.js` (server) and `deck.js` (client) are duplicated — both must stay in sync for `createEmptyPlayer`, `hydrateState`, `applyAction`, `handCap`, `maybeAasimarHeart`
