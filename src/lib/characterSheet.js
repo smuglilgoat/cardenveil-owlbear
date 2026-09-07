@@ -229,6 +229,47 @@ export async function deleteCharacterSheet(playerId, roomId) {
   }
 }
 
+/** Maximum serialized character sheet size accepted on import (~1 MB). */
+export const MAX_SHEET_BYTES = 1_000_000;
+
+/**
+ * Recursively replace embedded base64 data URLs with empty strings.
+ * External URLs (http/https) and asset paths are left untouched.
+ * Mutates the passed value and returns the number of stripped values.
+ * @param {unknown} value - Parsed JSON to clean
+ * @returns {number} Number of stripped values
+ */
+export function stripBase64Images(value) {
+  let stripped = 0;
+  const walk = (node) => {
+    if (Array.isArray(node)) {
+      for (let i = 0; i < node.length; i++) {
+        if (typeof node[i] === 'string') {
+          if (node[i].startsWith('data:')) {
+            node[i] = '';
+            stripped++;
+          }
+        } else if (node[i] && typeof node[i] === 'object') {
+          walk(node[i]);
+        }
+      }
+    } else if (node && typeof node === 'object') {
+      for (const key of Object.keys(node)) {
+        if (typeof node[key] === 'string') {
+          if (node[key].startsWith('data:')) {
+            node[key] = '';
+            stripped++;
+          }
+        } else if (node[key] && typeof node[key] === 'object') {
+          walk(node[key]);
+        }
+      }
+    }
+  };
+  walk(value);
+  return stripped;
+}
+
 /**
  * Import a character sheet from JSON string
  * @param {string} playerId - OBR player ID
@@ -243,6 +284,13 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
     // Validate basic structure
     if (!parsed.identity || !parsed.stats) {
       throw new Error('Invalid character sheet format: missing identity or stats');
+    }
+
+    // Strip embedded base64 images: they bloat payloads to tens of MB
+    // and make Supabase time out. External URLs are preserved.
+    const strippedImages = stripBase64Images(parsed);
+    if (strippedImages > 0) {
+      console.warn(`Stripped ${strippedImages} embedded image(s) from character sheet import`);
     }
 
     // Merge with empty template to ensure all fields exist
@@ -261,7 +309,16 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
       equipment: { ...empty.equipment, ...parsed.equipment }
     };
 
-    return await saveCharacterSheet(playerId, roomId, syncSkillBonuses(merged));
+    const synced = syncSkillBonuses(merged);
+
+    const payloadBytes = JSON.stringify(synced).length;
+    if (payloadBytes > MAX_SHEET_BYTES) {
+      throw new Error(
+        `Fiche trop volumineuse (${(payloadBytes / 1048576).toFixed(1)} Mo, limite 1 Mo). Retirez les images intégrées du fichier JSON.`
+      );
+    }
+
+    return await saveCharacterSheet(playerId, roomId, synced);
   } catch (err) {
     console.error('Failed to import character sheet:', err);
     throw err;

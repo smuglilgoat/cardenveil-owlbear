@@ -9,7 +9,16 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES } = await import('../../src/lib/characterSheet.js');
+const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
+
+function mockUpsertChain(result) {
+  const single = jest.fn().mockResolvedValue(result);
+  const select = jest.fn().mockReturnValue({ single });
+  const upsert = jest.fn().mockReturnValue({ select });
+  mockClient.from.mockReturnValue({ upsert });
+  return { upsert };
+}
 
 describe('Character Sheet dice helpers', () => {
   describe('isDiceFormula', () => {
@@ -241,6 +250,80 @@ describe('Character Sheet dice helpers', () => {
       const sheet = { stats: {} };
       expect(syncSkillBonuses(sheet)).toBe(sheet);
       expect(syncSkillBonuses(null)).toBeNull();
+    });
+  });
+
+  describe('stripBase64Images', () => {
+    it('should strip embedded data URLs in nested objects and arrays', () => {
+      const sheet = {
+        portrait: 'data:image/png;base64,AAA',
+        totem: { nom: 'Totem', image: 'data:application/octet-stream;base64,BBB' },
+        capacities: [{ name: 'Leyline', image: 'data:image/png;base64,CCC' }],
+      };
+
+      expect(stripBase64Images(sheet)).toBe(3);
+      expect(sheet.portrait).toBe('');
+      expect(sheet.totem.image).toBe('');
+      expect(sheet.capacities[0].image).toBe('');
+      expect(sheet.totem.nom).toBe('Totem');
+    });
+
+    it('should preserve external URLs and asset paths', () => {
+      const sheet = {
+        portrait: 'https://example.com/portrait.png',
+        totem: { image: '/assets/totem.png' },
+      };
+
+      expect(stripBase64Images(sheet)).toBe(0);
+      expect(sheet.portrait).toBe('https://example.com/portrait.png');
+      expect(sheet.totem.image).toBe('/assets/totem.png');
+    });
+
+    it('should handle null and primitive values safely', () => {
+      expect(stripBase64Images(null)).toBe(0);
+      expect(stripBase64Images('data:image/png;base64,AAA')).toBe(0);
+      expect(stripBase64Images(42)).toBe(0);
+    });
+  });
+
+  describe('importCharacterSheet', () => {
+    beforeEach(() => {
+      mockClient.from.mockReset();
+    });
+
+    function validSheetJson(overrides = {}) {
+      return JSON.stringify({
+        identity: { nom: 'Test', race: '', niveau: 1 },
+        stats: { force: 10, agilite: 10, esprit: 10, social: 10 },
+        ...overrides,
+      });
+    }
+
+    it('should strip embedded images before saving', async () => {
+      const { upsert } = mockUpsertChain({ data: { id: '1' }, error: null });
+
+      await importCharacterSheet('player-1', 'room-1', validSheetJson({
+        portrait: 'data:image/png;base64,AAA',
+      }));
+
+      const saved = upsert.mock.calls[0][0];
+      expect(saved.data.portrait).toBe('');
+      expect(JSON.stringify(saved.data).length).toBeLessThan(MAX_SHEET_BYTES);
+    });
+
+    it('should reject payloads that remain oversized after stripping', async () => {
+      const { upsert } = mockUpsertChain({ data: { id: '1' }, error: null });
+
+      await expect(importCharacterSheet('player-1', 'room-1', validSheetJson({
+        inventory: { inventaire: 'x'.repeat(MAX_SHEET_BYTES + 1) },
+      }))).rejects.toThrow('trop volumineuse');
+
+      expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it('should reject invalid JSON structure', async () => {
+      await expect(importCharacterSheet('player-1', 'room-1', JSON.stringify({ foo: 1 })))
+        .rejects.toThrow('missing identity or stats');
     });
   });
 });
