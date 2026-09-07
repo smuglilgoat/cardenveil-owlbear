@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT } = await import('../../src/lib/characterSheet.js');
 
 describe('Character Sheet dice helpers', () => {
   describe('isDiceFormula', () => {
@@ -168,6 +168,79 @@ describe('Character Sheet dice helpers', () => {
       expect(statModifier(14)).toBe(2);
       expect(statModifier(10)).toBe(0);
       expect(statModifier(6)).toBe(-2);
+    });
+  });
+
+  describe('skillModifier', () => {
+    const stats = { force: 6, agilite: 14, esprit: 18, social: 14 };
+
+    it('should reflect the governing stat modifier', () => {
+      expect(skillModifier(stats, 'athletisme')).toBe(-2);
+      expect(skillModifier(stats, 'acrobaties')).toBe(2);
+      expect(skillModifier(stats, 'arcanes')).toBe(4);
+      expect(skillModifier(stats, 'intimidation')).toBe(2);
+    });
+
+    it('should follow the Figma skill grouping (perception/survie → esprit, perspicacité/dressage → social)', () => {
+      expect(skillModifier(stats, 'perception')).toBe(4);
+      expect(skillModifier(stats, 'survie')).toBe(4);
+      expect(skillModifier(stats, 'perspicacite')).toBe(2);
+      expect(skillModifier(stats, 'dressage')).toBe(2);
+    });
+
+    it('should fall back for unknown skills or missing scores', () => {
+      expect(skillModifier(stats, 'astrologie', 7)).toBe(7);
+      expect(skillModifier(stats, 'astrologie')).toBe(0);
+      expect(skillModifier({}, 'arcanes', 5)).toBe(5);
+      expect(skillModifier(null, 'arcanes', 5)).toBe(5);
+    });
+
+    it('should map exactly the 16 sheet skills (Force 2 / Esprit 5 / Agilité 3 / Social 6)', () => {
+      expect(Object.keys(SKILL_TO_STAT)).toHaveLength(16);
+      expect(Object.entries(SKILL_TO_STAT).filter(([, stat]) => stat === 'force')).toHaveLength(2);
+      expect(Object.entries(SKILL_TO_STAT).filter(([, stat]) => stat === 'esprit')).toHaveLength(5);
+      expect(Object.entries(SKILL_TO_STAT).filter(([, stat]) => stat === 'agilite')).toHaveLength(3);
+      expect(Object.entries(SKILL_TO_STAT).filter(([, stat]) => stat === 'social')).toHaveLength(6);
+      for (const skill of ['athletisme', 'resilience', 'acrobaties', 'discretion', 'escamotage', 'arcanes', 'investigation', 'perception', 'culture', 'survie', 'persuasion', 'tromperie', 'intimidation', 'representation', 'perspicacite', 'dressage']) {
+        expect(SKILL_TO_STAT[skill]).toBeDefined();
+      }
+    });
+  });
+
+  describe('syncSkillBonuses', () => {
+    it('should rewrite stored bonuses from stat modifiers', () => {
+      const sheet = {
+        stats: { force: 6, agilite: 14, esprit: 18, social: 14 },
+        skills: {
+          arcanes: { trained: true, bonus: 99 },
+          acrobaties: { trained: false, bonus: 99 },
+        },
+      };
+
+      const synced = syncSkillBonuses(sheet);
+
+      expect(synced.skills.arcanes.bonus).toBe(4);
+      expect(synced.skills.arcanes.trained).toBe(true);
+      expect(synced.skills.acrobaties.bonus).toBe(2);
+      // Original sheet untouched
+      expect(sheet.skills.arcanes.bonus).toBe(99);
+    });
+
+    it('should preserve bonuses for skills without a governing stat', () => {
+      const sheet = {
+        stats: { force: 6, agilite: 14, esprit: 18, social: 14 },
+        skills: {
+          astrologie: { trained: false, bonus: 7 },
+        },
+      };
+
+      expect(syncSkillBonuses(sheet).skills.astrologie.bonus).toBe(7);
+    });
+
+    it('should pass through sheets without skills', () => {
+      const sheet = { stats: {} };
+      expect(syncSkillBonuses(sheet)).toBe(sheet);
+      expect(syncSkillBonuses(null)).toBeNull();
     });
   });
 });

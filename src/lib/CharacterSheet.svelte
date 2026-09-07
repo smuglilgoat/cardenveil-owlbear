@@ -8,7 +8,9 @@
     createEmptyCharacterSheet,
     isDiceFormula,
     rollDice,
-    subscribeToCharacterSheet
+    skillModifier,
+    subscribeToCharacterSheet,
+    syncSkillBonuses
   } from './characterSheet.js';
 
   let { playerId, roomId, gameState = null, onAction = () => {} } = $props();
@@ -118,6 +120,7 @@
   async function saveEdit() {
     isSaving = true;
     try {
+      editSheet = syncSkillBonuses(editSheet);
       await saveCharacterSheet(playerId, roomId, editSheet);
       sheet = editSheet;
       editSheet = null;
@@ -485,6 +488,8 @@
           <h2 class="text-lg font-bold text-white mb-4">Compétences</h2>
           <div class="grid grid-cols-2 gap-3">
             {#each Object.entries(sheet.skills || {}) as [skill, data]}
+              {@const activeSheet = isEditing && editSheet ? editSheet : sheet}
+              {@const activeData = activeSheet.skills?.[skill] ?? data}
               <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   {#if isEditing}
@@ -494,11 +499,7 @@
                   {/if}
                   <span class="text-sm text-white capitalize">{skill}</span>
                 </div>
-                {#if isEditing}
-                  <input type="number" bind:value={editSheet.skills[skill].bonus} class="w-16 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center text-sm" />
-                {:else}
-                  <span class="text-sm font-bold text-white">{formatModifier(data.bonus || 0)}</span>
-                {/if}
+                <span class="text-sm font-bold text-white" title="Modificateur de la caractéristique associée">{formatModifier(skillModifier(activeSheet.stats, skill, activeData?.bonus ?? 0))}</span>
               </div>
             {/each}
           </div>

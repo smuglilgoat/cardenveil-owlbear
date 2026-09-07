@@ -261,7 +261,7 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
       equipment: { ...empty.equipment, ...parsed.equipment }
     };
 
-    return await saveCharacterSheet(playerId, roomId, merged);
+    return await saveCharacterSheet(playerId, roomId, syncSkillBonuses(merged));
   } catch (err) {
     console.error('Failed to import character sheet:', err);
     throw err;
@@ -345,6 +345,64 @@ export function parseDiceFormula(value, stats = {}) {
  */
 export function isDiceFormula(value, stats = {}) {
   return parseDiceFormula(value, stats) !== null;
+}
+
+/**
+ * Skill → governing stat mapping. WIS-domain skills (perception, survie,
+ * perspicacité, dressage) map to esprit, the mental stat, since the
+ * four-stat system has no separate wisdom score.
+ */
+export const SKILL_TO_STAT = {
+  athletisme: 'force',
+  resilience: 'force',
+  acrobaties: 'agilite',
+  discretion: 'agilite',
+  escamotage: 'agilite',
+  arcanes: 'esprit',
+  investigation: 'esprit',
+  perception: 'esprit',
+  culture: 'esprit',
+  survie: 'esprit',
+  persuasion: 'social',
+  tromperie: 'social',
+  intimidation: 'social',
+  representation: 'social',
+  perspicacite: 'social',
+  dressage: 'social',
+};
+
+/**
+ * Compute a skill's modifier from its governing stat.
+ * Falls back to `fallback` for unknown skills or missing scores.
+ * @param {Object} [stats] - Raw stat scores ({ force, agilite, esprit, social })
+ * @param {string} skill - Skill key (e.g. "arcanes")
+ * @param {number} [fallback] - Value when the skill has no governing stat
+ * @returns {number}
+ */
+export function skillModifier(stats, skill, fallback = 0) {
+  const key = SKILL_TO_STAT[String(skill ?? '').toLowerCase()];
+  if (!key) return fallback;
+  const score = Number(stats?.[key]);
+  if (!Number.isFinite(score)) return fallback;
+  return statModifier(score);
+}
+
+/**
+ * Rewrite stored skill bonuses from governing stat modifiers.
+ * Skills without a governing stat keep their stored bonus.
+ * @param {Object} sheet - Character sheet data
+ * @returns {Object} New sheet object with synced bonuses
+ */
+export function syncSkillBonuses(sheet) {
+  if (!sheet?.skills) return sheet;
+  const skills = {};
+  for (const [skill, data] of Object.entries(sheet.skills)) {
+    skills[skill] = {
+      ...data,
+      bonus: SKILL_TO_STAT[skill] ? skillModifier(sheet.stats, skill, data?.bonus ?? 0) : (data?.bonus ?? 0),
+    };
+  }
+  return { ...sheet, skills };
 }
 
 /**

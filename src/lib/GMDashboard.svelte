@@ -19,7 +19,9 @@
     fetchCharacterSheet,
     saveCharacterSheet,
     deleteCharacterSheet,
-    createEmptyCharacterSheet
+    createEmptyCharacterSheet,
+    skillModifier,
+    syncSkillBonuses
   } from "./characterSheet.js";
   import { tooltip } from "./tooltip.js";
 
@@ -408,6 +410,7 @@
     if (!viewingSheet) return;
     sheetLoading = true;
     try {
+      viewingSheet.sheet = syncSkillBonuses(viewingSheet.sheet);
       await saveCharacterSheet(viewingSheet.playerId, OBR.room.id, viewingSheet.sheet);
       viewingSheet.exists = true;
       viewingSheet.isEditing = false;
@@ -1457,6 +1460,8 @@
             <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Compétences</h3>
             <div class="grid grid-cols-2 gap-3">
               {#each Object.entries(viewingSheet.sheet.skills || {}) as [skill, data]}
+                {@const sheetData = viewingSheet.sheet.skills?.[skill] ?? data}
+                {@const bonus = skillModifier(viewingSheet.sheet.stats, skill, sheetData?.bonus ?? 0)}
                 <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 flex items-center justify-between">
                   <div class="flex items-center gap-3">
                     {#if viewingSheet.isEditing}
@@ -1470,17 +1475,9 @@
                     {/if}
                     <span class="text-sm text-white capitalize">{skill}</span>
                   </div>
-                  {#if viewingSheet.isEditing}
-                    <input
-                      type="number"
-                      bind:value={viewingSheet.sheet.skills[skill].bonus}
-                      class="w-16 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center text-sm"
-                    />
-                  {:else}
-                    <span class="text-sm font-bold text-white">
-                      {data.bonus >= 0 ? '+' : ''}{data.bonus || 0}
-                    </span>
-                  {/if}
+                  <span class="text-sm font-bold text-white" title="Modificateur de la caractéristique associée">
+                    {bonus >= 0 ? '+' : ''}{bonus}
+                  </span>
                 </div>
               {/each}
             </div>
