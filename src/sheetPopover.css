@@ -1,0 +1,14 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+#sheet-popover {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}

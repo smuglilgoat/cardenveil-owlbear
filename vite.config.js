@@ -61,6 +61,7 @@ export default defineConfig({
         main: path.resolve('index.html'),
         hand: path.resolve('hand.html'),
         dice: path.resolve('dice.html'),
+        sheet: path.resolve('sheet.html'),
       },
     },
   },

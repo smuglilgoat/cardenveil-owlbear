@@ -4,6 +4,94 @@
  */
 import { supabase } from './supabaseClient.js';
 
+// ─── Shared UI constants (used by CharacterSheet + SheetPopover) ───
+export const STAT_COLORS = {
+  force: '#f87171',
+  agilite: '#4ade80',
+  esprit: '#a78bfa',
+  social: '#60a5fa'
+};
+
+export const SKILL_GROUPS = [
+  { stat: 'force', label: 'FORCE', skills: ['athletisme', 'resilience'] },
+  { stat: 'agilite', label: 'AGILITÉ', skills: ['acrobaties', 'discretion', 'escamotage'] },
+  {
+    stat: 'esprit',
+    label: 'ESPRIT',
+    skills: ['arcanes', 'investigation', 'perception', 'culture', 'survie']
+  },
+  {
+    stat: 'social',
+    label: 'SOCIAL',
+    skills: [
+      'persuasion',
+      'tromperie',
+      'intimidation',
+      'representation',
+      'perspicacite',
+      'dressage'
+    ]
+  }
+];
+
+export const SKILL_LABELS = {
+  athletisme: 'Athlétisme',
+  resilience: 'Résilience',
+  acrobaties: 'Acrobaties',
+  discretion: 'Discrétion',
+  escamotage: 'Escamotage',
+  arcanes: 'Arcanes',
+  investigation: 'Investigation',
+  perception: 'Perception',
+  culture: 'Culture',
+  survie: 'Survie',
+  persuasion: 'Persuasion',
+  tromperie: 'Tromperie',
+  intimidation: 'Intimidation',
+  representation: 'Représentation',
+  perspicacite: 'Perspicacité',
+  dressage: 'Dressage'
+};
+
+export const SUIT_LABELS = { heart: 'Cœur', spade: 'Pique', diamond: 'Carreau', club: 'Trèfle' };
+export const SUIT_SYMBOLS = { heart: '♥', spade: '♠', diamond: '♦', club: '♣' };
+export const SUIT_COLORS = { heart: '#f87171', spade: '#e5e7eb', diamond: '#fbbf24', club: '#4ade80' };
+
+export function colorLabel(color) {
+  return SUIT_LABELS[(color || '').toLowerCase()] || color || '—';
+}
+
+export function suitSymbol(color) {
+  return SUIT_SYMBOLS[(color || '').toLowerCase()] || '·';
+}
+
+export function suitColor(color) {
+  return SUIT_COLORS[(color || '').toLowerCase()] || '#9ca3af';
+}
+
+/**
+ * Detect the action type of a capacity from its free-text usage field.
+ * "Bonus action" must be checked before "action"; "Réaction" before both.
+ * @param {string} usage - Free-text usage (e.g. "Bonus action / Concentration")
+ * @returns {{label: string, color: string}|null} Colored type badge or null
+ */
+export function capacityType(usage) {
+  const u = (usage || '').toLowerCase();
+  if (u.includes('réaction') || u.includes('reaction')) {
+    return { label: 'RÉACTION', color: '#f87171' };
+  }
+  if (u.includes('bonus')) {
+    return { label: 'BONUS ACTION', color: '#4ade80' };
+  }
+  if (u.includes('action')) {
+    return { label: 'ACTION', color: '#60a5fa' };
+  }
+  if (u.includes('concentration')) {
+    return { label: 'CONCENTRATION', color: '#c084fc' };
+  }
+  return null;
+}
+
 /**
  * Create a default empty character sheet matching the full JSON structure
  */
