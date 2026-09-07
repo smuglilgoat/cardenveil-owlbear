@@ -523,6 +523,26 @@
             </button>
           </div>
 
+          <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-4">
+            <h2 class="text-lg font-bold text-white mb-3">Totem</h2>
+            <div class="mb-3">
+              <label class="block text-sm font-medium text-gray-300 mb-2">Nom</label>
+              {#if isEditing}
+                <input type="text" bind:value={editSheet.totem.nom} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-indigo-500" />
+              {:else}
+                <div class="px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm">{sheet.totem?.nom || '—'}</div>
+              {/if}
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-2">Description</label>
+              {#if isEditing}
+                <textarea bind:value={editSheet.totem.description} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-indigo-500" rows="4"></textarea>
+              {:else}
+                <div class="px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm whitespace-pre-wrap">{sheet.totem?.description || '—'}</div>
+              {/if}
+            </div>
+          </div>
+
           <div class="flex justify-between items-center mb-4">
             <h2 class="text-lg font-bold text-white">Capacités</h2>
             {#if isEditing}
@@ -682,6 +702,7 @@
             </div>
           {/each}
         </div>
+
       {/if}
     </div>
   {/if}

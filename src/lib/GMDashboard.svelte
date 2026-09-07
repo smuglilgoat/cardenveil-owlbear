@@ -1577,6 +1577,41 @@
             </div>
           </div>
 
+          <!-- Totem Section -->
+          <div>
+            <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Totem</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Nom</label>
+                {#if viewingSheet.isEditing}
+                  <input
+                    type="text"
+                    bind:value={viewingSheet.sheet.totem.nom}
+                    class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                  />
+                {:else}
+                  <div class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm">
+                    {viewingSheet.sheet.totem?.nom || '—'}
+                  </div>
+                {/if}
+              </div>
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Description</label>
+                {#if viewingSheet.isEditing}
+                  <textarea
+                    bind:value={viewingSheet.sheet.totem.description}
+                    class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                    rows="4"
+                  ></textarea>
+                {:else}
+                  <div class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm whitespace-pre-wrap">
+                    {viewingSheet.sheet.totem?.description || '—'}
+                  </div>
+                {/if}
+              </div>
+            </div>
+          </div>
+
           <!-- Narrative Section -->
           <div>
             <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Narratif</h3>
