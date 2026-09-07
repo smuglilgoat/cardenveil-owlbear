@@ -664,25 +664,26 @@
         <div class="max-w-4xl mx-auto space-y-6">
           <h2 class="text-lg font-bold text-white">Équipement</h2>
           {#each ['casque', 'plastron', 'gantelets', 'bottes', 'anneau', 'amulette', 'cape'] as slot}
+            {@const slotData = (isEditing && editSheet ? editSheet.equipment?.[slot] : sheet.equipment?.[slot]) ?? {}}
             <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
               <h3 class="text-sm font-bold text-gray-300 mb-3 capitalize">{slot}</h3>
               <div class="space-y-2">
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1">Nom</label>
-                  {#if isEditing}
-                    <input type="text" bind:value={editSheet.equipment[slot].nom} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm" />
-                  {:else}
-                    <div class="px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm">{sheet.equipment?.[slot]?.nom || '—'}</div>
+                {#each Object.entries(slotData) as [field, value]}
+                  {#if isEditing || (value !== '' && value != null)}
+                    <div>
+                      <label class="block text-xs text-gray-400 mb-1">{field}</label>
+                      {#if isEditing}
+                        {#if field === 'description' || field === 'enchantement'}
+                          <textarea bind:value={editSheet.equipment[slot][field]} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm" rows="2"></textarea>
+                        {:else}
+                          <input type="text" bind:value={editSheet.equipment[slot][field]} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm" />
+                        {/if}
+                      {:else}
+                        <div class="px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm whitespace-pre-wrap">{value || '—'}</div>
+                      {/if}
+                    </div>
                   {/if}
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1">Description</label>
-                  {#if isEditing}
-                    <textarea bind:value={editSheet.equipment[slot].description} class="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm" rows="2"></textarea>
-                  {:else}
-                    <div class="px-3 py-2 bg-gray-900 border border-gray-600 rounded text-white text-sm">{sheet.equipment?.[slot]?.description || '—'}</div>
-                  {/if}
-                </div>
+                {/each}
               </div>
             </div>
           {/each}
