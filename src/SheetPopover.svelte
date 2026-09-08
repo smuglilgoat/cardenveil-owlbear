@@ -67,18 +67,22 @@
 
     // Reconcile poll: guarantees the diamonds follow the main sheet even if
     // BroadcastChannel/realtime don't deliver in this frame.
-    const pollTimer = setInterval(async () => {
+    async function reconcile() {
       if (!sheet || document.hidden || saveInFlight) return;
       try {
         const data = await fetchCharacterSheet(playerId, roomId);
         const remote = data?.data?.actionChecks;
         if (remote && JSON.stringify(remote) !== JSON.stringify(sheet.actionChecks ?? {})) {
           sheet = { ...sheet, actionChecks: remote };
+          console.debug('[cardenveil-popover] actionChecks reconciled from server');
         }
       } catch {
         /* offline — keep current state */
       }
-    }, 2000);
+    }
+    const pollTimer = setInterval(reconcile, 1500);
+    window.addEventListener('focus', reconcile);
+    document.addEventListener('visibilitychange', reconcile);
 
     OBR.onReady(async () => {
       try {
@@ -91,6 +95,8 @@
       unsubscribe();
       offBroadcast();
       clearInterval(pollTimer);
+      window.removeEventListener('focus', reconcile);
+      document.removeEventListener('visibilitychange', reconcile);
     };
   });
 

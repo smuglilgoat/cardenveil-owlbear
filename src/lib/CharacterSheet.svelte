@@ -459,7 +459,9 @@
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({
         id: SHEET_POPOVER_ID,
-        url: `${window.location.origin}/sheet.html?playerId=${encodeURIComponent(playerId)}&roomId=${encodeURIComponent(roomId)}&popoverId=${encodeURIComponent(SHEET_POPOVER_ID)}`,
+        // ponytail: cache-bust (?v=) so the popover frame never runs stale JS
+        // after a deploy — OBR can serve popovers from HTTP cache
+        url: `${window.location.origin}/sheet.html?playerId=${encodeURIComponent(playerId)}&roomId=${encodeURIComponent(roomId)}&popoverId=${encodeURIComponent(SHEET_POPOVER_ID)}&v=${Date.now()}`,
         width: 380,
         height: 540,
         anchorPosition: { left: vw, top: -70 },
