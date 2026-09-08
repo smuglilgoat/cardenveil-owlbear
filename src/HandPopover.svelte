@@ -14,7 +14,7 @@
 
   // Fold/unfold: resize our own popover to just the pill
   let folded = $state(false);
-  let popoverId = null;
+  let popoverId = $state(null);
   let expandedHeight = 400;
   const FOLDED_HEIGHT = 56;
 
