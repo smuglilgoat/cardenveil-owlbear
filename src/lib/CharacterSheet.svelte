@@ -518,7 +518,7 @@
         <button
           onclick={toggleSheetPopover}
           title="Fiche compacte — favoris et lancers rapides"
-          class="h-8 px-2.5 bg-[#111827] rounded-full text-[10px] font-semibold text-[#9ca3af] hover:text-white transition-colors whitespace-nowrap {sheetPopoverOpen
+          class="h-8 px-2 bg-[#111827] rounded-full text-[10px] font-semibold text-[#9ca3af] hover:text-white transition-colors whitespace-nowrap {sheetPopoverOpen
             ? 'ring-1 ring-indigo-400 text-indigo-300'
             : ''}"
         >
@@ -541,7 +541,7 @@
         <button
           onclick={startEdit}
           title="Modifier la fiche (formulaire agrandi)"
-          class="h-8 px-3 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
+          class="h-8 px-2 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
         >
           ÉDITION
         </button>
