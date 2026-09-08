@@ -27,6 +27,7 @@ Apply the repo-wide over-engineering audit (user-approved "go ahead"): cut dead 
 - LSP diagnostics on edited Svelte files: only pre-existing implicit-any noise (documented in CONTINUITY)
 
 ## Follow-up
-- UNCONFIRMED: first `supabase functions deploy` must bundle the `../../src/lib/deck.js` relative import — verify, else inline a copy back into the function dir
+- RESOLVED 2026-09-08: first `supabase functions deploy` failed ("Module not found supabase/src/lib/deck.js") — staging only bundles files under `supabase/`. Fixed with `supabase/functions/action/_deck.js` symlink → `src/lib/deck.js`; deploy succeeded (action v11 ACTIVE), endpoint returns 401 at the JWT gate as expected for unauthenticated curl. Committed `fffc624`, pushed.
+- UNCONFIRMED: Netlify deploy of the `_gameLogic.js` shim (imports `../../src/lib/deck.js` — outside the functions dir); next Netlify deploy verifies, fall back to in-dir symlink same as Supabase if it fails.
 - README.md "Architecture Notes" still claims OBR room metadata (stale; out of audit scope)
 - `docs/character-sheet-analysis.md` predates pinnedSkills/actionChecks/totem fields (stale; out of scope)
