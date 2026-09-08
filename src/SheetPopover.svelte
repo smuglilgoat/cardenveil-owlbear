@@ -3,11 +3,11 @@
   import OBR from '@owlbear-rodeo/sdk';
   import { dispatch } from './lib/api.js';
   import { tooltip } from './lib/tooltip.js';
+  import ActionDiamonds from './lib/ActionDiamonds.svelte';
   import {
     STAT_COLORS,
     SKILL_GROUPS,
     SKILL_LABELS,
-    ACTION_CHECKS,
     fetchCharacterSheet,
     isDiceFormula,
     rollDice,
@@ -203,25 +203,13 @@
           </div>
         {/each}
       </div>
-      <!-- Per-turn action diamonds -->
-      <div class="flex items-center gap-4 mt-2 pt-2 border-t border-[#374151]">
-        {#each ACTION_CHECKS as ac}
-          <button
-            onclick={() => toggleActionCheck(ac.key)}
-            title={ac.label}
-            class="group flex items-center gap-1.5"
-          >
-            <span
-              class="w-2.5 h-2.5 rotate-45 rounded-[2px] border-2 transition-colors {sheet.actionChecks?.[ac.key]
-                ? 'bg-indigo-500 border-indigo-300'
-                : 'bg-transparent border-[#4b5563] group-hover:border-[#9ca3af]'}"
-            ></span>
-            <span class="text-[9px] font-bold tracking-wide {sheet.actionChecks?.[ac.key] ? 'text-white' : 'text-[#9ca3af]'}">
-              {ac.label}
-            </span>
-          </button>
-        {/each}
-      </div>
+      <!-- Per-turn action diamonds (centered; long hover shows the combat actions reference) -->
+      <ActionDiamonds
+        checks={sheet.actionChecks}
+        onToggle={toggleActionCheck}
+        compact
+        class="flex items-center justify-center gap-4 mt-2 pt-2 border-t border-[#374151]"
+      />
     </div>
 
     <!-- Favoris -->
