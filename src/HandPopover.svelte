@@ -16,12 +16,21 @@
   let folded = $state(false);
   let popoverId = null;
   let expandedHeight = 400;
+  const FOLDED_HEIGHT = 56;
 
   async function toggleFold() {
     if (!popoverId) return;
-    folded = !folded;
+    const target = folded ? expandedHeight : FOLDED_HEIGHT;
     try {
-      await OBR.popover.setHeight(popoverId, folded ? 48 : expandedHeight);
+      await OBR.popover.setHeight(popoverId, target);
+      // Only fold the DOM if the resize actually took effect, otherwise
+      // the content would collapse while the popover keeps its old size.
+      const actual = await OBR.popover.getHeight(popoverId);
+      if (actual != null && Math.abs(actual - target) > 4) {
+        console.warn('Hand popover resize did not apply; keeping unfolded');
+        return;
+      }
+      folded = !folded;
     } catch (err) {
       console.warn('Failed to resize hand popover:', err);
     }
@@ -400,8 +409,8 @@
     <button
       onclick={toggleFold}
       title="Replier la main"
-      class="absolute top-1 right-1 z-[300] w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold bg-[#213547] border border-gray-600 text-gray-300 hover:text-white transition-colors"
-    >▾</button>
+      class="absolute top-1 right-1 z-[300] h-7 px-2.5 rounded-full flex items-center gap-1 text-[11px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors whitespace-nowrap"
+    >▾ Replier</button>
   {/if}
   {#if folded}
     <div class="flex-1 flex items-center justify-center">

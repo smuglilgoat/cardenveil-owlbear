@@ -25,11 +25,19 @@
   let lastRoll = $state(null);
   let folded = $state(false);
   let expandedHeight = 540;
+  const FOLDED_HEIGHT = 40;
 
   async function toggleFold() {
-    folded = !folded;
+    const target = folded ? expandedHeight : FOLDED_HEIGHT;
     try {
-      await OBR.popover.setHeight(popoverId, folded ? 40 : expandedHeight);
+      await OBR.popover.setHeight(popoverId, target);
+      // Only fold the DOM if the resize actually took effect.
+      const actual = await OBR.popover.getHeight(popoverId);
+      if (actual != null && Math.abs(actual - target) > 4) {
+        console.warn('Sheet popover resize did not apply; keeping unfolded');
+        return;
+      }
+      folded = !folded;
     } catch (err) {
       console.warn('Failed to resize sheet popover:', err);
     }
