@@ -21,9 +21,10 @@ npm run test:coverage
 
 Located in `tests/unit/`, these test individual functions and modules:
 
-- **gameLogic.test.js** - Core game actions (DRAW, DISCARD, CRYSTALLIZE, etc.)
-- **deck.test.js** - Card utilities and sorting
-- **api.test.js** - API client and realtime subscriptions
+- **gameLogic.test.js** - Core game actions (DRAW, DISCARD, CRYSTALLIZE, USE_CAPACITY, race passives, etc.)
+- **deck.test.js** - Card utilities, sorting, pending placeholders
+- **api.test.js** - API client (realtime subscriptions, dispatch fallback)
+- **characterSheet.test.js** - Dice parsing/rolling, combat formulas, sheet import/export helpers
 
 **Run unit tests:**
 ```bash
@@ -53,12 +54,13 @@ See `tests/httpie/README.md` for complete API test documentation.
 ## Test Coverage
 
 Current coverage:
-- ✅ 53 unit tests passing
-- ✅ Game logic (all actions)
+- ✅ 117 unit tests passing (4 suites)
+- ✅ Game logic (all 34 actions)
 - ✅ Deck utilities
-- ✅ API client
+- ✅ API client (realtime + dispatch fallback)
 - ✅ State hydration/dehydration
 - ✅ Optimistic updates
+- ✅ Character sheet: dice formulas, combat formulas, imports, color helpers
 
 ## Writing Tests
 

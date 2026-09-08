@@ -1,5 +1,13 @@
 # Character Sheet Integration Analysis
 
+> **⚠️ OUTDATED (2026-09-08)** — This is an early planning document and no longer
+> reflects the implemented schema. The live source of truth is
+> **`createEmptyCharacterSheet()` in `src/lib/characterSheet.js`**. Fields added
+> after this document was written (and thus missing here): `pinnedSkills`,
+> `pinnedCapacities`, `actionChecks`, `totem`, `evolutions`, `notes`,
+> `weapons`, `inventoryItems`. See AGENTS.md "Character Sheet System" for the
+> current architecture.
+
 ## Overview
 
 This document analyzes the character sheet JSON structure for integration into the Cardenveil application. The character sheet system uses a card-based magic system where abilities (capacities) cost specific card values to activate.
