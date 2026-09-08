@@ -24,6 +24,8 @@
     isImageUrl,
     EQUIPMENT_CATALOG,
     findEquipmentTemplate,
+    itemTypeColor,
+    ITEM_TYPE_OPTIONS,
     syncSkillBonuses,
     syncStatsFromEquipment,
     broadcastActionChecks,
@@ -951,12 +953,16 @@
 
           {#if view.inventoryItems?.length}
             {#each inventoryGroups(view.inventoryItems) as [type, items], groupIndex}
-              <div class="bg-[#111827] rounded-md px-2.5 py-2 flex items-center gap-2.5 {groupIndex > 0 ? 'mt-2' : ''}">
-                <span class="text-[8px] font-bold text-[#9ca3af] w-20 uppercase">{type}</span>
+              <div
+                class="item-row bg-[#111827] rounded-md px-3 py-2.5 flex items-center gap-2.5 border-l-4 {groupIndex > 0 ? 'mt-2.5' : ''}"
+                style="border-left-color: {itemTypeColor(type)}"
+              >
+                <span class="text-[9px] font-bold w-20 uppercase" style="color: {itemTypeColor(type)}">{type}</span>
                 <span class="text-[9px] font-medium text-[#9ca3af] truncate">{itemFamilies(items)}</span>
               </div>
               {#each items as item}
-                <div class="bg-[#111827] rounded-md px-2.5 py-2 flex items-center gap-2">
+                <div class="item-row bg-[#111827] rounded-md px-3 py-2.5 flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: {itemTypeColor(type)}"></span>
                   <span class="text-xs font-semibold flex-1 truncate">{item?.name || '—'}</span>
                   <span class="text-xs font-bold w-12 text-center">{itemCenterValue(item)}</span>
                   <span class="text-[9px] text-[#9ca3af] w-24 @2xl:w-52 text-right truncate">{itemNotes(item)}</span>
@@ -972,7 +978,7 @@
           {#each view.weapons || [] as weapon}
             {#if weapon?.nom}
               {@const weaponFields = Object.entries(weapon ?? {}).filter(([field]) => field !== 'nom' && field !== 'equipped')}
-              <div class="bg-[#111827] rounded-lg p-2.5 mb-2">
+              <div class="item-row bg-[#111827] rounded-lg px-3 py-2.5 mb-2.5 border-l-4 border-[#f87171]">
                 <div class="flex items-center gap-2.5">
                   {#if weapon?.equipped}
                     <span class="px-2 py-0.5 bg-indigo-600 text-[9px] font-semibold rounded">Équipée</span>
@@ -985,7 +991,7 @@
                     </span>
                   {/if}
                 </div>
-                <div class="text-[9px] text-[#9ca3af] mt-1 truncate">
+                <div class="text-[9px] text-[#9ca3af] mt-1.5 truncate">
                   {weaponFields
                     .filter(([, value]) => value !== '' && value != null)
                     .map(([field, value]) => `${field}: ${stripHtml(value)}`)
@@ -1412,30 +1418,60 @@
                       </button>
                     </div>
                   </div>
-                  {#each editSheet.inventoryItems || [] as item}
-                    <div class="bg-[#111827] rounded-md px-2.5 py-2 space-y-1.5 mb-2">
-                      {#each Object.entries(item ?? {}).filter(([field]) => field !== 'equipmentData') as [field, value]}
-                        <div class="flex items-center gap-2">
-                          <label class="text-[8px] font-bold text-[#9ca3af] w-24 shrink-0 capitalize">{field}</label>
-                          {#if field === 'description'}
-                            <textarea bind:value={item[field]} class="flex-1 px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
-                          {:else}
-                            <input type="text" bind:value={item[field]} class="flex-1 px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
-                          {/if}
-                        </div>
-                      {/each}
-                      <button
-                        onclick={() => {
-                          const list = editSheet.inventoryItems;
-                          list.splice(list.indexOf(item), 1);
-                          editSheet.inventoryItems = [...list];
-                        }}
-                        class="px-3 py-1 bg-red-900 hover:bg-red-800 text-red-200 text-[10px] font-semibold rounded transition-colors"
-                      >
-                        Supprimer
-                      </button>
+                  {#each editSheet.inventoryItems || [] as item, i}
+                    <div
+                      class="item-editor bg-[#111827] rounded-lg mb-3 border-l-4 overflow-hidden"
+                      style="border-left-color: {itemTypeColor(item?.type)}"
+                    >
+                      <!-- header: type badge + name + delete -->
+                      <div class="flex items-center gap-2 px-3 pt-3 pb-2">
+                        <select
+                          value={item?.type || 'Divers'}
+                          onchange={(e) => (item.type = e.currentTarget.value)}
+                          class="px-2 py-1.5 rounded-md text-[10px] font-bold border bg-[#242424] focus:outline-none shrink-0"
+                          style="color: {itemTypeColor(item?.type)}; border-color: {itemTypeColor(item?.type)}"
+                        >
+                          {#each ITEM_TYPE_OPTIONS as opt}
+                            <option value={opt}>{opt}</option>
+                          {/each}
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Nom de l'objet"
+                          bind:value={item.name}
+                          class="flex-1 min-w-0 px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-xs font-bold focus:outline-none focus:border-indigo-500"
+                        />
+                        <button
+                          onclick={() => {
+                            const list = editSheet.inventoryItems;
+                            list.splice(list.indexOf(item), 1);
+                            editSheet.inventoryItems = [...list];
+                          }}
+                          class="px-3 py-1.5 bg-red-900 hover:bg-red-800 text-red-200 text-[10px] font-semibold rounded-md transition-colors shrink-0"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                      <!-- fields -->
+                      <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2.5 px-3 pb-3">
+                        {#each Object.entries(item ?? {}).filter(([field]) => field !== 'equipmentData' && field !== 'type' && field !== 'name') as [field, value]}
+                          <div class={field === 'description' || field === 'attributs' ? 'col-span-full' : ''}>
+                            <label class="block text-[9px] font-bold text-[#9ca3af] mb-1 capitalize">{field}</label>
+                            {#if field === 'description' || field === 'attributs'}
+                              <textarea bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
+                            {:else}
+                              <input type="text" bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" />
+                            {/if}
+                          </div>
+                        {/each}
+                      </div>
                     </div>
                   {/each}
+                  {#if !(editSheet.inventoryItems || []).length}
+                    <div class="text-[10px] text-[#9ca3af] bg-[#111827] rounded-lg px-3 py-3 text-center">
+                      Aucun objet — choisissez un modèle (ou « — Modèle — » pour un objet vide) puis cliquez « + Ajouter un objet ».
+                    </div>
+                  {/if}
                 </div>
 
                 <div>
@@ -1476,37 +1512,52 @@
                     </div>
                   </div>
                   {#each editSheet.weapons || [] as weapon, i}
-                    <div class="bg-[#111827] rounded-lg p-2.5 mb-2 space-y-2">
-                      <div class="flex items-center gap-2">
-                        <label class="flex items-center gap-2 text-[10px] text-[#9ca3af] shrink-0">
+                    <div class="item-editor bg-[#111827] rounded-lg mb-3 border-l-4 border-[#f87171] overflow-hidden">
+                      <!-- header: equipped + name + delete -->
+                      <div class="flex items-center gap-2 px-3 pt-3 pb-2">
+                        <label
+                          class="flex items-center gap-1.5 text-[10px] font-bold shrink-0 cursor-pointer select-none"
+                          style="color: {weapon?.equipped ? '#a5b4fc' : '#9ca3af'}"
+                        >
                           <input type="checkbox" bind:checked={editSheet.weapons[i].equipped} class="w-3.5 h-3.5 accent-indigo-600" />
                           Équipée
                         </label>
-                        <input type="text" placeholder="Nom de l'arme" bind:value={editSheet.weapons[i].nom} class="flex-1 min-w-0 px-2 py-1 bg-[#242424] border border-[#374151] rounded text-xs font-bold focus:outline-none focus:border-indigo-500" />
+                        <input
+                          type="text"
+                          placeholder="Nom de l'arme"
+                          bind:value={editSheet.weapons[i].nom}
+                          class="flex-1 min-w-0 px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-xs font-bold focus:outline-none focus:border-indigo-500"
+                        />
                         <button
                           onclick={() => {
                             editSheet.weapons.splice(i, 1);
                             editSheet.weapons = [...editSheet.weapons];
                           }}
-                          class="px-3 py-1 bg-red-900 hover:bg-red-800 text-red-200 text-[10px] font-semibold rounded transition-colors shrink-0"
+                          class="px-3 py-1.5 bg-red-900 hover:bg-red-800 text-red-200 text-[10px] font-semibold rounded-md transition-colors shrink-0"
                         >
                           Supprimer
                         </button>
                       </div>
-                      <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-1.5">
+                      <!-- fields -->
+                      <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2.5 px-3 pb-3">
                         {#each Object.entries(weapon ?? {}).filter(([field]) => field !== 'nom' && field !== 'equipped') as [field]}
-                          <div>
-                            <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5 capitalize">{field}</label>
+                          <div class={field === 'notes' || field === 'propriétés' ? 'col-span-full' : ''}>
+                            <label class="block text-[9px] font-bold text-[#9ca3af] mb-1 capitalize">{field}</label>
                             {#if field === 'notes'}
-                              <textarea bind:value={editSheet.weapons[i][field]} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
+                              <textarea bind:value={editSheet.weapons[i][field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
                             {:else}
-                              <input type="text" bind:value={editSheet.weapons[i][field]} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
+                              <input type="text" bind:value={editSheet.weapons[i][field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" />
                             {/if}
                           </div>
                         {/each}
                       </div>
                     </div>
                   {/each}
+                  {#if !(editSheet.weapons || []).length}
+                    <div class="text-[10px] text-[#9ca3af] bg-[#111827] rounded-lg px-3 py-3 text-center">
+                      Aucune arme — choisissez un modèle (ou « — Modèle — » pour une arme vide) puis cliquez « + Ajouter une arme ».
+                    </div>
+                  {/if}
                 </div>
               </div>
             {:else if activeTab === 'narratif'}
@@ -1643,5 +1694,22 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: #9ca3af;
     border-radius: 2px;
+  }
+
+  /* ── Inventory / weapons editor cards ── */
+  .item-editor {
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .item-editor:hover {
+    background: #16202f;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  }
+
+  /* ── Read-only inventory rows & weapon cards ── */
+  .item-row {
+    transition: background-color 0.15s ease;
+  }
+  .item-row:hover {
+    background: #1f2937;
   }
 </style>

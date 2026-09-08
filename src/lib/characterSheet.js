@@ -119,6 +119,21 @@ export function classicSuitColor(isRed) {
   return isRed ? '#dc2626' : '#111827';
 }
 
+// ─── Inventory item type color coding ───
+export const ITEM_TYPE_COLORS = {
+  arme: '#f87171',
+  armure: '#60a5fa',
+  consommable: '#4ade80',
+  'équipement': '#fbbf24',
+  divers: '#9ca3af'
+};
+
+export const ITEM_TYPE_OPTIONS = ['Arme', 'Armure', 'Équipement', 'Consommable', 'Divers'];
+
+export function itemTypeColor(type) {
+  return ITEM_TYPE_COLORS[String(type ?? '').trim().toLowerCase()] || '#9ca3af';
+}
+
 /**
  * Whether an image-slot value is a URL (vs an emoji/glyph to render as text).
  * @param {unknown} value - Portrait/capacity/totem image value

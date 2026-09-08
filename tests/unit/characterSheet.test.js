@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -619,6 +619,27 @@ describe('Character Sheet dice helpers', () => {
     it('should map classic red/black colors', () => {
       expect(classicSuitColor(true)).toBe('#dc2626');
       expect(classicSuitColor(false)).toBe('#111827');
+    });
+  });
+
+  describe('itemTypeColor', () => {
+    it('should color-code item types (accent-insensitive)', () => {
+      expect(itemTypeColor('Arme')).toBe('#f87171');
+      expect(itemTypeColor('Armure')).toBe('#60a5fa');
+      expect(itemTypeColor('Consommable')).toBe('#4ade80');
+      expect(itemTypeColor('Équipement')).toBe('#fbbf24');
+      expect(itemTypeColor('équipement')).toBe('#fbbf24');
+      expect(itemTypeColor('Divers')).toBe('#9ca3af');
+    });
+
+    it('should fall back to gray for unknown types', () => {
+      expect(itemTypeColor('Truc')).toBe('#9ca3af');
+      expect(itemTypeColor('')).toBe('#9ca3af');
+      expect(itemTypeColor(undefined)).toBe('#9ca3af');
+    });
+
+    it('should expose the editable type options', () => {
+      expect(ITEM_TYPE_OPTIONS).toEqual(['Arme', 'Armure', 'Équipement', 'Consommable', 'Divers']);
     });
   });
 });
