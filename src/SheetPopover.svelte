@@ -48,20 +48,38 @@
     }
   }
 
-  onMount(async () => {
-    try {
-      const data = await fetchCharacterSheet(playerId, roomId);
-      sheet = data?.data ?? null;
-    } catch (err) {
-      console.error('Failed to load character sheet (compact):', err);
-    }
+  onMount(() => {
+    // Register subscriptions synchronously so they exist even if the first
+    // fetch hangs (e.g. a paused Supabase project).
     const unsubscribe = subscribeToCharacterSheet(playerId, roomId, (newData) => {
       if (newData) sheet = newData.data;
     });
     // Instant sync of the action diamonds from the main sheet
-    const offBroadcast = onActionChecksBroadcast((actionChecks) => {
+    const offBroadcast = onActionChecksBroadcast(playerId, (actionChecks) => {
       if (sheet) sheet = { ...sheet, actionChecks };
     });
+
+    fetchCharacterSheet(playerId, roomId)
+      .then((data) => {
+        sheet = data?.data ?? null;
+      })
+      .catch((err) => console.error('Failed to load character sheet (compact):', err));
+
+    // Reconcile poll: guarantees the diamonds follow the main sheet even if
+    // BroadcastChannel/realtime don't deliver in this frame.
+    const pollTimer = setInterval(async () => {
+      if (!sheet || document.hidden || saveInFlight) return;
+      try {
+        const data = await fetchCharacterSheet(playerId, roomId);
+        const remote = data?.data?.actionChecks;
+        if (remote && JSON.stringify(remote) !== JSON.stringify(sheet.actionChecks ?? {})) {
+          sheet = { ...sheet, actionChecks: remote };
+        }
+      } catch {
+        /* offline — keep current state */
+      }
+    }, 2000);
+
     OBR.onReady(async () => {
       try {
         expandedHeight = (await OBR.popover.getHeight(popoverId)) || expandedHeight;
@@ -72,6 +90,7 @@
     return () => {
       unsubscribe();
       offBroadcast();
+      clearInterval(pollTimer);
     };
   });
 
@@ -98,13 +117,19 @@
   }
 
   // ─── Per-turn action diamonds (toggle + persist + instant main-sheet sync, no reset logic) ───
+  let saveInFlight = false;
   function toggleActionCheck(key) {
     if (!sheet) return;
     const current = sheet.actionChecks ?? {};
     const next = { ...sheet, actionChecks: { ...current, [key]: !current[key] } };
     sheet = next;
-    broadcastActionChecks(next.actionChecks);
-    saveCharacterSheet(playerId, roomId, next).catch(console.error);
+    broadcastActionChecks(playerId, next.actionChecks);
+    saveInFlight = true;
+    saveCharacterSheet(playerId, roomId, next)
+      .catch(console.error)
+      .finally(() => {
+        saveInFlight = false;
+      });
   }
 
   // Max-value roll ("crit"): a die equal to its formula's die size (d20 → 20, d6 → 6, …)
@@ -122,7 +147,8 @@
         label,
         ...result,
         time: new Date().toLocaleTimeString(),
-        crit: critRoll(result.formula, result.rolls)
+        crit: critRoll(result.formula, result.rolls),
+        fail: result.rolls.some((r) => Number(r) === 1)
       };
       dispatch(roomId, {
         type: 'USE_CAPACITY',
@@ -271,10 +297,10 @@
           <div class="text-[10px] text-red-300">Formule invalide : {lastRoll.error}</div>
         {:else}
           <div class="flex items-center gap-2.5">
-            <div class="text-2xl font-bold leading-none {lastRoll.crit ? 'crit-flash' : 'text-indigo-300'}">{lastRoll.total}</div>
+            <div class="text-2xl font-bold leading-none {lastRoll.crit ? 'crit-flash' : lastRoll.fail ? 'fail-flash' : 'text-indigo-300'}">{lastRoll.total}</div>
             <div class="min-w-0">
               <div class="text-[10px] font-semibold truncate">{lastRoll.label}</div>
-              <div class="text-[9px] truncate {lastRoll.crit ? 'text-amber-400' : 'text-[#9ca3af]'}">
+              <div class="text-[9px] truncate {lastRoll.crit ? 'text-amber-400' : lastRoll.fail ? 'text-red-400' : 'text-[#9ca3af]'}">
                 {lastRoll.formula}: {(lastRoll.rolls ?? []).join(', ')}{lastRoll.modifier ? ` ${lastRoll.modifier > 0 ? '+' : ''}${lastRoll.modifier}` : ''} · {lastRoll.time}
               </div>
             </div>
@@ -293,6 +319,14 @@
   @keyframes crit-flash {
     0%, 100% { text-shadow: 0 0 0 rgba(251, 191, 36, 0); }
     50% { text-shadow: 0 0 14px rgba(251, 191, 36, 0.9); }
+  }
+  .fail-flash {
+    color: #f87171;
+    animation: fail-flash 0.8s ease-in-out 3;
+  }
+  @keyframes fail-flash {
+    0%, 100% { text-shadow: 0 0 0 rgba(248, 113, 113, 0); }
+    50% { text-shadow: 0 0 14px rgba(248, 113, 113, 0.9); }
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 4px;

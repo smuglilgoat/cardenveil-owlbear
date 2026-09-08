@@ -83,6 +83,29 @@
         0%, 100% { text-shadow: 0 0 0 rgba(251, 191, 36, 0); }
         50% { text-shadow: 0 0 16px rgba(251, 191, 36, 0.9); }
       }
+      /* Natural 1: red flash */
+      .die.fail {
+        background: #7f1d1d;
+        border-color: #f87171;
+        color: #fecaca;
+        animation:
+          tumble 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) forwards,
+          fail-glow 0.7s ease-in-out 3;
+      }
+      .total.fail {
+        color: #f87171;
+        animation:
+          pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) forwards,
+          fail-text-glow 0.8s ease-in-out 3;
+      }
+      @keyframes fail-glow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
+        50% { box-shadow: 0 0 14px 4px rgba(248, 113, 113, 0.8); }
+      }
+      @keyframes fail-text-glow {
+        0%, 100% { text-shadow: 0 0 0 rgba(248, 113, 113, 0); }
+        50% { text-shadow: 0 0 16px rgba(248, 113, 113, 0.9); }
+      }
     </style>
   </head>
   <body>
@@ -104,6 +127,8 @@
       const critMatch = formula.match(/d\s*(\d+)/i);
       const critSides = critMatch ? parseInt(critMatch[1], 10) : null;
       const isCrit = (r) => critSides != null && parseInt(r, 10) === critSides;
+      // Natural 1 ("fail"): a die showing 1
+      const isFail = (r) => parseInt(r, 10) === 1;
 
       document.getElementById('label').textContent = label;
       const row = document.getElementById('dice-row');
@@ -120,7 +145,7 @@
         const shown = rolls.slice(0, 12);
         shown.forEach((r, i) => {
           const die = document.createElement('div');
-          die.className = isCrit(r) ? 'die crit' : 'die';
+          die.className = isCrit(r) ? 'die crit' : isFail(r) ? 'die fail' : 'die';
           die.style.animationDelay = `${i * 0.08}s`;
           die.textContent = r;
           row.appendChild(die);
@@ -132,8 +157,11 @@
           more.textContent = `+${rolls.length - shown.length}`;
           row.appendChild(more);
         }
+        // Crit (gold) takes precedence over natural 1 (red) for the total
         if (rolls.some(isCrit)) {
           totalEl.classList.add('crit');
+        } else if (rolls.some(isFail)) {
+          totalEl.classList.add('fail');
         }
         totalEl.style.animationDelay = `${0.45 + (shown.length + 1) * 0.08}s`;
         totalEl.textContent = total != null && total !== '' ? total : '—';

@@ -783,14 +783,18 @@ export function rollDice(formula, stats = {}) {
 const SHEET_SYNC_CHANNEL =
   typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cardenveil-sheet') : null;
 
-export function broadcastActionChecks(actionChecks) {
-  SHEET_SYNC_CHANNEL?.postMessage({ type: 'actionChecks', actionChecks });
+export function broadcastActionChecks(playerId, actionChecks) {
+  SHEET_SYNC_CHANNEL?.postMessage({ type: 'actionChecks', playerId, actionChecks });
 }
 
-export function onActionChecksBroadcast(handler) {
+export function onActionChecksBroadcast(playerId, handler) {
   if (!SHEET_SYNC_CHANNEL) return () => {};
   const listener = (event) => {
-    if (event.data?.type === 'actionChecks' && event.data.actionChecks) {
+    if (
+      event.data?.type === 'actionChecks' &&
+      event.data.playerId === playerId &&
+      event.data.actionChecks
+    ) {
       handler(event.data.actionChecks);
     }
   };

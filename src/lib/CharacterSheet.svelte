@@ -124,7 +124,7 @@
       });
 
       // Instant sync of the action diamonds from the sheet popover
-      const offBroadcast = onActionChecksBroadcast((actionChecks) => {
+      const offBroadcast = onActionChecksBroadcast(playerId, (actionChecks) => {
         if (sheet && !isEditing) {
           sheet = { ...sheet, actionChecks };
         }
@@ -443,7 +443,7 @@
     if (isEditing) return;
     const current = sheet?.actionChecks ?? {};
     sheet = { ...sheet, actionChecks: { ...current, [key]: !current[key] } };
-    broadcastActionChecks(sheet.actionChecks);
+    broadcastActionChecks(playerId, sheet.actionChecks);
     saveCharacterSheet(playerId, roomId, sheet).catch(console.error);
   }
 
