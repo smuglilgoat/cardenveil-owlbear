@@ -73,3 +73,15 @@ turns; my first commit landed on main by mistake — moved to branch
 - User manually tuned the sheet popover anchor to vw-70 (commits
   9b29a4e, f710b2c); fold work committed on top (57db1f2).
 - Tests 97/97, build OK.
+
+## Addendum 3 — Fold reliability + visibility (2026-09-08)
+- User reported hand popover buttons disappearing: root cause was fold
+  collapsing the DOM while OBR.popover.setHeight silently didn't apply
+  (body overflow:hidden in hand.css clips at iframe bounds). Fix: toggle
+  now verifies with getHeight that the resize took effect before folding
+  the DOM; on failure it stays unfolded with a console warning.
+- Hand fold control enlarged to a labeled '▾ Replier' pill (top-right);
+  folded height 56 (pill fits).
+- Sheet anchor moved to left: vw (user had tuned to vw-70, requested 70px
+  more to the right).
+- Commit 24937f1 on main.
