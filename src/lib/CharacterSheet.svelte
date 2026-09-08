@@ -439,7 +439,7 @@
         url: `${window.location.origin}/sheet.html?playerId=${encodeURIComponent(playerId)}&roomId=${encodeURIComponent(roomId)}`,
         width: 380,
         height: 540,
-        anchorPosition: { left: vw, top: 0 },
+        anchorPosition: { left: vw - 30, top: 0 },
         anchorOrigin: { horizontal: 'RIGHT', vertical: 'TOP' },
         transformOrigin: { horizontal: 'RIGHT', vertical: 'TOP' },
         disableClickAway: true
