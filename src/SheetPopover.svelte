@@ -17,6 +17,7 @@
     suitColor,
     suitSymbol,
     toNumber,
+    isImageUrl,
     broadcastActionChecks,
     onActionChecksBroadcast
   } from './lib/characterSheet.js';
@@ -204,8 +205,10 @@
     <div class="px-3 pt-3 pb-2 border-b border-[#374151] bg-[#1f2937] shrink-0">
       <div class="flex items-center gap-2.5">
         <div class="w-10 h-12 bg-[#111827] rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
-          {#if sheet.portrait}
+          {#if sheet.portrait && isImageUrl(sheet.portrait)}
             <img src={sheet.portrait} alt="Portrait" class="w-full h-full object-cover" />
+          {:else if sheet.portrait}
+            <span class="text-xl leading-none">{sheet.portrait}</span>
           {:else}
             <span class="text-[7px] font-bold text-[#9ca3af]">PORTRAIT</span>
           {/if}
@@ -291,6 +294,9 @@
           use:tooltip={stripHtml(sheet.totem.description)}
           class="bg-indigo-600 rounded-md px-2.5 py-1.5 text-[9px] font-bold truncate cursor-help"
         >
+          {#if sheet.totem?.image && !isImageUrl(sheet.totem.image)}
+            <span class="mr-1">{sheet.totem.image}</span>
+          {/if}
           TOTEM &nbsp;{sheet.totem.nom}
         </div>
       {/if}

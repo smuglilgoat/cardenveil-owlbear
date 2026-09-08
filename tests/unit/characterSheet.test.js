@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -533,6 +533,22 @@ describe('Character Sheet dice helpers', () => {
       expect(calc.mouvement).toBe(13);
       expect(calc.seuilMiss).toBe(1);
       expect(calc.bonusAttaque).toBe(0);
+    });
+  });
+
+  describe('isImageUrl', () => {
+    it('should detect URLs and data URIs', () => {
+      expect(isImageUrl('https://example.com/a.png')).toBe(true);
+      expect(isImageUrl('http://example.com/a.png')).toBe(true);
+      expect(isImageUrl('data:image/png;base64,abc')).toBe(true);
+      expect(isImageUrl('/cards/a.png')).toBe(true);
+    });
+
+    it('should treat non-URL values as emoji/glyphs', () => {
+      expect(isImageUrl('🐉')).toBe(false);
+      expect(isImageUrl('⚔️')).toBe(false);
+      expect(isImageUrl('')).toBe(false);
+      expect(isImageUrl(null)).toBe(false);
     });
   });
 });

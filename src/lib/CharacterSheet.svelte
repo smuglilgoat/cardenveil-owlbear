@@ -21,6 +21,7 @@
     subscribeToCharacterSheet,
     suitColor,
     suitSymbol,
+    isImageUrl,
     syncSkillBonuses,
     syncStatsFromEquipment,
     broadcastActionChecks,
@@ -584,8 +585,10 @@
       <div class="flex items-center gap-3">
         <!-- Portrait -->
         <div class="w-14 h-16 bg-[#111827] rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
-          {#if view.portrait}
+          {#if view.portrait && isImageUrl(view.portrait)}
             <img src={view.portrait} alt="Portrait" class="w-full h-full object-cover" />
+          {:else if view.portrait}
+            <span class="text-2xl leading-none">{view.portrait}</span>
           {:else}
             <span class="text-[8px] font-bold text-[#9ca3af]">PORTRAIT</span>
           {/if}
@@ -799,8 +802,10 @@
               <div class="capacity-card bg-[#111827] rounded-lg p-2.5 hover:bg-[#374151] transition-colors">
                 <div class="flex gap-2.5">
                   <div class="w-14 h-14 @2xl:w-20 @2xl:h-20 bg-indigo-600 rounded-md flex items-center justify-center shrink-0 overflow-hidden">
-                    {#if capacity.image}
+                    {#if capacity.image && isImageUrl(capacity.image)}
                       <img src={capacity.image} alt={capacity.name || 'Capacité'} class="w-full h-full object-cover" />
+                    {:else if capacity.image}
+                      <span class="text-2xl leading-none">{capacity.image}</span>
                     {:else}
                       <span class="text-[9px] font-bold text-[#9ca3af]">IMAGE</span>
                     {/if}
@@ -860,8 +865,21 @@
           <!-- Totem -->
           <div class="bg-[#111827] rounded-lg p-3 mt-5">
             <div class="text-[10px] font-bold text-[#9ca3af] mb-2.5">TOTEM</div>
-            <div class="text-xs font-bold">{view.totem?.nom || '—'}</div>
-            <div class="text-[10px] text-[#9ca3af] whitespace-pre-wrap mt-1">{view.totem?.description || '—'}</div>
+            <div class="flex gap-3 items-start">
+              <div class="w-14 h-14 bg-[#1f2937] rounded-md flex items-center justify-center shrink-0 overflow-hidden">
+                {#if view.totem?.image && isImageUrl(view.totem.image)}
+                  <img src={view.totem.image} alt="Totem" class="w-full h-full object-cover" />
+                {:else if view.totem?.image}
+                  <span class="text-2xl leading-none">{view.totem.image}</span>
+                {:else}
+                  <span class="text-xl text-[#4b5563]">◈</span>
+                {/if}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold">{view.totem?.nom || '—'}</div>
+                <div class="text-[10px] text-[#9ca3af] whitespace-pre-wrap mt-1">{view.totem?.description || '—'}</div>
+              </div>
+            </div>
           </div>
 
           {#if diceResult}
@@ -1109,7 +1127,7 @@
                 </div>
               {/each}
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Portrait (URL)</label>
+                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Portrait (URL ou emoji)</label>
                 <input type="text" bind:value={editSheet.portrait} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
@@ -1273,7 +1291,7 @@
                     ></textarea>
                     <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2">
                       <div>
-                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">IMAGE (URL)</label>
+                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">IMAGE (URL ou emoji)</label>
                         <input type="text" bind:value={editSheet.capacities[i].image} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
                       </div>
                       <div>
@@ -1313,8 +1331,16 @@
 
               <div class="bg-[#111827] rounded-lg p-3 mt-3">
                 <div class="text-[10px] font-bold text-[#9ca3af] mb-2">TOTEM</div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">Nom</label>
-                <input type="text" bind:value={editSheet.totem.nom} class="w-full px-3 py-1.5 bg-[#242424] border border-[#374151] rounded text-xs focus:outline-none focus:border-indigo-500 mb-2" />
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">Nom</label>
+                    <input type="text" bind:value={editSheet.totem.nom} class="w-full px-3 py-1.5 bg-[#242424] border border-[#374151] rounded text-xs focus:outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">Image (URL ou emoji)</label>
+                    <input type="text" bind:value={editSheet.totem.image} class="w-full px-3 py-1.5 bg-[#242424] border border-[#374151] rounded text-xs focus:outline-none focus:border-indigo-500" />
+                  </div>
+                </div>
                 <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">Description</label>
                 <textarea bind:value={editSheet.totem.description} class="w-full px-3 py-2 bg-[#242424] border border-[#374151] rounded text-xs focus:outline-none focus:border-indigo-500" rows="3"></textarea>
               </div>

@@ -77,6 +77,16 @@ export function suitColor(color) {
 }
 
 /**
+ * Whether an image-slot value is a URL (vs an emoji/glyph to render as text).
+ * @param {unknown} value - Portrait/capacity/totem image value
+ * @returns {boolean}
+ */
+export function isImageUrl(value) {
+  const v = String(value ?? '');
+  return /^https?:\/\//i.test(v) || v.startsWith('data:') || v.startsWith('/');
+}
+
+/**
  * Detect the action type of a capacity from its free-text usage field.
  * "Bonus action" must be checked before "action"; "Réaction" before both.
  * @param {string} usage - Free-text usage (e.g. "Bonus action / Concentration")
@@ -784,7 +794,11 @@ const SHEET_SYNC_CHANNEL =
   typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cardenveil-sheet') : null;
 
 export function broadcastActionChecks(playerId, actionChecks) {
-  SHEET_SYNC_CHANNEL?.postMessage({ type: 'actionChecks', playerId, actionChecks });
+  // postMessage uses structured clone, which throws "Proxy object could not
+  // be cloned" on Svelte $state proxies — strip reactivity with a JSON
+  // round-trip before posting.
+  const plain = JSON.parse(JSON.stringify(actionChecks ?? {}));
+  SHEET_SYNC_CHANNEL?.postMessage({ type: 'actionChecks', playerId, actionChecks: plain });
 }
 
 export function onActionChecksBroadcast(playerId, handler) {
