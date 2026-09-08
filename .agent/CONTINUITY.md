@@ -24,7 +24,7 @@
 - `[2026-06-16T23:00Z]` `[USER]` pendingHalfling blocks everything for that player including GM DEAL_ALL
 - `[2026-06-16T23:00Z]` `[USER]` Aasimar triggers on USE_ESPRIT (spending slot), NOT on CRYSTALLIZE
 - `[2026-06-16T23:00Z]` `[USER]` Tooltips: 0.5s hover delay, all buttons, French text, spec-driven content
-- `[2026-06-16T23:00Z]` `[CODE]` `handCap()` helper centralizes hand size formula: `maxHandSize + spiritBounds + (race === 'haut-elfe' ? 1 : 0)`
+- `[2026-06-16T23:30Z]` `[CODE]` `handCap()` helper centralizes hand size formula: `maxHandSize + spiritBounds + (race === 'haut-elfe' ? 1 : 0)` — now lives ONLY in `deck.js`; netlify/supabase copies are shims over it
 - `[2026-06-16T23:00Z]` `[CODE]` `maybeAasimarHeart()` helper appends crystallized Heart if player race is 'aasimar'
 - `[2026-06-16T23:30Z]` `[CODE]` `tooltip.js` Svelte action: positioned div, auto-flips at viewport edge, 500ms delay, max-width 220px, dark theme
 - `[2026-06-17T18:55Z]` `[USER]` Only GM inputs initiative tracker URL; it shows on every player screen via shared state
@@ -34,6 +34,7 @@
 - `[2026-06-17T19:28Z]` `[CODE]` Moved `maybeAasimarHeart` call from PROPOSE_EXCHANGE to ACCEPT_EXCHANGE for sender. Updated optimistic UI to look up exchange sender.
 
 ## [PROGRESS]
+- `[MILESTONE]` Over-engineering audit applied (2026-09-08, branch `agent/audit-cuts`, merged fast-forward to main as `35c682e`, −2706 lines): reducer deduped — `netlify/functions/_gameLogic.js` and `supabase/functions/action/_gameLogic.ts` are now one-line shims re-exporting `src/lib/deck.js` (logic verified identical before cut; UNCONFIRMED that Supabase deploy bundles the out-of-function relative import — verify on first `supabase functions deploy`); deleted orphaned `handScene.js`+`cardSvg.js`, `Counter.svelte`, stale `SUPABASE.md`/`BLOB.md`, `tests/api`+`tests/integration` empty dirs, Zone.Identifier junk; deck.js lost dead `shuffle`/`createNormalDeck`/`createSpecializedDecks`/`isPendingCard`; `SKILL_GROUPS`/`SKILL_LABELS` now derived from single `SKILL_TO_STAT` map; `paradeTotal` inlined in GMDashboard; BroadcastChannel actionChecks transport removed (realtime + 1.5s reconcile poll remain — diamond sync now relies on those, worst-case 1.5s latency); `SUITS_INFO` shared from deck.js; HandPopover reuses `sortCards`; `crystalPickOpen` dead state removed. Tests 122→117 (−3 shuffle, −2 paradeTotal), all passing; production build clean. AGENTS.md updated (handScene/BLOB references removed).
 - `[MILESTONE]` Character sheet system (multi-session arc): Supabase-backed sheets, CRUD/import, GM dashboard, dice rolling (stat formulas + multipliers), USE_CAPACITY reducer, base64-strip import, equipment↔derived stat sync — merged to main at `1cd48fb`
 - `[MILESTONE]` Character sheet Figma UI restyle: 3-zone layout matching `docs/character-sheet-prototype.html`, merged to main (2026-09-08)
 - `[MILESTONE]` Character sheet polish (2026-09-08, merged to main): animated dice popup via OBR.popover (new `dice.html` entry, auto-close 6s, inline fallback), 📌 favorites persisted (pinnedSkills/pinnedCapacities), app palette (#242424/gray/indigo) replacing Figma palette, app font (Inter removed), suit-colored COÛT with card-type symbol, compact header (~half the height), icon-only top-bar buttons when narrow
@@ -53,6 +54,8 @@
 - `[2026-09-08T13:00Z]` `[CODE]` NOTE: the environment resets the working branch to `main` between agent turns; user merges feature branches to main externally. Entries below mention "NOT merged" states may already be on main.
 
 ## [DISCOVERIES]
+- `[2026-09-08T21:00Z]` `[CODE]` The single reducer source of truth is now `src/lib/deck.js`; server copies are re-export shims. Any new action type or reducer change goes there only — no more triple-file sync.
+- `[2026-09-08T21:00Z]` `[CODE]` `supabase/functions/action/` DOES exist in-repo (`index.ts` + `_gameLogic.ts`) and is the primary dispatch path invoked by `api.js` (`supabase.functions.invoke('action')`); Netlify `/api/state` POST is the fallback.
 - `[2026-06-16T23:00Z]` `[CODE]` `_gameLogic.js` (server) and `deck.js` (client) are duplicated — both must stay in sync for `createEmptyPlayer`, `hydrateState`, `applyAction`, `handCap`, `maybeAasimarHeart`
 - `[2026-06-16T23:00Z]` `[CODE]` `PlayerHand.svelte` and `HandPopover.svelte` are duplicated UI — both need race passive UI updates
 - `[2026-06-16T23:00Z]` `[CODE]` Pre-existing LSP errors (implicit `any` types in Svelte) are not caused by race changes
