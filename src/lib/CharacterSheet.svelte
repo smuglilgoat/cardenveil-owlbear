@@ -5,6 +5,7 @@
     STAT_COLORS,
     SKILL_GROUPS,
     SKILL_LABELS,
+    ACTION_CHECKS,
     colorLabel,
     capacityType,
     fetchCharacterSheet,
@@ -425,6 +426,14 @@
     saveCharacterSheet(playerId, roomId, next).catch(console.error);
   }
 
+  // ─── Per-turn action diamonds (toggle + persist, no reset logic) ───
+  function toggleActionCheck(key) {
+    if (isEditing) return;
+    const current = sheet?.actionChecks ?? {};
+    sheet = { ...sheet, actionChecks: { ...current, [key]: !current[key] } };
+    saveCharacterSheet(playerId, roomId, sheet).catch(console.error);
+  }
+
   // ─── Compact sheet popover (basic info + favorited rolls) ───
   async function toggleSheetPopover() {
     try {
@@ -738,6 +747,26 @@
           <p class="text-[10px] text-[#9ca3af] mb-3">
             La valeur en dés est l'élément automatisable et cliquable.
           </p>
+
+          <!-- Per-turn action diamonds -->
+          <div class="inline-flex items-center gap-5 bg-[#1f2937] rounded-lg px-3.5 py-2 mb-3">
+            {#each ACTION_CHECKS as ac}
+              <button
+                onclick={() => toggleActionCheck(ac.key)}
+                title={ac.label}
+                class="group flex items-center gap-2.5"
+              >
+                <span
+                  class="w-3 h-3 rotate-45 rounded-[2px] border-2 transition-colors {view.actionChecks?.[ac.key]
+                    ? 'bg-indigo-500 border-indigo-300'
+                    : 'bg-transparent border-[#4b5563] group-hover:border-[#9ca3af]'}"
+                ></span>
+                <span class="text-[10px] font-bold tracking-wide {view.actionChecks?.[ac.key] ? 'text-white' : 'text-[#9ca3af]'}">
+                  {ac.label}
+                </span>
+              </button>
+            {/each}
+          </div>
 
           <!-- Free roll -->
           <div class="flex gap-2 mb-3">

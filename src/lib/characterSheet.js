@@ -57,6 +57,13 @@ export const SUIT_LABELS = { heart: 'Cœur', spade: 'Pique', diamond: 'Carreau',
 export const SUIT_SYMBOLS = { heart: '♥', spade: '♠', diamond: '♦', club: '♣' };
 export const SUIT_COLORS = { heart: '#f87171', spade: '#e5e7eb', diamond: '#fbbf24', club: '#4ade80' };
 
+// Per-turn action tracker (3 diamond checkboxes, display only — no reset logic)
+export const ACTION_CHECKS = [
+  { key: 'action', label: 'ACTION' },
+  { key: 'bonus', label: 'BONUS ACTION' },
+  { key: 'reaction', label: 'RÉACTION' }
+];
+
 export function colorLabel(color) {
   return SUIT_LABELS[(color || '').toLowerCase()] || color || '—';
 }
@@ -233,7 +240,8 @@ export function createEmptyCharacterSheet() {
     evolutions: [],
     notes: '',
     pinnedSkills: [],
-    pinnedCapacities: []
+    pinnedCapacities: [],
+    actionChecks: { action: false, bonus: false, reaction: false }
   };
 }
 

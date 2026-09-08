@@ -6,9 +6,11 @@
     STAT_COLORS,
     SKILL_GROUPS,
     SKILL_LABELS,
+    ACTION_CHECKS,
     fetchCharacterSheet,
     isDiceFormula,
     rollDice,
+    saveCharacterSheet,
     skillModifier,
     subscribeToCharacterSheet,
     suitColor,
@@ -79,6 +81,15 @@
 
   function skillMod(skillKey) {
     return skillModifier(sheet?.stats ?? {}, skillKey, sheet?.skills?.[skillKey]?.bonus ?? 0);
+  }
+
+  // ─── Per-turn action diamonds (toggle + persist, no reset logic) ───
+  function toggleActionCheck(key) {
+    if (!sheet) return;
+    const current = sheet.actionChecks ?? {};
+    const next = { ...sheet, actionChecks: { ...current, [key]: !current[key] } };
+    sheet = next;
+    saveCharacterSheet(playerId, roomId, next).catch(console.error);
   }
 
   function doRoll(label, formula) {
@@ -162,6 +173,25 @@
               <span class="text-[10px] text-white">{fmt(statMod(stat))}</span>
             </div>
           </div>
+        {/each}
+      </div>
+      <!-- Per-turn action diamonds -->
+      <div class="flex items-center gap-4 mt-2 pt-2 border-t border-[#374151]">
+        {#each ACTION_CHECKS as ac}
+          <button
+            onclick={() => toggleActionCheck(ac.key)}
+            title={ac.label}
+            class="group flex items-center gap-1.5"
+          >
+            <span
+              class="w-2.5 h-2.5 rotate-45 rounded-[2px] border-2 transition-colors {sheet.actionChecks?.[ac.key]
+                ? 'bg-indigo-500 border-indigo-300'
+                : 'bg-transparent border-[#4b5563] group-hover:border-[#9ca3af]'}"
+            ></span>
+            <span class="text-[9px] font-bold tracking-wide {sheet.actionChecks?.[ac.key] ? 'text-white' : 'text-[#9ca3af]'}">
+              {ac.label}
+            </span>
+          </button>
         {/each}
       </div>
     </div>
