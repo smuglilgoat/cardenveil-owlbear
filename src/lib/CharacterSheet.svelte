@@ -23,6 +23,8 @@
     suitSymbol,
     syncSkillBonuses,
     syncStatsFromEquipment,
+    broadcastActionChecks,
+    onActionChecksBroadcast,
     toNumber
   } from './characterSheet.js';
 
@@ -121,7 +123,17 @@
         }
       });
 
-      return unsubscribe;
+      // Instant sync of the action diamonds from the sheet popover
+      const offBroadcast = onActionChecksBroadcast((actionChecks) => {
+        if (sheet && !isEditing) {
+          sheet = { ...sheet, actionChecks };
+        }
+      });
+
+      return () => {
+        unsubscribe();
+        offBroadcast();
+      };
     } catch (err) {
       console.error('Failed to load character sheet:', err);
       sheet = createEmptyCharacterSheet();
@@ -426,11 +438,12 @@
     saveCharacterSheet(playerId, roomId, next).catch(console.error);
   }
 
-  // ─── Per-turn action diamonds (toggle + persist, no reset logic) ───
+  // ─── Per-turn action diamonds (toggle + persist + instant popover sync, no reset logic) ───
   function toggleActionCheck(key) {
     if (isEditing) return;
     const current = sheet?.actionChecks ?? {};
     sheet = { ...sheet, actionChecks: { ...current, [key]: !current[key] } };
+    broadcastActionChecks(sheet.actionChecks);
     saveCharacterSheet(playerId, roomId, sheet).catch(console.error);
   }
 

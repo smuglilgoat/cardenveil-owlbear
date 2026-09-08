@@ -775,6 +775,30 @@ export function rollDice(formula, stats = {}) {
 }
 
 /**
+ * Instant same-origin sync for the per-turn action diamonds between the
+ * main panel and the sheet popover (both are same-origin iframes).
+ * Complements Supabase realtime: broadcast is instant locally, realtime
+ * covers cross-client. Applies are local-only — no re-save, no loops.
+ */
+const SHEET_SYNC_CHANNEL =
+  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cardenveil-sheet') : null;
+
+export function broadcastActionChecks(actionChecks) {
+  SHEET_SYNC_CHANNEL?.postMessage({ type: 'actionChecks', actionChecks });
+}
+
+export function onActionChecksBroadcast(handler) {
+  if (!SHEET_SYNC_CHANNEL) return () => {};
+  const listener = (event) => {
+    if (event.data?.type === 'actionChecks' && event.data.actionChecks) {
+      handler(event.data.actionChecks);
+    }
+  };
+  SHEET_SYNC_CHANNEL.addEventListener('message', listener);
+  return () => SHEET_SYNC_CHANNEL.removeEventListener('message', listener);
+}
+
+/**
  * Subscribe to realtime updates for a character sheet
  * @param {string} playerId - OBR player ID
  * @param {string} roomId - OBR room ID

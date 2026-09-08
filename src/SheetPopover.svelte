@@ -15,7 +15,9 @@
     subscribeToCharacterSheet,
     suitColor,
     suitSymbol,
-    toNumber
+    toNumber,
+    broadcastActionChecks,
+    onActionChecksBroadcast
   } from './lib/characterSheet.js';
 
   const params = new URLSearchParams(location.search);
@@ -55,6 +57,10 @@
     const unsubscribe = subscribeToCharacterSheet(playerId, roomId, (newData) => {
       if (newData) sheet = newData.data;
     });
+    // Instant sync of the action diamonds from the main sheet
+    const offBroadcast = onActionChecksBroadcast((actionChecks) => {
+      if (sheet) sheet = { ...sheet, actionChecks };
+    });
     OBR.onReady(async () => {
       try {
         expandedHeight = (await OBR.popover.getHeight(popoverId)) || expandedHeight;
@@ -62,7 +68,10 @@
         /* popover resize not available */
       }
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      offBroadcast();
+    };
   });
 
   function statMod(stat) {
@@ -83,12 +92,13 @@
     return skillModifier(sheet?.stats ?? {}, skillKey, sheet?.skills?.[skillKey]?.bonus ?? 0);
   }
 
-  // ─── Per-turn action diamonds (toggle + persist, no reset logic) ───
+  // ─── Per-turn action diamonds (toggle + persist + instant main-sheet sync, no reset logic) ───
   function toggleActionCheck(key) {
     if (!sheet) return;
     const current = sheet.actionChecks ?? {};
     const next = { ...sheet, actionChecks: { ...current, [key]: !current[key] } };
     sheet = next;
+    broadcastActionChecks(next.actionChecks);
     saveCharacterSheet(playerId, roomId, next).catch(console.error);
   }
 
