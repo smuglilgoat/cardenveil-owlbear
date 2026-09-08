@@ -3,7 +3,7 @@
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
   import ActionLog from "./ActionLog.svelte";
-  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES } from "./deck.js";
+  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./deck.js";
   import { tooltip } from "./tooltip.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY } from "./characterSheet.js";
 
@@ -195,12 +195,7 @@
     );
   }
 
-  const SUITS_INFO = [
-    { symbol: "♠", label: "Piques", isRed: false },
-    { symbol: "♣", label: "Trèfles", isRed: false },
-    { symbol: "♥", label: "Cœurs", isRed: true },
-    { symbol: "♦", label: "Carreaux", isRed: true },
-  ];
+
 
   const TOKEN_COLOR = /** @type {{ [key: string]: string }} */ ({
     force: "#ef4444",

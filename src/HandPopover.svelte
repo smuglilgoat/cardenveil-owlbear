@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
-  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES } from "./lib/deck.js";
+  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./lib/deck.js";
   import { startRealtime, stopRealtime, dispatch, fetchState } from "./lib/api.js";
   import { tooltip } from "./lib/tooltip.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY } from "./lib/characterSheet.js";
@@ -123,13 +123,10 @@
 
   let allCards = $derived(
     player
-      ? [
-          ...player.hand.map((c) => ({ card: c, isCrystallized: false })),
-          ...player.crystallized.map((c) => ({ card: c, isCrystallized: true })),
-        ].sort((a, b) => {
-          const suitOrder = { '♥': 0, '♣': 1, '♦': 2, '♠': 3 };
-          return (suitOrder[a.card.suit] - suitOrder[b.card.suit]) || (a.card.numericValue - b.card.numericValue);
-        })
+      ? sortCards([...player.hand, ...player.crystallized]).map((c) => ({
+          card: c,
+          isCrystallized: player.crystallized.includes(c),
+        }))
       : [],
   );
 
@@ -333,12 +330,6 @@
     );
   }
 
-  const SUITS_INFO = [
-    { symbol: "♠", label: "Piques", isRed: false },
-    { symbol: "♣", label: "Trèfles", isRed: false },
-    { symbol: "♥", label: "Cœurs", isRed: true },
-    { symbol: "♦", label: "Carreaux", isRed: true },
-  ];
 
   const TOKEN_COLOR = /** @type {{ [key: string]: string }} */ ({
     force: "#ef4444",

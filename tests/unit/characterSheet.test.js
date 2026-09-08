@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -335,19 +335,6 @@ describe('Character Sheet dice helpers', () => {
       expect(toNumber(null)).toBe(0);
       expect(toNumber(undefined)).toBe(0);
       expect(toNumber('abc')).toBe(0);
-    });
-  });
-
-  describe('paradeTotal', () => {
-    it('should sum deflexion, garde and bonus', () => {
-      expect(paradeTotal({ deflexion: 2, gardeBonus: 3, bonus: 4 })).toBe(9);
-      expect(paradeTotal({ deflexion: '1', gardeBonus: '', bonus: null })).toBe(1);
-    });
-
-    it('should return 0 without defense data', () => {
-      expect(paradeTotal(null)).toBe(0);
-      expect(paradeTotal(undefined)).toBe(0);
-      expect(paradeTotal({})).toBe(0);
     });
   });
 

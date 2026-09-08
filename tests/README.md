@@ -58,7 +58,6 @@ Tests for the core game logic in `netlify/functions/_gameLogic.js`:
 #### `deck.test.js`
 Tests for deck utilities in `src/lib/deck.js`:
 - `sortCards()` - Card sorting by suit and value
-- `shuffle()` - Array shuffling
 - `makePendingCard()` - Pending card creation
 - `handCap()` - Hand capacity calculation
 - Constants (GM_CHAR_ID, RACES, FATIGUE_PENALTY)

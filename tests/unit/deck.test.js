@@ -1,6 +1,5 @@
 import {
   sortCards,
-  shuffle,
   makePendingCard,
   handCap,
   GM_CHAR_ID,
@@ -38,30 +37,6 @@ describe('Deck Utilities', () => {
       const sorted = sortCards(cards);
 
       expect(sorted[2]._pending).toBe(true);
-    });
-  });
-
-  describe('shuffle', () => {
-    it('should return array of same length', () => {
-      const arr = [1, 2, 3, 4, 5];
-      const shuffled = shuffle(arr);
-
-      expect(shuffled.length).toBe(arr.length);
-    });
-
-    it('should contain all original elements', () => {
-      const arr = [1, 2, 3, 4, 5];
-      const shuffled = shuffle(arr);
-
-      expect(shuffled.sort()).toEqual(arr.sort());
-    });
-
-    it('should not mutate original array', () => {
-      const arr = [1, 2, 3, 4, 5];
-      const original = [...arr];
-      shuffle(arr);
-
-      expect(arr).toEqual(original);
     });
   });
 

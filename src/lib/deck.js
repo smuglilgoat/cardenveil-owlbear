@@ -27,15 +27,6 @@ export function sortCards(cards) {
   });
 }
 
-export function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 }
@@ -45,11 +36,6 @@ let _pendingUid = 0;
 /** Create a placeholder card shown while waiting for the server to confirm a draw. */
 export function makePendingCard() {
   return { id: `pending-${Date.now()}-${++_pendingUid}`, _pending: true, suit: '', value: '?', numericValue: 0, isRed: false };
-}
-
-/** Check whether a card is a pending (unconfirmed) placeholder. */
-export function isPendingCard(card) {
-  return !!card._pending;
 }
 
 /** Create a specific card (by suit symbol + value) with a fresh unique ID. */
@@ -113,52 +99,16 @@ function toCard(item) {
   return typeof item === 'string' ? cardFromId(item) : item;
 }
 
-/**
- * Normal stack: 3 full 52-card decks shuffled together (156 cards).
- */
-export function createNormalDeck() {
-  const cards = [];
-  for (let copy = 1; copy <= 3; copy++) {
-    for (const suit of SUITS) {
-      for (let i = 0; i < VALUES.length; i++) {
-        cards.push({
-          id: `n-${suit.id}-${VALUES[i]}-${copy}`,
-          suit: suit.symbol,
-          value: VALUES[i],
-          numericValue: i + 1,
-          isRed: suit.isRed,
-        });
-      }
-    }
-  }
-  return shuffle(cards);
-}
-
-/**
- * Specialized stack: 3×52 cards split into 4 piles by suit (39 cards each).
- */
-export function createSpecializedDecks() {
-  const decks = {};
-  for (const suit of SUITS) {
-    const cards = [];
-    for (let copy = 1; copy <= 3; copy++) {
-      for (let i = 0; i < VALUES.length; i++) {
-        cards.push({
-          id: `s-${suit.id}-${VALUES[i]}-${copy}`,
-          suit: suit.symbol,
-          value: VALUES[i],
-          numericValue: i + 1,
-          isRed: suit.isRed,
-        });
-      }
-    }
-    decks[suit.symbol] = shuffle(cards);
-  }
-  return decks;
-}
-
 /** Reserved ID for the optional GM player-character */
 export const GM_CHAR_ID = '__gm_char__';
+
+/** Suit display info shared by the hand/GM UIs (labels in French). */
+export const SUITS_INFO = [
+  { symbol: '♠', label: 'Piques', isRed: false },
+  { symbol: '♣', label: 'Trèfles', isRed: false },
+  { symbol: '♥', label: 'Cœurs', isRed: true },
+  { symbol: '♦', label: 'Carreaux', isRed: true },
+];
 
 export const RACES = [
   { id: 'haut-elfe', label: 'Haut-Elfe' },

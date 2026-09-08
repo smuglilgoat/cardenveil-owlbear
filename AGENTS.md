@@ -21,18 +21,14 @@ JSDoc type checking is enabled via `jsconfig.json` (`checkJs: true`). JEST is co
 - **Tailwind CSS 4** via `@tailwindcss/vite` plugin (no PostCSS config).
 - **OBR SDK calls** are confined to `CardGame.svelte`, `PlayerHand.svelte`, and `HandPopover.svelte`. OBR is used **only** for identity (`player.getId()`, `player.getName()`, `player.getRole()`) and party info — **not** for state sync. Other components receive state + `onAction` callback as props — do not import OBR SDK in leaf components.
   - Exception: `src/lib/CharacterSheet.svelte` uses `OBR.popover` only, to open the animated dice-roll popup (`dice.html` entry) over the tabletop; falls back to an inline result panel if the popover fails.
-  - Exception: `src/lib/handScene.js` renders cards as OBR scene items and uses `buildImage` from the SDK; it is only called by `HandPopover.svelte`.
   - `src/lib/Counter.svelte` is a leftover demo and should not be used as a pattern.
-- **State sync**: all game state lives in **Netlify Blobs** (KV store), accessed via a server-authoritative Netlify Function (`netlify/functions/state.js`). Clients poll every 1.5s and dispatch actions via `POST /api/action`. The action reducer in `netlify/functions/_gameLogic.js` validates and applies all 28 action types atomically. Cards are dehydrated (objects → ID strings) before writing and rehydrated on read. Client-side API in `src/lib/api.js`. See `BLOB.md` for full architecture docs.
-- **Hand scene rendering**: `handScene.js` renders the player's hand as local OBR scene image items in a fan layout. Card image URLs **must** be absolute (`window.location.origin + '/cards/...'`) because OBR's image renderer fetches from its own service-worker context. See `src/lib/cardSvg.js`.
+- **State sync**: all game state lives in **Netlify Blobs** (KV store), accessed via a server-authoritative Netlify Function (`netlify/functions/state.js`). Clients poll every 1.5s and dispatch actions via `POST /api/action`. The action reducer in `netlify/functions/_gameLogic.js` validates and applies all 28 action types atomically. Cards are dehydrated (objects → ID strings) before writing and rehydrated on read. Client-side API in `src/lib/api.js`.
 - **GM character**: reserved ID `__gm_char__` (`GM_CHAR_ID` in `deck.js`) is used for an optional GM player character.
 - **Character sheets**: Stored in Supabase `character_sheets` table as JSONB documents. Each sheet is identified by `player_id` + `room_id` (unique constraint). Real-time sync via Supabase subscriptions. See "Character Sheet System" section below.
 
 ## Build-time codegen
 
 `scripts/generate-cards.js` pre-generates 104 card PNGs (52 normal + 52 crystallized) into `public/cards/` using `sharp`. This runs **automatically** via a custom Vite plugin (`generateCards()` in `vite.config.js`) on every build start. A dynamic manifest plugin generates `manifest.json` for OBR with dev/prod naming.
-
-**Critical coupling**: `PNG_W` / `PNG_H` in `scripts/generate-cards.js` must match `CARD_W` / `CARD_H` in `src/lib/handScene.js` (currently 120×180). Changing one without the other breaks the scene card rendering.
 
 ## Conventions
 

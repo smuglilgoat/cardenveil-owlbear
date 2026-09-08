@@ -13,7 +13,8 @@ const OUT = path.join(__dirname, '../public/cards');
 
 fs.mkdirSync(OUT, { recursive: true });
 
-// Output PNG dimensions — must match CARD_W / CARD_H in handScene.js
+// Output PNG dimensions (120×180) — historically matched the hand-scene
+// card size; keep in sync with any future scene renderer that consumes them.
 export const PNG_W = 120;
 export const PNG_H = 180;
 

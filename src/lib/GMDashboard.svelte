@@ -10,6 +10,7 @@
     fullDeck,
     fullSuit,
     GM_CHAR_ID,
+    SUITS_INFO,
     sortCards,
     FATIGUE_PENALTY,
     RACES,
@@ -21,7 +22,6 @@
     deleteCharacterSheet,
     createEmptyCharacterSheet,
     equipmentStats,
-    paradeTotal,
     skillModifier,
     syncSkillBonuses,
     syncStatsFromEquipment,
@@ -158,9 +158,6 @@
   let swapSource = $state(null); // 'normal' | '♠' | '♣' | '♥' | '♦'
   let swapStep = $state(0);
 
-  // Crystallized card picker
-  let crystalPickOpen = $state(false);
-
   // Player list: exclude the GM's own OBR ID and the GM character
   let partyIds = $derived(new Set(party.map((/** @type {any} */ p) => p.id)));
 
@@ -171,13 +168,6 @@
   );
 
   const DRAW_VALUES = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
-
-  const SUITS_INFO = [
-    { symbol: "♠", label: "Piques", isRed: false },
-    { symbol: "♣", label: "Trèfles", isRed: false },
-    { symbol: "♥", label: "Cœurs", isRed: true },
-    { symbol: "♦", label: "Carreaux", isRed: true },
-  ];
 
   function getPlayerName(id) {
     if (id === GM_CHAR_ID)
@@ -1466,7 +1456,7 @@
                 <div>
                   <div class="text-[8px] font-bold text-txt2 text-gray-400">PARADE</div>
                   <div class="text-2xl font-bold text-white">
-                    {paradeTotal({ deflexion: gmEqStats.deflexion, gardeBonus: gmEqStats.garde, bonus: viewingSheet.sheet.defense?.bonus })}
+                    {gmEqStats.deflexion + gmEqStats.garde + toNumber(viewingSheet.sheet.defense?.bonus)}
                   </div>
                 </div>
                 <div class="flex gap-3 text-xs">

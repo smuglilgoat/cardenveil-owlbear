@@ -17,9 +17,7 @@
     suitColor,
     suitSymbol,
     toNumber,
-    isImageUrl,
-    broadcastActionChecks,
-    onActionChecksBroadcast
+    isImageUrl
   } from './lib/characterSheet.js';
 
   const params = new URLSearchParams(location.search);
@@ -54,10 +52,6 @@
     // fetch hangs (e.g. a paused Supabase project).
     const unsubscribe = subscribeToCharacterSheet(playerId, roomId, (newData) => {
       if (newData) sheet = newData.data;
-    });
-    // Instant sync of the action diamonds from the main sheet
-    const offBroadcast = onActionChecksBroadcast(playerId, (actionChecks) => {
-      if (sheet) sheet = { ...sheet, actionChecks };
     });
 
     fetchCharacterSheet(playerId, roomId)
@@ -94,7 +88,6 @@
     });
     return () => {
       unsubscribe();
-      offBroadcast();
       clearInterval(pollTimer);
       window.removeEventListener('focus', reconcile);
       document.removeEventListener('visibilitychange', reconcile);
@@ -123,14 +116,13 @@
     return skillModifier(sheet?.stats ?? {}, skillKey, sheet?.skills?.[skillKey]?.bonus ?? 0);
   }
 
-  // ─── Per-turn action diamonds (toggle + persist + instant main-sheet sync, no reset logic) ───
+  // ─── Per-turn action diamonds (toggle + persist, no reset logic) ───
   let saveInFlight = false;
   function toggleActionCheck(key) {
     if (!sheet) return;
     const current = sheet.actionChecks ?? {};
     const next = { ...sheet, actionChecks: { ...current, [key]: !current[key] } };
     sheet = next;
-    broadcastActionChecks(playerId, next.actionChecks);
     saveInFlight = true;
     saveCharacterSheet(playerId, roomId, next)
       .catch(console.error)

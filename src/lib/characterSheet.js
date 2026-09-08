@@ -12,27 +12,28 @@ export const STAT_COLORS = {
   social: '#60a5fa'
 };
 
-export const SKILL_GROUPS = [
-  { stat: 'force', label: 'FORCE', skills: ['athletisme', 'resilience'] },
-  { stat: 'agilite', label: 'AGILITÉ', skills: ['acrobaties', 'discretion', 'escamotage'] },
-  {
-    stat: 'esprit',
-    label: 'ESPRIT',
-    skills: ['arcanes', 'investigation', 'perception', 'culture', 'survie']
-  },
-  {
-    stat: 'social',
-    label: 'SOCIAL',
-    skills: [
-      'persuasion',
-      'tromperie',
-      'intimidation',
-      'representation',
-      'perspicacite',
-      'dressage'
-    ]
-  }
-];
+/** Skill → governing stat mapping (single source for groups + labels).
+ *  WIS-domain skills (perception, survie, perspicacité, dressage) map to
+ *  esprit, the mental stat, since the four-stat system has no separate
+ *  wisdom score. */
+export const SKILL_TO_STAT = {
+  athletisme: 'force',
+  resilience: 'force',
+  acrobaties: 'agilite',
+  discretion: 'agilite',
+  escamotage: 'agilite',
+  arcanes: 'esprit',
+  investigation: 'esprit',
+  perception: 'esprit',
+  culture: 'esprit',
+  survie: 'esprit',
+  persuasion: 'social',
+  tromperie: 'social',
+  intimidation: 'social',
+  representation: 'social',
+  perspicacite: 'social',
+  dressage: 'social',
+};
 
 export const SKILL_LABELS = {
   athletisme: 'Athlétisme',
@@ -52,6 +53,15 @@ export const SKILL_LABELS = {
   perspicacite: 'Perspicacité',
   dressage: 'Dressage'
 };
+
+const STAT_GROUP_LABELS = { force: 'FORCE', agilite: 'AGILITÉ', esprit: 'ESPRIT', social: 'SOCIAL' };
+
+/** Skill groups (for display) derived from SKILL_TO_STAT, in stat order. */
+export const SKILL_GROUPS = ['force', 'agilite', 'esprit', 'social'].map((stat) => ({
+  stat,
+  label: STAT_GROUP_LABELS[stat],
+  skills: Object.keys(SKILL_TO_STAT).filter((skill) => SKILL_TO_STAT[skill] === stat),
+}));
 
 export const SUIT_LABELS = { heart: 'Cœur', spade: 'Pique', diamond: 'Carreau', club: 'Trèfle' };
 export const SUIT_SYMBOLS = { heart: '♥', spade: '♠', diamond: '♦', club: '♣' };
@@ -647,16 +657,6 @@ export function toNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-/**
- * Compute total Parade from its components.
- * @param {Object} [defense] - Defense object ({ deflexion, gardeBonus, bonus })
- * @returns {number}
- */
-export function paradeTotal(defense) {
-  if (!defense) return 0;
-  return toNumber(defense.deflexion) + toNumber(defense.gardeBonus) + toNumber(defense.bonus);
-}
-
 // Weapon categories are free-text fields, so they are detected by keyword.
 // ponytail: keyword matching on weapon text, structured `categorie` field if misclassification bites
 const SHIELD_RE = /\b(bouclier|rempart)\b/;
@@ -880,30 +880,6 @@ export function isDiceFormula(value, stats = {}) {
 }
 
 /**
- * Skill → governing stat mapping. WIS-domain skills (perception, survie,
- * perspicacité, dressage) map to esprit, the mental stat, since the
- * four-stat system has no separate wisdom score.
- */
-export const SKILL_TO_STAT = {
-  athletisme: 'force',
-  resilience: 'force',
-  acrobaties: 'agilite',
-  discretion: 'agilite',
-  escamotage: 'agilite',
-  arcanes: 'esprit',
-  investigation: 'esprit',
-  perception: 'esprit',
-  culture: 'esprit',
-  survie: 'esprit',
-  persuasion: 'social',
-  tromperie: 'social',
-  intimidation: 'social',
-  representation: 'social',
-  perspicacite: 'social',
-  dressage: 'social',
-};
-
-/**
  * Compute a skill's modifier from its governing stat.
  * Falls back to `fallback` for unknown skills or missing scores.
  * @param {Object} [stats] - Raw stat scores ({ force, agilite, esprit, social })
@@ -959,38 +935,6 @@ export function rollDice(formula, stats = {}) {
   const total = sum + modifier;
 
   return { total, rolls, modifier, formula: parsed.formula };
-}
-
-/**
- * Instant same-origin sync for the per-turn action diamonds between the
- * main panel and the sheet popover (both are same-origin iframes).
- * Complements Supabase realtime: broadcast is instant locally, realtime
- * covers cross-client. Applies are local-only — no re-save, no loops.
- */
-const SHEET_SYNC_CHANNEL =
-  typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('cardenveil-sheet') : null;
-
-export function broadcastActionChecks(playerId, actionChecks) {
-  // postMessage uses structured clone, which throws "Proxy object could not
-  // be cloned" on Svelte $state proxies — strip reactivity with a JSON
-  // round-trip before posting.
-  const plain = JSON.parse(JSON.stringify(actionChecks ?? {}));
-  SHEET_SYNC_CHANNEL?.postMessage({ type: 'actionChecks', playerId, actionChecks: plain });
-}
-
-export function onActionChecksBroadcast(playerId, handler) {
-  if (!SHEET_SYNC_CHANNEL) return () => {};
-  const listener = (event) => {
-    if (
-      event.data?.type === 'actionChecks' &&
-      event.data.playerId === playerId &&
-      event.data.actionChecks
-    ) {
-      handler(event.data.actionChecks);
-    }
-  };
-  SHEET_SYNC_CHANNEL.addEventListener('message', listener);
-  return () => SHEET_SYNC_CHANNEL.removeEventListener('message', listener);
 }
 
 /**
