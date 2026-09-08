@@ -12,6 +12,21 @@
   let gameState = $state(null);
   let active = $state(null);
 
+  // Fold/unfold: resize our own popover to just the pill
+  let folded = $state(false);
+  let popoverId = null;
+  let expandedHeight = 400;
+
+  async function toggleFold() {
+    if (!popoverId) return;
+    folded = !folded;
+    try {
+      await OBR.popover.setHeight(popoverId, folded ? 48 : expandedHeight);
+    } catch (err) {
+      console.warn('Failed to resize hand popover:', err);
+    }
+  }
+
   let action = $state(null);
   let actionCard = $state(null);
 
@@ -30,10 +45,19 @@
     OBR.onReady(async () => {
       const params = new URLSearchParams(window.location.search);
       const playerIdParam = params.get('playerId');
+      popoverId = params.get('popoverId');
       myId = playerIdParam || await OBR.player.getId();
       roomId = OBR.room.id;
       party = await OBR.party.getPlayers();
       ready = true;
+
+      if (popoverId) {
+        try {
+          expandedHeight = (await OBR.popover.getHeight(popoverId)) || expandedHeight;
+        } catch (err) {
+          /* popover resize not available */
+        }
+      }
 
       let state = await fetchState(roomId);
       if (state) {
@@ -369,10 +393,25 @@
 </script>
 
 <div
-  class="magic-hand w-full h-full flex flex-col select-none overflow-visible flex-wrap"
+  class="magic-hand w-full h-full flex flex-col select-none overflow-visible flex-wrap relative"
   style="background: transparent;"
 >
-  {#if !ready || !player}
+  {#if !folded && popoverId}
+    <button
+      onclick={toggleFold}
+      title="Replier la main"
+      class="absolute top-1 right-1 z-[300] w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold bg-[#213547] border border-gray-600 text-gray-300 hover:text-white transition-colors"
+    >▾</button>
+  {/if}
+  {#if folded}
+    <div class="flex-1 flex items-center justify-center">
+      <button
+        onclick={toggleFold}
+        title="Déplier la main"
+        class="text-[11px] font-bold px-3 py-1.5 rounded-full text-white bg-[#213547] border border-indigo-500 hover:border-indigo-400 transition-colors"
+      >🃏 Main ▴</button>
+    </div>
+  {:else if !ready || !player}
     <div class="flex-1 flex items-center justify-center">
       <p class="text-xs text-gray-400">Chargement...</p>
     </div>

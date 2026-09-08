@@ -95,7 +95,7 @@
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({
         id: GM_POPOVER_ID,
-        url: `${window.location.origin}/hand.html?playerId=${GM_CHAR_ID}`,
+        url: `${window.location.origin}/hand.html?playerId=${GM_CHAR_ID}&popoverId=${encodeURIComponent(GM_POPOVER_ID)}`,
         width,
         height,
         anchorPosition: { left: vw / 2, top: vh - 56 },

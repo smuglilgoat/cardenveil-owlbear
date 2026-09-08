@@ -436,7 +436,7 @@
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({
         id: SHEET_POPOVER_ID,
-        url: `${window.location.origin}/sheet.html?playerId=${encodeURIComponent(playerId)}&roomId=${encodeURIComponent(roomId)}`,
+        url: `${window.location.origin}/sheet.html?playerId=${encodeURIComponent(playerId)}&roomId=${encodeURIComponent(roomId)}&popoverId=${encodeURIComponent(SHEET_POPOVER_ID)}`,
         width: 380,
         height: 540,
         anchorPosition: { left: vw - 70, top: 0 },

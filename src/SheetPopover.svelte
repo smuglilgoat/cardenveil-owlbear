@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import OBR from '@owlbear-rodeo/sdk';
   import { dispatch } from './lib/api.js';
   import {
     STAT_COLORS,
@@ -18,9 +19,21 @@
   const params = new URLSearchParams(location.search);
   let playerId = params.get('playerId');
   let roomId = params.get('roomId');
+  const popoverId = params.get('popoverId') || 'cardenveil-sheet';
 
   let sheet = $state(null);
   let lastRoll = $state(null);
+  let folded = $state(false);
+  let expandedHeight = 540;
+
+  async function toggleFold() {
+    folded = !folded;
+    try {
+      await OBR.popover.setHeight(popoverId, folded ? 40 : expandedHeight);
+    } catch (err) {
+      console.warn('Failed to resize sheet popover:', err);
+    }
+  }
 
   onMount(async () => {
     try {
@@ -31,6 +44,13 @@
     }
     const unsubscribe = subscribeToCharacterSheet(playerId, roomId, (newData) => {
       if (newData) sheet = newData.data;
+    });
+    OBR.onReady(async () => {
+      try {
+        expandedHeight = (await OBR.popover.getHeight(popoverId)) || expandedHeight;
+      } catch (err) {
+        /* popover resize not available */
+      }
     });
     return unsubscribe;
   });
@@ -81,7 +101,22 @@
 </script>
 
 <div class="w-full h-full bg-[#242424] text-white rounded-xl border border-[#374151] flex flex-col overflow-hidden">
-  {#if !sheet}
+  <!-- Fold bar -->
+  <div class="h-10 bg-[#1f2937] border-b border-[#374151] flex items-center px-3 shrink-0">
+    <span class="text-[10px] font-bold tracking-wide">FICHE</span>
+    <span class="text-[9px] text-[#9ca3af] ml-2 truncate">{sheet?.identity?.nom || ''}</span>
+    <button
+      onclick={toggleFold}
+      title={folded ? 'Déplier la fiche' : 'Replier la fiche'}
+      class="ml-auto w-7 h-7 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[11px] font-bold flex items-center justify-center transition-colors"
+    >
+      {folded ? '▴' : '▾'}
+    </button>
+  </div>
+
+  {#if folded}
+    <!-- folded: bar only -->
+  {:else if !sheet}
     <div class="flex-1 flex items-center justify-center text-[#9ca3af] text-xs">
       Chargement de la fiche...
     </div>
