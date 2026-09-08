@@ -198,9 +198,9 @@
     }
   ];
 
-  // Long hover (600ms) opens the reference panel; it stays open until closed
+  // Long hover (1500ms) opens the reference panel; it stays open until closed
   // (✕ / Escape / click outside) so the text can be read and scrolled.
-  const HOVER_DELAY = 600;
+  const HOVER_DELAY = 1500;
   let hoverTimer;
   let panelVisible = $state(false);
 
