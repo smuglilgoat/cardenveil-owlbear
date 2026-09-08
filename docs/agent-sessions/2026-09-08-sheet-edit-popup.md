@@ -60,3 +60,16 @@ turns; my first commit landed on main by mistake — moved to branch
   provides the drag handle (hidePaper popovers have no draggable frame).
 - Commits `1ea6a2f` on `agent/sheet-edit-popup` (main reset to `ab56aab`
   after the env again started the turn on main).
+
+## Addendum 2 — Fold/unfold popovers (2026-09-08)
+- OBR popovers cannot be dragged; instead both popovers fold:
+  - SheetPopover: FICHE header bar with ▾/▴ toggle; folded = 40px
+    (header only) via OBR.popover.setHeight; unfold restores captured
+    expanded height (getHeight on ready).
+  - HandPopover: corner fold button (top-right); folded = 48px showing
+    a "🃏 Main" pill. popover id passed via ?popoverId= from
+    PlayerHand (com.cardenveil/hand) and GMDashboard GM hand
+    (com.cardenveil/gm-hand) so the page can resize itself.
+- User manually tuned the sheet popover anchor to vw-70 (commits
+  9b29a4e, f710b2c); fold work committed on top (57db1f2).
+- Tests 97/97, build OK.
