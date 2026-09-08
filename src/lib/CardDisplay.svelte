@@ -1,7 +1,11 @@
 <script>
   import { tooltip } from './tooltip.js';
+  import { suitColorBySymbol } from './characterSheet.js';
   /** @type {{ card: object, faceDown?: boolean, actions?: Array<{icon?: string, label: string, onClick: () => void}>, crystallized?: boolean, fatiguePenalty?: number }} */
   let { card, faceDown = false, actions = [], crystallized = false, fatiguePenalty = 0 } = $props();
+
+  // Character-sheet suit schema, darkened for the white card face
+  let suitColor = $derived(suitColorBySymbol(card?.suit, true));
 </script>
 
 {#if faceDown}
@@ -23,8 +27,7 @@
     <!-- Top corner -->
     <div
       class="absolute top-0.5 left-0.5 leading-none text-[9px] font-bold"
-      class:text-red-600={card.isRed}
-      class:text-gray-900={!card.isRed}
+      style="color: {suitColor}"
     >
       {card.value}<br /><span class="text-[10px]">{card.suit}</span>
     </div>
@@ -32,8 +35,7 @@
     <!-- Center suit -->
     <div
       class="absolute inset-0 flex items-center justify-center text-lg pointer-events-none"
-      class:text-red-600={card.isRed}
-      class:text-gray-900={!card.isRed}
+      style="color: {suitColor}"
     >
       {card.suit}
     </div>
@@ -41,8 +43,7 @@
     <!-- Bottom corner (rotated) -->
     <div
       class="absolute bottom-0.5 right-0.5 leading-none text-[9px] font-bold rotate-180"
-      class:text-red-600={card.isRed}
-      class:text-gray-900={!card.isRed}
+      style="color: {suitColor}"
     >
       {card.value}<br /><span class="text-[10px]">{card.suit}</span>
     </div>

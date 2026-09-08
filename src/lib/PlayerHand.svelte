@@ -5,6 +5,7 @@
   import ActionLog from "./ActionLog.svelte";
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES } from "./deck.js";
   import { tooltip } from "./tooltip.js";
+  import { suitColorBySymbol } from "./characterSheet.js";
 
   let { gameState, myId, myName, party, onAction } = $props();
 
@@ -534,15 +535,8 @@
               <button
                 onclick={() => agilitePickSuit(s.symbol)}
                 use:tooltip={"Piocher une carte " + s.label + " aléatoire"}
-                class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold border transition-colors"
-                class:text-red-400={s.isRed}
-                class:border-red-800={s.isRed}
-                class:bg-red-950={s.isRed}
-                class:hover:bg-red-900={s.isRed}
-                class:text-gray-300={!s.isRed}
-                class:border-gray-600={!s.isRed}
-                class:bg-gray-800={!s.isRed}
-                class:hover:bg-gray-700={!s.isRed}
+                class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold border transition-colors bg-gray-800 hover:bg-gray-700"
+                style="color: {suitColorBySymbol(s.symbol)}; border-color: {suitColorBySymbol(s.symbol)}"
               >
                 <span>{s.symbol} {s.label}</span>
               </button>

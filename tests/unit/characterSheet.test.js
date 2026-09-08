@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -574,6 +574,27 @@ describe('Character Sheet dice helpers', () => {
       expect(findEquipmentTemplate('Inexistant')).toBeNull();
       expect(findEquipmentTemplate('')).toBeNull();
       expect(findEquipmentTemplate(undefined)).toBeNull();
+    });
+  });
+
+  describe('suitColorBySymbol', () => {
+    it('should map suit symbols to the sheet COÛT palette', () => {
+      expect(suitColorBySymbol('♥')).toBe('#f87171');
+      expect(suitColorBySymbol('♠')).toBe('#e5e7eb');
+      expect(suitColorBySymbol('♦')).toBe('#fbbf24');
+      expect(suitColorBySymbol('♣')).toBe('#4ade80');
+    });
+
+    it('should return darkened variants for light card faces', () => {
+      expect(suitColorBySymbol('♥', true)).toBe('#ef4444');
+      expect(suitColorBySymbol('♠', true)).toBe('#6b7280');
+      expect(suitColorBySymbol('♦', true)).toBe('#d97706');
+      expect(suitColorBySymbol('♣', true)).toBe('#16a34a');
+    });
+
+    it('should fall back for unknown suits', () => {
+      expect(suitColorBySymbol('')).toBe('#9ca3af');
+      expect(suitColorBySymbol(undefined, true)).toBe('#6b7280');
     });
   });
 });

@@ -4,6 +4,7 @@
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES } from "./lib/deck.js";
   import { startRealtime, stopRealtime, dispatch, fetchState } from "./lib/api.js";
   import { tooltip } from "./lib/tooltip.js";
+  import { suitColorBySymbol } from "./lib/characterSheet.js";
 
   let ready = $state(false);
   let myId = $state(null);
@@ -392,13 +393,6 @@
     const t = n > 1 ? i / (n - 1) - 0.5 : 0;
     return t * SPREAD_X * (n - 1);
   }
-
-  const SUIT_COLOR = {
-    "♠": "#1e293b",
-    "♣": "#1e293b",
-    "♥": "#dc2626",
-    "♦": "#dc2626",
-  };
 </script>
 
 <div
@@ -447,7 +441,7 @@
                 {:else}
                   <div
                     class="w-[56px] h-[84px] rounded flex flex-col p-1 text-[10px] font-bold"
-                    style="background: #fff; border: 1.5px solid #d1d5db; color: {SUIT_COLOR[card.suit] ?? '#111827'};"
+                    style="background: #fff; border: 1.5px solid #d1d5db; color: {suitColorBySymbol(card.suit, true)};"
                   >
                     <span>{card.value}{card.suit}</span>
                     <span class="flex-1 flex items-center justify-center text-[20px]">{card.suit}</span>
@@ -498,13 +492,9 @@
               <button
                 onclick={() => agilitePickSuit(s.symbol)}
                 use:tooltip={"Piocher une carte " + s.label + " aléatoire"}
-                class="flex flex-col items-center py-1 px-2 rounded border text-xs font-bold"
-                class:text-red-400={s.isRed}
-                class:border-red-700={s.isRed}
-                class:bg-red-950={s.isRed}
-                class:text-gray-200={!s.isRed}
-                class:border-gray-600={!s.isRed}
-                class:bg-gray-800={!s.isRed}>{s.symbol}</button
+                class="flex flex-col items-center py-1 px-2 rounded border text-xs font-bold bg-gray-800 hover:bg-gray-700 transition-colors"
+                style="color: {suitColorBySymbol(s.symbol)}; border-color: {suitColorBySymbol(s.symbol)}"
+              >{s.symbol}</button
               >
             {/each}
           </div>
@@ -619,9 +609,7 @@
             {#each sortCards(player.hand.filter(c => !c._pending)) as card (card.id)}
               <div
                 class="w-[56px] h-[84px] rounded cursor-pointer hover:ring-2 hover:ring-green-400 flex flex-col p-1 text-[10px] font-bold"
-                style="background: #fff; border: 1.5px solid #d1d5db; color: {SUIT_COLOR[
-                  card.suit
-                ] ?? '#111827'};"
+                style="background: #fff; border: 1.5px solid #d1d5db; color: {suitColorBySymbol(card.suit, true)};"
                 role="button"
                 tabindex="0"
                 onclick={() => completeAccept(card)}
@@ -770,7 +758,7 @@
                     border: {isCrystallized
                     ? '2.5px solid #ef4444'
                     : '1.5px solid #d1d5db'};
-                    color: {SUIT_COLOR[card.suit] ?? '#111827'};
+                    color: {suitColorBySymbol(card.suit, true)};
                   "
                 >
                   <div class="flex flex-col items-start">

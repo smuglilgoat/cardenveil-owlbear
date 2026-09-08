@@ -76,6 +76,17 @@ export function suitColor(color) {
   return SUIT_COLORS[(color || '').toLowerCase()] || '#9ca3af';
 }
 
+// Same schema keyed by suit SYMBOL (card objects carry symbols, not names).
+export const SUIT_SYMBOL_COLORS = { '♥': '#f87171', '♠': '#e5e7eb', '♦': '#fbbf24', '♣': '#4ade80' };
+// Same 4 hues darkened for white card faces (spade gray-200 / diamond amber-400
+// are illegible at card-corner size on a light background).
+export const SUIT_SYMBOL_COLORS_ON_LIGHT = { '♥': '#ef4444', '♠': '#6b7280', '♦': '#d97706', '♣': '#16a34a' };
+
+export function suitColorBySymbol(suit, onLight = false) {
+  const map = onLight ? SUIT_SYMBOL_COLORS_ON_LIGHT : SUIT_SYMBOL_COLORS;
+  return map[suit] ?? (onLight ? '#6b7280' : '#9ca3af');
+}
+
 /**
  * Whether an image-slot value is a URL (vs an emoji/glyph to render as text).
  * @param {unknown} value - Portrait/capacity/totem image value
