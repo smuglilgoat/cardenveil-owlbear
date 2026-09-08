@@ -12,9 +12,9 @@
     deleteCharacterSheet,
     importCharacterSheet,
     createEmptyCharacterSheet,
-    equipmentStats,
+    attackBonus,
+    computeDerived,
     isDiceFormula,
-    paradeTotal,
     rollDice,
     skillModifier,
     subscribeToCharacterSheet,
@@ -95,8 +95,9 @@
 
   // Live view: the edit buffer while editing (main sheet displays it live), the saved sheet otherwise.
   let view = $derived(isEditing && editSheet ? editSheet : sheet);
-  let eqStats = $derived(equipmentStats(view?.equipment, view?.weapons));
-  let defenseBonus = $derived(view?.defense?.bonus ?? 0);
+  // Rule-derived combat values (parade, initiative, mouvement, volonté, ...) — always computed, never manual.
+  let calc = $derived(computeDerived(view ?? {}));
+  let editCalc = $derived(computeDerived(editSheet ?? {}));
 
   const DICE_POPOVER_ID = 'cardenveil-dice';
   const SHEET_POPOVER_ID = 'cardenveil-sheet';
@@ -620,24 +621,24 @@
           <div class="text-[9px] font-bold text-[#9ca3af]">PARADE</div>
           <div class="flex items-baseline gap-1.5 mt-0.5">
             <span class="text-xl font-bold leading-none">
-              {paradeTotal({ deflexion: eqStats.deflexion, gardeBonus: eqStats.garde, bonus: defenseBonus })}
+              {calc.parade}
             </span>
             <span class="text-[10px] text-[#9ca3af] font-medium whitespace-nowrap">
-              = <span class="text-teal-400 font-bold">{eqStats.deflexion}</span>+
-              <span class="text-orange-400 font-bold">{eqStats.garde}</span>+
-              <span class="font-bold">{toNumber(defenseBonus)}</span>
+              = <span class="text-teal-400 font-bold">{calc.deflexion}</span>+
+              <span class="text-orange-400 font-bold">{calc.garde}</span>+
+              <span class="font-bold">{calc.paradeBonus}</span>
             </span>
           </div>
-          <div class="text-[9px] text-[#9ca3af] mt-1">Armure {eqStats.armure}</div>
+          <div class="text-[9px] text-[#9ca3af] mt-1">Armure {calc.armure}</div>
         </div>
 
         <!-- Initiative -->
         <div class="bg-[#1f2937] rounded-lg p-2">
           <div class="text-[9px] font-bold text-[#9ca3af]">INITIATIVE</div>
           <div class="text-xl font-bold leading-none mt-0.5" style="color: {STAT_COLORS.agilite}">
-            {toNumber(view.derived?.initiative)}
+            {calc.initiative}
           </div>
-          <div class="text-[9px] text-[#9ca3af] mt-1 hidden @2xl:block">Jet / ordre de tour</div>
+          <div class="text-[9px] text-[#9ca3af] mt-1 hidden @2xl:block">Agi − 10 + gants</div>
         </div>
 
         <!-- Mouvement -->
@@ -645,11 +646,11 @@
           <div class="text-[9px] font-bold text-[#9ca3af]">MOUVEMENT</div>
           <div class="mt-0.5">
             <span class="text-xl font-bold leading-none" style="color: {STAT_COLORS.social}">
-              {toNumber(view.derived?.mouvement)}
+              {calc.mouvement}
             </span>
             <span class="text-[10px] font-bold text-[#9ca3af]">m</span>
           </div>
-          <div class="text-[9px] text-[#9ca3af] mt-1 hidden @2xl:block">Déplacement disponible</div>
+          <div class="text-[9px] text-[#9ca3af] mt-1 hidden @2xl:block">8 + Agi/2 + bottes</div>
         </div>
       </div>
 
@@ -657,23 +658,19 @@
       <div class="grid grid-cols-4 gap-2 mt-2">
         <div class="bg-[#111827] rounded-md px-2 py-1.5">
           <div class="text-[8px] font-bold text-[#9ca3af]">SEUIL MISS</div>
-          <div class="text-base font-bold">{view.derived?.seuilMiss ?? '—'}</div>
+          <div class="text-base font-bold">{calc.seuilMiss}</div>
         </div>
         <div class="bg-[#111827] rounded-md px-2 py-1.5">
           <div class="text-[8px] font-bold text-[#9ca3af]">BNS ATT.</div>
-          <div class="text-base font-bold">
-            {view.derived?.bonusAttaque === '' || view.derived?.bonusAttaque == null
-              ? '—'
-              : view.derived?.bonusAttaque}
-          </div>
+          <div class="text-base font-bold">{formatModifier(calc.bonusAttaque)}</div>
         </div>
         <div class="bg-[#111827] rounded-md px-2 py-1.5">
           <div class="text-[8px] font-bold text-[#9ca3af]">CANALIS.</div>
-          <div class="text-base font-bold">{view.derived?.canalisation ?? '—'}</div>
+          <div class="text-base font-bold">{formatModifier(calc.canalisation)}</div>
         </div>
         <div class="bg-[#111827] rounded-md px-2 py-1.5">
           <div class="text-[8px] font-bold text-[#9ca3af]">VOLONTÉ</div>
-          <div class="text-base font-bold">{eqStats.volonte}</div>
+          <div class="text-base font-bold">{calc.volonte}</div>
         </div>
       </div>
       <button
@@ -925,7 +922,10 @@
                   {/if}
                   <span class="text-xs font-bold truncate">{weapon?.nom || 'Sans nom'}</span>
                   {#if weapon?.de}
-                    <span class="ml-auto text-xs font-bold">{weapon.de}</span>
+                    <span class="ml-auto text-xs font-bold">
+                      {weapon.de}
+                      <span class="text-[#9ca3af]">{formatModifier(attackBonus(weapon, view?.stats ?? {}))}</span>
+                    </span>
                   {/if}
                 </div>
                 <div class="text-[9px] text-[#9ca3af] mt-1 truncate">
@@ -1130,26 +1130,35 @@
           </div>
 
           <div>
-            <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">DÉFENSE & JETS</h3>
+            <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">DÉFENSE &amp; JETS (calculés)</h3>
             <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2">
-              <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">
-                  Parade (bonus) — total
-                  {paradeTotal({ deflexion: equipmentStats(editSheet.equipment, editSheet.weapons).deflexion, gardeBonus: equipmentStats(editSheet.equipment, editSheet.weapons).garde, bonus: toNumber(editSheet.defense?.bonus) })}
-                </label>
-                <input type="text" bind:value={editSheet.defense.bonus} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+              <div class="bg-[#111827] rounded-md px-2 py-1.5">
+                <div class="text-[8px] font-bold text-[#9ca3af]">PARADE</div>
+                <div class="text-sm font-bold">{editCalc.parade} <span class="text-[9px] font-medium text-[#9ca3af]">= {editCalc.deflexion}+{editCalc.garde}+{editCalc.paradeBonus}</span></div>
               </div>
-              <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Seuil Miss</label>
-                <input type="text" bind:value={editSheet.derived.seuilMiss} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+              <div class="bg-[#111827] rounded-md px-2 py-1.5">
+                <div class="text-[8px] font-bold text-[#9ca3af]">INITIATIVE</div>
+                <div class="text-sm font-bold">{editCalc.initiative} <span class="text-[9px] font-medium text-[#9ca3af]">= Agi − 10 + gants</span></div>
               </div>
-              <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Bns Attaque</label>
-                <input type="text" bind:value={editSheet.derived.bonusAttaque} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+              <div class="bg-[#111827] rounded-md px-2 py-1.5">
+                <div class="text-[8px] font-bold text-[#9ca3af]">MOUVEMENT</div>
+                <div class="text-sm font-bold">{editCalc.mouvement} <span class="text-[9px] font-medium text-[#9ca3af]">= 8 + Agi/2 + bottes</span></div>
               </div>
-              <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Canalisation</label>
-                <input type="text" bind:value={editSheet.derived.canalisation} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+              <div class="bg-[#111827] rounded-md px-2 py-1.5">
+                <div class="text-[8px] font-bold text-[#9ca3af]">SEUIL MISS</div>
+                <div class="text-sm font-bold">{editCalc.seuilMiss} <span class="text-[9px] font-medium text-[#9ca3af]">= max(1, 1 − mod Agi)</span></div>
+              </div>
+              <div class="bg-[#111827] rounded-md px-2 py-1.5">
+                <div class="text-[8px] font-bold text-[#9ca3af]">BONUS ATTAQUE</div>
+                <div class="text-sm font-bold">{formatModifier(editCalc.bonusAttaque)} <span class="text-[9px] font-medium text-[#9ca3af]">= stat + tier de l'arme</span></div>
+              </div>
+              <div class="bg-[#111827] rounded-md px-2 py-1.5">
+                <div class="text-[8px] font-bold text-[#9ca3af]">CANALISATION</div>
+                <div class="text-sm font-bold">{formatModifier(editCalc.canalisation)} <span class="text-[9px] font-medium text-[#9ca3af]">= mod Esprit</span></div>
+              </div>
+              <div class="bg-[#111827] rounded-md px-2 py-1.5">
+                <div class="text-[8px] font-bold text-[#9ca3af]">VOLONTÉ</div>
+                <div class="text-sm font-bold">{editCalc.volonte} <span class="text-[9px] font-medium text-[#9ca3af]">= mod Résilience + casque</span></div>
               </div>
             </div>
           </div>

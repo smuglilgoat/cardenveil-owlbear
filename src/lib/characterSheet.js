@@ -462,10 +462,48 @@ export function paradeTotal(defense) {
   return toNumber(defense.deflexion) + toNumber(defense.gardeBonus) + toNumber(defense.bonus);
 }
 
+// Weapon categories are free-text fields, so they are detected by keyword.
+// ponytail: keyword matching on weapon text, structured `categorie` field if misclassification bites
+const SHIELD_RE = /\b(bouclier|rempart)\b/;
+const STRAIGHT_SWORD_RE = /\b(epees? droites?|garde)\b/;
+const RANGED_RE = /\b(distance|tir|lancer|javelot|fronde|arbalete|arc)\b/;
+
+/**
+ * Join all string values of a weapon into normalized (lowercase,
+ * accent-free) text for keyword detection.
+ * @param {Object} [weapon]
+ * @returns {string}
+ */
+function weaponText(weapon) {
+  return Object.values(weapon ?? {})
+    .filter((v) => typeof v === 'string')
+    .join(' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+/**
+ * Garde contribution of one equipped melee weapon: its die / 2
+ * (e.g. "1d8" → 4, "2d6" → 6). Ranged weapons contribute nothing.
+ * Dual wield naturally sums via equipmentStats.
+ * @param {Object} [weapon]
+ * @returns {number}
+ */
+function weaponGarde(weapon) {
+  if (!weapon?.equipped || RANGED_RE.test(weaponText(weapon))) return 0;
+  const match = String(weapon?.de ?? '').match(/(\d*)\s*d\s*(\d+)/i);
+  if (!match) return 0;
+  const count = match[1] === '' ? 1 : parseInt(match[1], 10);
+  const sides = parseInt(match[2], 10);
+  if (!(count >= 1) || !(sides >= 2)) return 0;
+  return Math.floor((count * sides) / 2);
+}
+
 /**
  * Derive stats from equipped gear. Only the 7 equipment slots and weapons
  * flagged as equipped count; inventory items never contribute.
- * Garde is the sum of equipped weapons' parade values.
+ * Garde = sum of equipped melee weapons' die / 2 (dual wield sums both).
  * @param {Object} [equipment] - Equipment slots object
  * @param {Array} [weapons] - Weapons array (each may carry `equipped: true`)
  * @returns {{deflexion: number, armure: number, volonte: number, garde: number}}
@@ -473,9 +511,7 @@ export function paradeTotal(defense) {
 export function equipmentStats(equipment = {}, weapons = []) {
   const slots = Object.values(equipment ?? {});
   const sum = (field) => slots.reduce((total, slot) => total + toNumber(slot?.[field]), 0);
-  const garde = (weapons ?? [])
-    .filter((w) => w?.equipped)
-    .reduce((total, w) => total + toNumber(w?.parade), 0);
+  const garde = (weapons ?? []).reduce((total, w) => total + weaponGarde(w), 0);
   return {
     deflexion: sum('deflexion'),
     armure: sum('armure'),
@@ -485,25 +521,110 @@ export function equipmentStats(equipment = {}, weapons = []) {
 }
 
 /**
- * Overwrite stored defense/derived fields from equipped gear.
- * `defense.bonus` has no equipment source and is left untouched.
+ * Parade modifier from the equipped weapons: Agilité, except with a
+ * shield (Force) or a straight sword / "Garde" weapon (Force + Agilité).
+ * @param {Array} [weapons] - Weapons array
+ * @param {Object} [stats] - Raw stat scores
+ * @returns {number}
+ */
+export function paradeModifier(weapons = [], stats = {}) {
+  const equipped = (weapons ?? []).filter((w) => w?.equipped);
+  const mod = (key) => statModifier(weaponStatScore(stats, key));
+  if (equipped.some((w) => SHIELD_RE.test(weaponText(w)))) return mod('force');
+  if (equipped.some((w) => STRAIGHT_SWORD_RE.test(weaponText(w)))) {
+    return mod('force') + mod('agilite');
+  }
+  return mod('agilite');
+}
+
+/**
+ * Stat score with missing values treated as 10 (modifier 0).
+ * @param {Object} [stats]
+ * @param {string} key - Stat key
+ * @returns {number}
+ */
+function weaponStatScore(stats, key) {
+  const score = Number(stats?.[key]);
+  return Number.isFinite(score) ? score : 10;
+}
+
+/**
+ * Attack bonus of one weapon: modifier of its governing stat (the
+ * free-text `forceAgi` field: force / agilité / esprit) + the weapon's
+ * tier (its `bonus` field) — what gets added to the weapon's die.
+ * @param {Object} [weapon]
+ * @param {Object} [stats] - Raw stat scores
+ * @returns {number}
+ */
+export function attackBonus(weapon, stats = {}) {
+  const key = normalizeStatName(weapon?.forceAgi);
+  const statMod = key ? statModifier(weaponStatScore(stats, key)) : 0;
+  return statMod + toNumber(weapon?.bonus);
+}
+
+/**
+ * Compute all rule-derived combat values from a sheet.
+ * - parade      = déflexion (equipped items) + garde (melee die/2) + modificateur
+ * - initiative  = Agilité - 10 + initiative des gantelets
+ * - mouvement   = 8 + Agilité/2 + vitesse des bottes
+ * - volonte     = modificateur de Résilience + volonté du casque
+ * - seuilMiss   = max(1, 1 - mod Agilité)
+ * - canalisation = modificateur d'Esprit
+ * - bonusAttaque = attack bonus of the first equipped weapon
+ * @param {Object} [sheet] - Character sheet data
+ * @returns {Object} Computed values
+ */
+export function computeDerived(sheet = {}) {
+  const stats = sheet?.stats ?? {};
+  const equipment = sheet?.equipment ?? {};
+  const weapons = sheet?.weapons ?? [];
+  const eq = equipmentStats(equipment, weapons);
+  const agiMod = statModifier(weaponStatScore(stats, 'agilite'));
+  const gantelets = toNumber(equipment.gantelets?.initiative);
+  const bottes = toNumber(equipment.bottes?.vitesse);
+  const casque = toNumber(equipment.casque?.volonte);
+  const firstEquipped = (weapons ?? []).find((w) => w?.equipped);
+  const paradeBonus = paradeModifier(weapons, stats);
+  return {
+    ...eq,
+    // Rule value: resilience modifier + casque. (eq.volonte above is the raw slot sum.)
+    volonte: skillModifier(stats, 'resilience') + casque,
+    paradeBonus,
+    parade: eq.deflexion + eq.garde + paradeBonus,
+    initiative: weaponStatScore(stats, 'agilite') - 10 + gantelets,
+    mouvement: 8 + Math.floor(weaponStatScore(stats, 'agilite') / 2) + bottes,
+    seuilMiss: Math.max(1, 1 - agiMod),
+    canalisation: statModifier(weaponStatScore(stats, 'esprit')),
+    bonusAttaque: firstEquipped ? attackBonus(firstEquipped, stats) : 0,
+  };
+}
+
+/**
+ * Overwrite stored defense/derived fields with computed values.
+ * All combat values are rule-derived; none are manual anymore.
  * @param {Object} sheet - Character sheet data
  * @returns {Object} New sheet object with synced fields
  */
 export function syncStatsFromEquipment(sheet) {
   if (!sheet) return sheet;
-  const eq = equipmentStats(sheet.equipment, sheet.weapons);
+  const c = computeDerived(sheet);
   return {
     ...sheet,
     defense: {
       ...(sheet.defense ?? {}),
-      deflexion: eq.deflexion,
-      armure: eq.armure,
-      gardeBonus: eq.garde,
+      deflexion: c.deflexion,
+      armure: c.armure,
+      gardeBonus: c.garde,
+      bonus: c.paradeBonus,
     },
     derived: {
       ...(sheet.derived ?? {}),
-      volonte: eq.volonte,
+      volonte: c.volonte,
+      initiative: c.initiative,
+      mouvement: c.mouvement,
+      seuilMiss: c.seuilMiss,
+      canalisation: c.canalisation,
+      bonusAttaque: c.bonusAttaque,
     },
   };
 }

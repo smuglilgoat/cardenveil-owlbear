@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -368,13 +368,30 @@ describe('Character Sheet dice helpers', () => {
       });
     });
 
-    it('should only count equipped weapons for garde', () => {
+    it('should only count equipped melee weapons for garde (die / 2)', () => {
       const weapons = [
-        { nom: 'Bâton', parade: '4', equipped: true },
-        { nom: 'Épée courte', parade: '3', equipped: false },
+        { nom: 'Espadon', de: '1d12', equipped: true },
+        { nom: 'Dague', de: '1d4', equipped: true },
+        { nom: 'Épée courte', de: '1d6', equipped: false },
       ];
-      expect(equipmentStats(equipment, weapons).garde).toBe(4);
-      expect(equipmentStats(equipment, []).garde).toBe(0);
+      // Dual wield: 1d12 → 6, 1d4 → 2
+      expect(equipmentStats({}, weapons).garde).toBe(8);
+      expect(equipmentStats({}, []).garde).toBe(0);
+    });
+
+    it('should exclude ranged weapons from garde', () => {
+      const weapons = [
+        { nom: 'Arc long', de: '1d8', propriétés: 'Distance, Tir', equipped: true },
+        { nom: 'Focus', de: '1d4', family: 'Catalyseur, Distance', equipped: true },
+        { nom: 'Bâton', de: '1d8', equipped: true },
+      ];
+      // Only the Bâton (melee) counts: 8/2 = 4
+      expect(equipmentStats({}, weapons).garde).toBe(4);
+    });
+
+    it('should sum dice count × sides / 2 for multi-dice weapons', () => {
+      expect(equipmentStats({}, [{ nom: 'Hache double', de: '2d6', equipped: true }]).garde).toBe(6);
+      expect(equipmentStats({}, [{ nom: 'Arme', de: '', equipped: true }]).garde).toBe(0);
     });
 
     it('should handle missing equipment and weapons', () => {
@@ -384,35 +401,138 @@ describe('Character Sheet dice helpers', () => {
   });
 
   describe('syncStatsFromEquipment', () => {
-    it('should overwrite stored defense and volonte from equipment', () => {
+    it('should overwrite stored defense/derived fields with computed values', () => {
       const sheet = {
+        stats: { force: 14, agilite: 12, esprit: 10, social: 10 },
         defense: { deflexion: 99, gardeBonus: 99, bonus: 4, armure: 99 },
-        derived: { volonte: 99, initiative: 6 },
+        derived: { volonte: 99, initiative: 6, mouvement: 0, seuilMiss: 9, canalisation: 9, bonusAttaque: 9 },
         equipment: {
           casque: { deflexion: '0', volonte: '3' },
           plastron: { deflexion: '1', armure: '2' },
         },
-        weapons: [{ nom: 'Bâton', parade: '4', equipped: true }],
+        weapons: [{ nom: 'Bâton', de: '1d8', forceAgi: 'Esprit', bonus: '2', equipped: true }],
       };
 
       const synced = syncStatsFromEquipment(sheet);
 
       expect(synced.defense.deflexion).toBe(1);
       expect(synced.defense.armure).toBe(2);
-      expect(synced.defense.gardeBonus).toBe(4);
-      expect(synced.defense.bonus).toBe(4);
-      expect(synced.derived.volonte).toBe(3);
-      expect(synced.derived.initiative).toBe(6);
+      expect(synced.defense.gardeBonus).toBe(4); // 1d8 / 2
+      expect(synced.defense.bonus).toBe(1); // agilité mod (12 → +1)
+      expect(synced.derived.volonte).toBe(5); // résilience (force 14 → +2) + casque 3
+      expect(synced.derived.initiative).toBe(2); // 12 - 10
+      expect(synced.derived.mouvement).toBe(14); // 8 + 12/2
+      expect(synced.derived.seuilMiss).toBe(1); // max(1, 1 - 1)
+      expect(synced.derived.canalisation).toBe(0); // esprit 10
+      expect(synced.derived.bonusAttaque).toBe(2); // esprit mod 0 + tier 2
       // Original sheet untouched
       expect(sheet.defense.deflexion).toBe(99);
     });
 
-    it('should pass through sheets without equipment data', () => {
+    it('should treat missing stats as 10 for sheets without equipment data', () => {
       const sheet = { defense: { bonus: 1 } };
       const synced = syncStatsFromEquipment(sheet);
-      expect(synced.defense).toEqual({ bonus: 1, deflexion: 0, armure: 0, gardeBonus: 0 });
+      expect(synced.defense).toEqual({ bonus: 0, deflexion: 0, armure: 0, gardeBonus: 0 });
       expect(synced.derived.volonte).toBe(0);
+      expect(synced.derived.initiative).toBe(0);
+      expect(synced.derived.mouvement).toBe(13);
+      expect(synced.derived.seuilMiss).toBe(1);
+      expect(synced.derived.canalisation).toBe(0);
+      expect(synced.derived.bonusAttaque).toBe(0);
       expect(syncStatsFromEquipment(null)).toBeNull();
+    });
+  });
+
+  describe('paradeModifier', () => {
+    const stats = { force: 14, agilite: 16, esprit: 10, social: 10 }; // force +2, agi +3
+
+    it('should use agilité by default', () => {
+      expect(paradeModifier([{ nom: 'Bâton', equipped: true }], stats)).toBe(3);
+      expect(paradeModifier([], stats)).toBe(3);
+    });
+
+    it('should use force with a shield (bouclier/rempart)', () => {
+      expect(paradeModifier([{ nom: 'Épée', equipped: true }, { nom: 'Bouclier', de: '1d4', equipped: true }], stats)).toBe(2);
+      expect(paradeModifier([{ nom: 'Targe', propriétés: 'Rempart', equipped: true }], stats)).toBe(2);
+      // Unequipped shield is ignored
+      expect(paradeModifier([{ nom: 'Bouclier', equipped: false }], stats)).toBe(3);
+    });
+
+    it('should use force + agilité for straight swords (épées droites / garde)', () => {
+      expect(paradeModifier([{ nom: 'Rapière', propriétés: 'Épée droite', equipped: true }], stats)).toBe(5);
+      expect(paradeModifier([{ nom: 'Espadon', propriétés: 'Garde, Deux-mains', equipped: true }], stats)).toBe(5);
+    });
+
+    it('should be accent- and case-insensitive', () => {
+      expect(paradeModifier([{ nom: 'Bouclier de fer', equipped: true }], stats)).toBe(2);
+    });
+  });
+
+  describe('attackBonus', () => {
+    const stats = { force: 18, agilite: 12, esprit: 10, social: 10 }; // force +4, agi +1
+
+    it('should add the governing stat modifier and the weapon tier', () => {
+      expect(attackBonus({ nom: 'Hache', de: '1d8', forceAgi: 'Force', bonus: '2' }, stats)).toBe(6);
+      expect(attackBonus({ nom: 'Dague', de: '1d4', forceAgi: 'agilité', bonus: '1' }, stats)).toBe(2);
+      expect(attackBonus({ nom: 'Focus', de: '1d4', forceAgi: 'Esprit', bonus: '3' }, stats)).toBe(3);
+    });
+
+    it('should handle missing stat or tier', () => {
+      expect(attackBonus({ nom: 'Arme', forceAgi: 'Force' }, stats)).toBe(4);
+      expect(attackBonus({ nom: 'Arme', bonus: '2' }, stats)).toBe(2);
+      expect(attackBonus(null, stats)).toBe(0);
+    });
+  });
+
+  describe('computeDerived', () => {
+    const sheet = {
+      stats: { force: 14, agilite: 6, esprit: 16, social: 10 }, // force +2, agi -2, esprit +3
+      equipment: {
+        casque: { deflexion: '1', volonte: '2' },
+        plastron: { deflexion: '3', armure: '4' },
+        gantelets: { deflexion: '1', initiative: '5' },
+        bottes: { deflexion: '0', vitesse: '2' },
+      },
+      weapons: [{ nom: 'Espadon', de: '1d12', forceAgi: 'Force', bonus: '2', equipped: true }],
+    };
+
+    it('should compute parade from deflexion + garde + modifier', () => {
+      const calc = computeDerived(sheet);
+      // deflexion 1+3+1+0 = 5, garde 12/2 = 6, modifier agi -2
+      expect(calc.parade).toBe(9);
+      expect(calc.paradeBonus).toBe(-2);
+    });
+
+    it('should compute initiative, mouvement, seuilMiss, canalisation, volonte, bonusAttaque', () => {
+      const calc = computeDerived(sheet);
+      expect(calc.initiative).toBe(1); // 6 - 10 + 5 (gantelets)
+      expect(calc.mouvement).toBe(13); // 8 + 3 (agi/2 floored) + 2 (bottes)
+      expect(calc.seuilMiss).toBe(3); // max(1, 1 - (-2))
+      expect(calc.canalisation).toBe(3); // esprit 16 → +3
+      expect(calc.volonte).toBe(4); // résilience (force +2) + casque 2
+      expect(calc.bonusAttaque).toBe(4); // force +2 + tier 2
+    });
+
+    it('should switch the parade modifier to force with a shield', () => {
+      const shielded = {
+        ...sheet,
+        weapons: [
+          { nom: 'Épée', de: '1d8', equipped: true },
+          { nom: 'Bouclier', de: '1d4', equipped: true },
+        ],
+      };
+      const calc = computeDerived(shielded);
+      expect(calc.paradeBonus).toBe(2); // force
+      expect(calc.garde).toBe(6); // 1d8/2 + 1d4/2
+    });
+
+    it('should handle an empty sheet', () => {
+      const calc = computeDerived({});
+      expect(calc.parade).toBe(0);
+      expect(calc.initiative).toBe(0);
+      expect(calc.mouvement).toBe(13);
+      expect(calc.seuilMiss).toBe(1);
+      expect(calc.bonusAttaque).toBe(0);
     });
   });
 });
