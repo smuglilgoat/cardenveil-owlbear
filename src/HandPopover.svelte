@@ -4,7 +4,7 @@
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES } from "./lib/deck.js";
   import { startRealtime, stopRealtime, dispatch, fetchState } from "./lib/api.js";
   import { tooltip } from "./lib/tooltip.js";
-  import { suitColorBySymbol } from "./lib/characterSheet.js";
+  import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY } from "./lib/characterSheet.js";
 
   let ready = $state(false);
   let myId = $state(null);
@@ -87,7 +87,16 @@
   onDestroy(() => {
     stopRealtime();
     unsubParty?.();
+    offCardScheme();
+    window.removeEventListener('storage', onCardSchemeStorage);
   });
+
+  // Cross-frame card-scheme sync (main panel ↔ popovers)
+  function onCardSchemeStorage(e) {
+    if (e.key === CARD_SCHEME_KEY) cardScheme = getCardScheme();
+  }
+  const offCardScheme = onCardSchemeChange((s) => (cardScheme = s));
+  window.addEventListener('storage', onCardSchemeStorage);
 
   // ── Derived ───────────────────────────────────────────────────────────
   let player = $derived(gameState?.players?.[myId] ?? null);
@@ -393,6 +402,22 @@
     const t = n > 1 ? i / (n - 1) - 0.5 : 0;
     return t * SPREAD_X * (n - 1);
   }
+
+  // ── Card color scheme ('color' = sheet schema, 'classic' = red/black) ──
+  let cardScheme = $state(getCardScheme());
+  function faceSuitColor(card) {
+    return cardScheme === 'classic'
+      ? classicSuitColor(card.isRed)
+      : suitColorBySymbol(card.suit, true);
+  }
+  function pickerSuitColor(s) {
+    return cardScheme === 'classic'
+      ? classicSuitColor(s.isRed)
+      : suitColorBySymbol(s.symbol);
+  }
+  function toggleCardScheme() {
+    setCardScheme(cardScheme === 'classic' ? 'color' : 'classic');
+  }
 </script>
 
 <div
@@ -400,6 +425,11 @@
   style="background: transparent;"
 >
   {#if !folded && popoverId}
+    <button
+      onclick={toggleCardScheme}
+      title={cardScheme === 'classic' ? 'Passer aux couleurs par famille (♥ rouge, ♦ or, ♣ vert, ♠ gris)' : "Repasser au schéma classique rouge/noir"}
+      class="absolute top-1 right-[84px] z-[300] h-7 px-2.5 rounded-full flex items-center gap-1 text-[11px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors whitespace-nowrap"
+    >🎨</button>
     <button
       onclick={toggleFold}
       title="Replier la main"
@@ -441,7 +471,7 @@
                 {:else}
                   <div
                     class="w-[56px] h-[84px] rounded flex flex-col p-1 text-[10px] font-bold"
-                    style="background: #fff; border: 1.5px solid #d1d5db; color: {suitColorBySymbol(card.suit, true)};"
+                    style="background: #fff; border: 1.5px solid #d1d5db; color: {faceSuitColor(card)};"
                   >
                     <span>{card.value}{card.suit}</span>
                     <span class="flex-1 flex items-center justify-center text-[20px]">{card.suit}</span>
@@ -493,7 +523,7 @@
                 onclick={() => agilitePickSuit(s.symbol)}
                 use:tooltip={"Piocher une carte " + s.label + " aléatoire"}
                 class="flex flex-col items-center py-1 px-2 rounded border text-xs font-bold bg-gray-800 hover:bg-gray-700 transition-colors"
-                style="color: {suitColorBySymbol(s.symbol)}; border-color: {suitColorBySymbol(s.symbol)}"
+                style="color: {pickerSuitColor(s)}; border-color: {pickerSuitColor(s)}"
               >{s.symbol}</button
               >
             {/each}
@@ -609,7 +639,7 @@
             {#each sortCards(player.hand.filter(c => !c._pending)) as card (card.id)}
               <div
                 class="w-[56px] h-[84px] rounded cursor-pointer hover:ring-2 hover:ring-green-400 flex flex-col p-1 text-[10px] font-bold"
-                style="background: #fff; border: 1.5px solid #d1d5db; color: {suitColorBySymbol(card.suit, true)};"
+                style="background: #fff; border: 1.5px solid #d1d5db; color: {faceSuitColor(card)};"
                 role="button"
                 tabindex="0"
                 onclick={() => completeAccept(card)}
@@ -758,7 +788,7 @@
                     border: {isCrystallized
                     ? '2.5px solid #ef4444'
                     : '1.5px solid #d1d5db'};
-                    color: {suitColorBySymbol(card.suit, true)};
+                    color: {faceSuitColor(card)};
                   "
                 >
                   <div class="flex flex-col items-start">

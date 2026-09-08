@@ -5,7 +5,7 @@
   import ActionLog from "./ActionLog.svelte";
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES } from "./deck.js";
   import { tooltip } from "./tooltip.js";
-  import { suitColorBySymbol } from "./characterSheet.js";
+  import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY } from "./characterSheet.js";
 
   let { gameState, myId, myName, party, onAction } = $props();
 
@@ -335,8 +335,26 @@
     }
   });
 
+  // ── Card color scheme ('color' = sheet schema, 'classic' = red/black) ──
+  let cardScheme = $state(getCardScheme());
+  function pickerSuitColor(s) {
+    return cardScheme === 'classic'
+      ? classicSuitColor(s.isRed)
+      : suitColorBySymbol(s.symbol);
+  }
+  function toggleCardScheme() {
+    setCardScheme(cardScheme === 'classic' ? 'color' : 'classic');
+  }
+  function onCardSchemeStorage(e) {
+    if (e.key === CARD_SCHEME_KEY) cardScheme = getCardScheme();
+  }
+  const offCardScheme = onCardSchemeChange((s) => (cardScheme = s));
+  window.addEventListener('storage', onCardSchemeStorage);
+
   onDestroy(async () => {
     if (popoverVisible) await OBR.popover.close(POPOVER_ID).catch(() => {});
+    offCardScheme();
+    window.removeEventListener('storage', onCardSchemeStorage);
   });
 </script>
 
@@ -356,7 +374,14 @@
           </span>
         {/if}
       </h2>
-      <div class="flex gap-3 text-xs text-gray-500">
+      <div class="flex gap-3 text-xs text-gray-500 items-center">
+        <button
+          onclick={toggleCardScheme}
+          use:tooltip={cardScheme === 'classic' ? 'Passer aux couleurs par famille (♥ rouge, ♦ or, ♣ vert, ♠ gris)' : "Repasser au schéma classique rouge/noir"}
+          class="text-[10px] px-2 py-1 rounded-full border border-gray-600 text-gray-300 hover:text-white hover:border-gray-400 transition-colors whitespace-nowrap"
+        >
+          🎨 {cardScheme === 'classic' ? 'classique' : '4 couleurs'}
+        </button>
         <span
           >Défausse: <span class="text-white">{gameState.discard.length}</span
           ></span
@@ -536,7 +561,7 @@
                 onclick={() => agilitePickSuit(s.symbol)}
                 use:tooltip={"Piocher une carte " + s.label + " aléatoire"}
                 class="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold border transition-colors bg-gray-800 hover:bg-gray-700"
-                style="color: {suitColorBySymbol(s.symbol)}; border-color: {suitColorBySymbol(s.symbol)}"
+                style="color: {pickerSuitColor(s)}; border-color: {pickerSuitColor(s)}"
               >
                 <span>{s.symbol} {s.label}</span>
               </button>

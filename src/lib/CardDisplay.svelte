@@ -1,11 +1,33 @@
 <script>
+  import { onMount } from 'svelte';
   import { tooltip } from './tooltip.js';
-  import { suitColorBySymbol } from './characterSheet.js';
+  import {
+    suitColorBySymbol,
+    classicSuitColor,
+    getCardScheme,
+    onCardSchemeChange,
+    CARD_SCHEME_KEY
+  } from './characterSheet.js';
   /** @type {{ card: object, faceDown?: boolean, actions?: Array<{icon?: string, label: string, onClick: () => void}>, crystallized?: boolean, fatiguePenalty?: number }} */
   let { card, faceDown = false, actions = [], crystallized = false, fatiguePenalty = 0 } = $props();
 
-  // Character-sheet suit schema, darkened for the white card face
-  let suitColor = $derived(suitColorBySymbol(card?.suit, true));
+  // 'color' = sheet suit schema (darkened for the white face), 'classic' = red/black
+  let scheme = $state(getCardScheme());
+  let suitColor = $derived(
+    scheme === 'classic' ? classicSuitColor(card?.isRed) : suitColorBySymbol(card?.suit, true)
+  );
+
+  onMount(() => {
+    const off = onCardSchemeChange((s) => (scheme = s));
+    const onStorage = (e) => {
+      if (e.key === CARD_SCHEME_KEY) scheme = getCardScheme();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      off();
+      window.removeEventListener('storage', onStorage);
+    };
+  });
 </script>
 
 {#if faceDown}

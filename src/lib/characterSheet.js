@@ -87,6 +87,38 @@ export function suitColorBySymbol(suit, onLight = false) {
   return map[suit] ?? (onLight ? '#6b7280' : '#9ca3af');
 }
 
+// ─── Card color scheme (local preference: 'color' schema vs classic red/black) ───
+export const CARD_SCHEME_KEY = 'cardenveil-card-scheme';
+const cardSchemeListeners = new Set();
+
+export function getCardScheme() {
+  try {
+    return localStorage.getItem(CARD_SCHEME_KEY) === 'classic' ? 'classic' : 'color';
+  } catch {
+    return 'color';
+  }
+}
+
+export function setCardScheme(scheme) {
+  try {
+    localStorage.setItem(CARD_SCHEME_KEY, scheme === 'classic' ? 'classic' : 'color');
+  } catch {
+    /* storage unavailable — applies locally only */
+  }
+  // Notifies same-runtime subscribers (cross-iframe views get the `storage` event)
+  cardSchemeListeners.forEach((h) => h(scheme));
+}
+
+export function onCardSchemeChange(handler) {
+  cardSchemeListeners.add(handler);
+  return () => cardSchemeListeners.delete(handler);
+}
+
+/** Classic two-color card palette (red suits vs black suits). */
+export function classicSuitColor(isRed) {
+  return isRed ? '#dc2626' : '#111827';
+}
+
 /**
  * Whether an image-slot value is a URL (vs an emoji/glyph to render as text).
  * @param {unknown} value - Portrait/capacity/totem image value
