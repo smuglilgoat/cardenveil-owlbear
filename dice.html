@@ -60,6 +60,29 @@
       }
       .hint { font-size: 10px; color: #6b7280; margin-top: 12px; }
       .error { color: #f87171; font-size: 13px; margin-top: 20px; }
+      /* Max-value roll: gold flash */
+      .die.crit {
+        background: #92400e;
+        border-color: #fbbf24;
+        color: #fde68a;
+        animation:
+          tumble 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) forwards,
+          crit-glow 0.7s ease-in-out 3;
+      }
+      .total.crit {
+        color: #fbbf24;
+        animation:
+          pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) forwards,
+          crit-text-glow 0.8s ease-in-out 3;
+      }
+      @keyframes crit-glow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+        50% { box-shadow: 0 0 14px 4px rgba(251, 191, 36, 0.8); }
+      }
+      @keyframes crit-text-glow {
+        0%, 100% { text-shadow: 0 0 0 rgba(251, 191, 36, 0); }
+        50% { text-shadow: 0 0 16px rgba(251, 191, 36, 0.9); }
+      }
     </style>
   </head>
   <body>
@@ -77,6 +100,10 @@
       const total = params.get('total');
       const rolls = (params.get('rolls') || '').split(',').filter(Boolean);
       const error = params.get('error');
+      // Max-value roll ("crit"): a die equal to its formula's die size (d20 → 20, d6 → 6, …)
+      const critMatch = formula.match(/d\s*(\d+)/i);
+      const critSides = critMatch ? parseInt(critMatch[1], 10) : null;
+      const isCrit = (r) => critSides != null && parseInt(r, 10) === critSides;
 
       document.getElementById('label').textContent = label;
       const row = document.getElementById('dice-row');
@@ -93,7 +120,7 @@
         const shown = rolls.slice(0, 12);
         shown.forEach((r, i) => {
           const die = document.createElement('div');
-          die.className = 'die';
+          die.className = isCrit(r) ? 'die crit' : 'die';
           die.style.animationDelay = `${i * 0.08}s`;
           die.textContent = r;
           row.appendChild(die);
@@ -104,6 +131,9 @@
           more.style.animationDelay = `${shown.length * 0.08}s`;
           more.textContent = `+${rolls.length - shown.length}`;
           row.appendChild(more);
+        }
+        if (rolls.some(isCrit)) {
+          totalEl.classList.add('crit');
         }
         totalEl.style.animationDelay = `${0.45 + (shown.length + 1) * 0.08}s`;
         totalEl.textContent = total != null && total !== '' ? total : '—';

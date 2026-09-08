@@ -107,10 +107,23 @@
     saveCharacterSheet(playerId, roomId, next).catch(console.error);
   }
 
+  // Max-value roll ("crit"): a die equal to its formula's die size (d20 → 20, d6 → 6, …)
+  function critRoll(formula, rolls = []) {
+    const match = String(formula || '').match(/d\s*(\d+)/i);
+    if (!match) return false;
+    const sides = parseInt(match[1], 10);
+    return rolls.some((r) => Number(r) === sides);
+  }
+
   function doRoll(label, formula) {
     try {
       const result = rollDice(formula, sheet?.stats ?? {});
-      lastRoll = { label, ...result, time: new Date().toLocaleTimeString() };
+      lastRoll = {
+        label,
+        ...result,
+        time: new Date().toLocaleTimeString(),
+        crit: critRoll(result.formula, result.rolls)
+      };
       dispatch(roomId, {
         type: 'USE_CAPACITY',
         playerId,
@@ -270,10 +283,10 @@
           <div class="text-[10px] text-red-300">Formule invalide : {lastRoll.error}</div>
         {:else}
           <div class="flex items-center gap-2.5">
-            <div class="text-2xl font-bold text-indigo-300 leading-none">{lastRoll.total}</div>
+            <div class="text-2xl font-bold leading-none {lastRoll.crit ? 'crit-flash' : 'text-indigo-300'}">{lastRoll.total}</div>
             <div class="min-w-0">
               <div class="text-[10px] font-semibold truncate">{lastRoll.label}</div>
-              <div class="text-[9px] text-[#9ca3af] truncate">
+              <div class="text-[9px] truncate {lastRoll.crit ? 'text-amber-400' : 'text-[#9ca3af]'}">
                 {lastRoll.formula}: {(lastRoll.rolls ?? []).join(', ')}{lastRoll.modifier ? ` ${lastRoll.modifier > 0 ? '+' : ''}${lastRoll.modifier}` : ''} · {lastRoll.time}
               </div>
             </div>
@@ -285,6 +298,14 @@
 </div>
 
 <style>
+  .crit-flash {
+    color: #fbbf24;
+    animation: crit-flash 0.8s ease-in-out 3;
+  }
+  @keyframes crit-flash {
+    0%, 100% { text-shadow: 0 0 0 rgba(251, 191, 36, 0); }
+    50% { text-shadow: 0 0 14px rgba(251, 191, 36, 0.9); }
+  }
   .scrollbar-thin::-webkit-scrollbar {
     width: 4px;
   }
