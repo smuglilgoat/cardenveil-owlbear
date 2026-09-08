@@ -1,5 +1,6 @@
-// Reducer source of truth: ../../src/lib/deck.js (shared with the Netlify
-// function and the client). This shim keeps the ./_gameLogic.ts import path
-// stable. ponytail: deployed bundle must include the relative import —
-// verify on first `supabase functions deploy`
-export { applyAction, hydrateState, dehydrateState, createInitialGameState, GM_CHAR_ID } from '../../src/lib/deck.js';
+// Reducer source of truth: src/lib/deck.js (shared with the Netlify function
+// and the client). `_deck.js` is a symlink to ../../../src/lib/deck.js so the
+// deploy bundle stays inside supabase/ — Supabase staging does not bundle
+// files outside it (relative ../.. imports resolve to a nonexistent path).
+export { applyAction, hydrateState, dehydrateState, createInitialGameState, GM_CHAR_ID } from './_deck.js';
+
