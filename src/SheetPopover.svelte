@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import OBR from '@owlbear-rodeo/sdk';
   import { dispatch } from './lib/api.js';
+  import { tooltip } from './lib/tooltip.js';
   import {
     STAT_COLORS,
     SKILL_GROUPS,
@@ -77,6 +78,10 @@
   function statMod(stat) {
     const value = sheet?.stats?.[stat] || 10;
     return Math.floor((value - 10) / 2);
+  }
+
+  function stripHtml(text) {
+    return (text || '').replace(/<[^>]*>/g, '').trim();
   }
 
   function fmt(value) {
@@ -249,7 +254,10 @@
       {/each}
 
       {#if sheet.totem?.nom}
-        <div class="bg-indigo-600 rounded-md px-2.5 py-1.5 text-[9px] font-bold truncate">
+        <div
+          use:tooltip={stripHtml(sheet.totem.description)}
+          class="bg-indigo-600 rounded-md px-2.5 py-1.5 text-[9px] font-bold truncate cursor-help"
+        >
           TOTEM &nbsp;{sheet.totem.nom}
         </div>
       {/if}
