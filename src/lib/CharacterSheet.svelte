@@ -22,6 +22,8 @@
     suitColor,
     suitSymbol,
     isImageUrl,
+    EQUIPMENT_CATALOG,
+    findEquipmentTemplate,
     syncSkillBonuses,
     syncStatsFromEquipment,
     broadcastActionChecks,
@@ -102,6 +104,10 @@
   // Rule-derived combat values (parade, initiative, mouvement, volonté, ...) — always computed, never manual.
   let calc = $derived(computeDerived(view ?? {}));
   let editCalc = $derived(computeDerived(editSheet ?? {}));
+
+  // Selected equipment-catalog templates for the add buttons (edit modal)
+  let weaponTemplate = $state('');
+  let itemTemplate = $state('');
 
   const DICE_POPOVER_ID = 'cardenveil-dice';
   const SHEET_POPOVER_ID = 'cardenveil-sheet';
@@ -1372,14 +1378,39 @@
                 <div>
                   <div class="flex items-center justify-between mb-1.5">
                     <h4 class="text-[10px] font-bold text-[#9ca3af]">INVENTAIRE</h4>
-                    <button
-                      onclick={() => {
-                        editSheet.inventoryItems = [...(editSheet.inventoryItems || []), { type: 'Divers', name: '', description: '' }];
-                      }}
-                      class="px-3 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors"
-                    >
-                      + Ajouter un objet
-                    </button>
+                    <div class="flex items-center gap-1.5">
+                      <select
+                        bind:value={itemTemplate}
+                        title="Choisir un modèle d'équipement"
+                        class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
+                      >
+                        <option value="">— Modèle —</option>
+                        {#each EQUIPMENT_CATALOG as grp}
+                          <optgroup label={grp.group}>
+                            {#each grp.items as item}
+                              <option value={item.nom} title={item.proprietes}>{item.nom}{item.de ? ` — ${item.de}` : ''}</option>
+                            {/each}
+                          </optgroup>
+                        {/each}
+                      </select>
+                      <button
+                        onclick={() => {
+                          const tpl = findEquipmentTemplate(itemTemplate);
+                          editSheet.inventoryItems = [...(editSheet.inventoryItems || []), {
+                            type: tpl ? (tpl.kind === 'armure' ? 'Armure' : 'Arme') : 'Divers',
+                            name: tpl?.nom ?? '',
+                            degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
+                            family: tpl?.group ?? '',
+                            attributs: tpl?.proprietes ?? '',
+                            description: ''
+                          }];
+                          itemTemplate = '';
+                        }}
+                        class="px-3 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
+                      >
+                        + Ajouter un objet
+                      </button>
+                    </div>
                   </div>
                   {#each editSheet.inventoryItems || [] as item}
                     <div class="bg-[#111827] rounded-md px-2.5 py-2 space-y-1.5 mb-2">
@@ -1410,17 +1441,39 @@
                 <div>
                   <div class="flex items-center justify-between mb-1.5">
                     <h4 class="text-[10px] font-bold text-[#9ca3af]">ARMES</h4>
-                    <button
-                      onclick={() => {
-                        editSheet.weapons = [...(editSheet.weapons || []), {
-                          nom: '', de: '', forceAgi: '', critique: '', avantage: '',
-                          bonus: '', perfection: '', notes: '', equipped: false
-                        }];
-                      }}
-                      class="px-3 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors"
-                    >
-                      + Ajouter une arme
-                    </button>
+                    <div class="flex items-center gap-1.5">
+                      <select
+                        bind:value={weaponTemplate}
+                        title="Choisir un modèle d'arme"
+                        class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
+                      >
+                        <option value="">— Modèle —</option>
+                        {#each EQUIPMENT_CATALOG as grp}
+                          <optgroup label={grp.group}>
+                            {#each grp.items as item}
+                              <option value={item.nom} title={item.proprietes}>{item.nom}{item.de ? ` — ${item.de}` : ''}</option>
+                            {/each}
+                          </optgroup>
+                        {/each}
+                      </select>
+                      <button
+                        onclick={() => {
+                          const tpl = findEquipmentTemplate(weaponTemplate);
+                          editSheet.weapons = [...(editSheet.weapons || []), {
+                            nom: tpl?.nom ?? '',
+                            de: tpl?.de ?? '',
+                            degats: tpl?.degats ?? '',
+                            propriétés: tpl?.proprietes ?? '',
+                            forceAgi: '', critique: '', avantage: '',
+                            bonus: '', perfection: '', notes: '', equipped: false
+                          }];
+                          weaponTemplate = '';
+                        }}
+                        class="px-3 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
+                      >
+                        + Ajouter une arme
+                      </button>
+                    </div>
                   </div>
                   {#each editSheet.weapons || [] as weapon, i}
                     <div class="bg-[#111827] rounded-lg p-2.5 mb-2 space-y-2">

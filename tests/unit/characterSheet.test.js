@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, paradeTotal, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -549,6 +549,31 @@ describe('Character Sheet dice helpers', () => {
       expect(isImageUrl('⚔️')).toBe(false);
       expect(isImageUrl('')).toBe(false);
       expect(isImageUrl(null)).toBe(false);
+    });
+  });
+
+  describe('EQUIPMENT_CATALOG', () => {
+    it('should expose the full weapon/armor table', () => {
+      const names = EQUIPMENT_CATALOG.flatMap((g) => g.items.map((i) => i.nom));
+      expect(names).toContain('Épée longue');
+      expect(names).toContain('Bouclier');
+      expect(names).toContain('Arbalète lourde');
+      expect(names).toContain('Faux');
+      expect(names).toContain('Plastron');
+    });
+
+    it('should find templates with their group and kind', () => {
+      const katana = findEquipmentTemplate('Katana (sabre long)');
+      expect(katana.de).toBe('1d10');
+      expect(katana.proprietes).toContain('Fluide');
+      expect(katana.kind).toBe('arme');
+
+      const plastron = findEquipmentTemplate('Plastron');
+      expect(plastron.kind).toBe('armure');
+
+      expect(findEquipmentTemplate('Inexistant')).toBeNull();
+      expect(findEquipmentTemplate('')).toBeNull();
+      expect(findEquipmentTemplate(undefined)).toBeNull();
     });
   });
 });

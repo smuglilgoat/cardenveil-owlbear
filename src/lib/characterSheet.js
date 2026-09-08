@@ -86,6 +86,125 @@ export function isImageUrl(value) {
   return /^https?:\/\//i.test(v) || v.startsWith('data:') || v.startsWith('/');
 }
 
+// ─── Equipment catalog (display data only — no dice/damage logic) ───
+// Static skeleton from the equipment rules; enchantements/effets are added
+// by hand on top of these entries.
+export const EQUIPMENT_CATALOG = [
+  {
+    group: '⚔️ Épées droites — Garde',
+    kind: 'arme',
+    items: [
+      { nom: 'Dague', de: '1d4', degats: 'tranchant/perçant', proprietes: 'Finesse, Légère, Lancer (10m), Garde' },
+      { nom: 'Épée courte', de: '1d6', degats: 'tranchant/perçant', proprietes: 'Finesse, Légère, Garde' },
+      { nom: 'Épée longue', de: '1d8', degats: 'tranchant/perçant', proprietes: 'Polyvalente (1d10), Garde' },
+      { nom: 'Espadon (grande épée)', de: '1d12', degats: 'tranchant/perçant', proprietes: 'Deux mains, Garde' }
+    ]
+  },
+  {
+    group: '🗡 Épées courbes — Fluide',
+    kind: 'arme',
+    items: [
+      { nom: 'Serpe', de: '1d4', degats: 'tranchant', proprietes: 'Légère, Fluide' },
+      { nom: 'Épée courbe (cimeterre)', de: '1d6', degats: 'tranchant', proprietes: 'Finesse, Légère, Fluide' },
+      { nom: 'Katana (sabre long)', de: '1d10', degats: 'tranchant', proprietes: 'Finesse, Deux mains, Fluide' },
+      { nom: 'Grand sabre', de: '1d12', degats: 'tranchant', proprietes: 'Deux mains, Fluide' }
+    ]
+  },
+  {
+    group: '🪓 Haches — Brutalité',
+    kind: 'arme',
+    items: [
+      { nom: 'Hachette', de: '1d6', degats: 'tranchant', proprietes: 'Légère, Lancer (10m), Brutalité' },
+      { nom: 'Hache d’armes', de: '1d8', degats: 'tranchant', proprietes: 'Polyvalente (1d10), Brutalité' },
+      { nom: 'Grande hache', de: '1d12', degats: 'tranchant', proprietes: 'Deux mains, Brutalité' }
+    ]
+  },
+  {
+    group: '🔨 Massues — Impact',
+    kind: 'arme',
+    items: [
+      { nom: 'Gourdin', de: '1d4', degats: 'contondant', proprietes: 'Improvisée, Brute, Impact' },
+      { nom: 'Marteau de guerre', de: '1d8', degats: 'contondant', proprietes: 'Polyvalente (1d10), Impact' },
+      { nom: 'Grand marteau', de: '1d12', degats: 'contondant', proprietes: 'Deux mains, Impact' }
+    ]
+  },
+  {
+    group: '🪶 Armes à allonge — Allonge',
+    kind: 'arme',
+    items: [
+      { nom: 'Bâton long', de: '1d6', degats: 'contondant', proprietes: 'Allonge' },
+      { nom: 'Lance', de: '1d8', degats: 'perçant', proprietes: 'Polyvalente (1d10), Allonge' },
+      { nom: 'Hallebarde', de: '1d12', degats: 'tranchant', proprietes: 'Deux mains, Allonge' }
+    ]
+  },
+  {
+    group: '🏹 Arcs — Surplomb',
+    kind: 'arme',
+    items: [
+      { nom: 'Arc court', de: '1d6', degats: 'perçant', proprietes: 'Distance, Deux mains, Surplomb' },
+      { nom: 'Arc long', de: '1d8', degats: 'perçant', proprietes: 'Distance, Deux mains, Surplomb' }
+    ]
+  },
+  {
+    group: '🔫 Arbalètes — Perforant',
+    kind: 'arme',
+    items: [
+      { nom: 'Arbalète de poing', de: '1d4', degats: 'perçant', proprietes: 'Distance, Brute, Tir léger, Secondaire, Perforant' },
+      { nom: 'Arbalète', de: '1d8', degats: 'perçant', proprietes: 'Distance, Deux mains, Perforant' },
+      { nom: 'Arbalète lourde', de: '1d12', degats: 'perçant', proprietes: 'Distance, Deux mains, Recharge, Perforant' }
+    ]
+  },
+  {
+    group: '🔮 Catalyseurs',
+    kind: 'arme',
+    items: [
+      { nom: 'Focus', de: '1d4', degats: 'magique/élémentaire', proprietes: 'Distance, Brute, Tir léger, Secondaire, Catalyseur' },
+      { nom: 'Bâton', de: '1d8', degats: 'magique/élémentaire', proprietes: 'Distance, Deux mains, Catalyseur' }
+    ]
+  },
+  {
+    group: '🛡️ Boucliers — Rempart',
+    kind: 'arme',
+    items: [{ nom: 'Bouclier', de: '1d4', degats: 'contondant', proprietes: 'Brute, Secondaire, Rempart' }]
+  },
+  {
+    group: 'Armes uniques',
+    kind: 'arme',
+    items: [
+      { nom: 'Faux', de: '1d10', degats: 'tranchant', proprietes: 'Deux mains, Fluide, Allonge' },
+      { nom: 'Twinblade', de: '1d8', degats: 'tranchant', proprietes: 'Deux mains, Double Frappe' },
+      { nom: 'Rapière', de: '1d8', degats: 'perçant', proprietes: 'Finesse, Contre d’Estoc' },
+      { nom: 'Fouet', de: '1d6', degats: 'tranchant', proprietes: 'Finesse, Entrave' },
+      { nom: 'Fist weapons', de: '1d4', degats: 'contondant', proprietes: 'Comme mains nues, Brute' },
+      { nom: 'Fléau', de: '1d8', degats: 'perçant', proprietes: 'Déstabilisation' }
+    ]
+  },
+  {
+    group: '🛡️ Armures',
+    kind: 'armure',
+    items: [
+      { nom: 'Plastron', de: '', degats: '', proprietes: 'Déflexion + Armure (plastron)' },
+      { nom: 'Casque', de: '', degats: '', proprietes: 'Déflexion + Volonté (casque)' },
+      { nom: 'Bottes', de: '', degats: '', proprietes: 'Déflexion + Vitesse (bottes)' },
+      { nom: 'Gantelets', de: '', degats: '', proprietes: 'Déflexion + Initiative (gantelets)' }
+    ]
+  }
+];
+
+/**
+ * Find a catalog entry by name (returns it with its group + kind).
+ * @param {string} [nom] - Catalog item name
+ * @returns {Object|null} { nom, de, degats, proprietes, group, kind }
+ */
+export function findEquipmentTemplate(nom) {
+  if (!nom) return null;
+  for (const group of EQUIPMENT_CATALOG) {
+    const hit = group.items.find((item) => item.nom === nom);
+    if (hit) return { ...hit, group: group.group, kind: group.kind };
+  }
+  return null;
+}
+
 /**
  * Detect the action type of a capacity from its free-text usage field.
  * "Bonus action" must be checked before "action"; "Réaction" before both.
