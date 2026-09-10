@@ -3,6 +3,7 @@
   import OBR from '@owlbear-rodeo/sdk';
   import ActionDiamonds from './ActionDiamonds.svelte';
   import { importSheetArchive } from './sheetAssets.js';
+  import { RACES } from './deck.js';
   import {
     STAT_COLORS,
     SKILL_GROUPS,
