@@ -42,6 +42,7 @@
   let isEditing = $state(false);
   let isLoading = $state(true);
   let isSaving = $state(false);
+  let isImporting = $state(false);
   let showUnsavedModal = $state(false);
   let showDeleteConfirm = $state(false);
   let pendingAction = $state(null);
@@ -264,6 +265,7 @@
       const file = e.target.files[0];
       if (!file) return;
 
+      isImporting = true;
       try {
         importError = '';
         const imported = file.name.toLowerCase().endsWith('.zip')
@@ -276,6 +278,8 @@
       } catch (err) {
         importError = err.message;
         console.error('Import failed:', err);
+      } finally {
+        isImporting = false;
       }
     };
 
@@ -585,6 +589,13 @@
         </button>
       </div>
     </div>
+
+    {#if isImporting}
+      <div class="fixed inset-0 z-[80] bg-black/60 flex flex-col items-center justify-center gap-3">
+        <div class="w-8 h-8 rounded-full border-2 border-[#4b5563] border-t-indigo-400 animate-spin"></div>
+        <div class="text-xs font-semibold text-[#9ca3af]">Import de la fiche en cours…</div>
+      </div>
+    {/if}
 
     {#if importError}
       <div class="bg-red-950 border-b border-red-800 px-3 py-2 text-red-200 text-xs">
