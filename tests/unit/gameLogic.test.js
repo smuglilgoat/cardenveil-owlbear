@@ -232,6 +232,48 @@ describe('Game Logic', () => {
       });
     });
 
+    describe('SET_RACE', () => {
+      it('should let the GM set any player race', () => {
+        const { state } = applyAction(initialState, {
+          type: 'SET_RACE',
+          playerId: 'gm-player',
+          targetId: 'player-1',
+          race: 'tieffelin',
+        });
+        expect(state.players['player-1'].race).toBe('tieffelin');
+      });
+
+      it('should let a player set their own race (sheet import sync)', () => {
+        const { state } = applyAction(initialState, {
+          type: 'SET_RACE',
+          playerId: 'player-1',
+          targetId: 'player-1',
+          race: 'haut-elfe',
+        });
+        expect(state.players['player-1'].race).toBe('haut-elfe');
+      });
+
+      it('should reject a player setting another player race', () => {
+        const { state } = applyAction(initialState, {
+          type: 'SET_RACE',
+          playerId: 'player-1',
+          targetId: 'player-2',
+          race: 'aasimar',
+        });
+        expect(state.players['player-2'].race).toBeNull();
+      });
+
+      it('should reject unknown race ids', () => {
+        const { state } = applyAction(initialState, {
+          type: 'SET_RACE',
+          playerId: 'gm-player',
+          targetId: 'player-1',
+          race: 'Humain',
+        });
+        expect(state.players['player-1'].race).toBeNull();
+      });
+    });
+
     describe('REGISTER_PLAYER', () => {
       it('should register new player', () => {
         const { state } = applyAction(initialState, {

@@ -25,7 +25,9 @@
     skillModifier,
     syncSkillBonuses,
     syncStatsFromEquipment,
-    toNumber
+    toNumber,
+    normalizeRaceName,
+    raceLabel
   } from "./characterSheet.js";
   import { tooltip } from "./tooltip.js";
 
@@ -430,6 +432,14 @@
       await saveCharacterSheet(viewingSheet.playerId, OBR.room.id, viewingSheet.sheet);
       viewingSheet.exists = true;
       viewingSheet.isEditing = false;
+      // Reflect the sheet's race into game state (GM may set any race)
+      const raceId = normalizeRaceName(viewingSheet.sheet.identity?.race);
+      if (
+        RACES.some((r) => r.id === raceId) &&
+        gameState?.players?.[viewingSheet.playerId]?.race !== raceId
+      ) {
+        onAction({ type: 'SET_RACE', playerId: myId, targetId: viewingSheet.playerId, race: raceId });
+      }
     } catch (err) {
       sheetError = `Erreur lors de la sauvegarde: ${err.message}`;
       console.error('Failed to save character sheet:', err);
@@ -1390,7 +1400,7 @@
                   />
                 {:else}
                   <div class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm">
-                    {viewingSheet.sheet.identity?.race || '—'}
+                    {raceLabel(viewingSheet.sheet.identity?.race) || '—'}
                   </div>
                 {/if}
               </div>

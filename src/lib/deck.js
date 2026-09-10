@@ -675,7 +675,10 @@ export function applyAction(state, action) {
     }
 
     case 'SET_RACE': {
-      if (!isGM(state, action.playerId)) return { state, log: null };
+      // GM may set any player's race; a player may set their own
+      // (character-sheet import / edit syncs the race into game state).
+      const isSelf = action.playerId === action.targetId;
+      if (!isGM(state, action.playerId) && !isSelf) return { state, log: null };
       const p = state.players[action.targetId];
       if (!p) return { state, log: null };
       const race = action.race && RACE_IDS.has(action.race) ? action.race : null;

@@ -28,6 +28,7 @@
     itemTypeColor,
     ITEM_TYPE_OPTIONS,
     raceLabel,
+    normalizeRaceName,
     syncSkillBonuses,
     syncStatsFromEquipment,
     toNumber
@@ -236,12 +237,21 @@
       sheet = editSheet;
       editSheet = null;
       isEditing = false;
+      syncRaceToGameState(sheet?.identity?.race);
     } catch (err) {
       console.error('Failed to save:', err);
       alert('Erreur lors de la sauvegarde: ' + err.message);
     } finally {
       isSaving = false;
     }
+  }
+
+  // Reflect a recognized sheet race into game state (SET_RACE allows self-assign)
+  function syncRaceToGameState(race) {
+    const raceId = normalizeRaceName(race);
+    if (!RACES.some((r) => r.id === raceId)) return;
+    if (gameState?.players?.[playerId]?.race === raceId) return;
+    onAction({ type: 'SET_RACE', playerId, targetId: playerId, race: raceId });
   }
 
   async function handleImport() {
@@ -261,6 +271,7 @@
         sheet = imported.data;
         isEditing = false;
         editSheet = null;
+        syncRaceToGameState(sheet?.identity?.race);
       } catch (err) {
         importError = err.message;
         console.error('Import failed:', err);
