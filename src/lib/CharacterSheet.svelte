@@ -355,6 +355,15 @@
     checkUnsavedChanges(() => handleDiceRoll(STAT_LABELS[stat] || stat, `d20${mod >= 0 ? '+' + mod : mod}`));
   }
 
+  // Derived combat rolls: initiative and volonté both roll d20 + their value
+  function handleInitiativeRoll() {
+    checkUnsavedChanges(() => handleDiceRoll('Initiative', `d20${formatModifier(calc.initiative)}`));
+  }
+
+  function handleVolonteRoll() {
+    checkUnsavedChanges(() => handleDiceRoll('Volonté', `d20${formatModifier(calc.volonte)}`));
+  }
+
   function checkUnsavedChanges(actionCallback) {
     if (isEditing) {
       pendingAction = actionCallback;
@@ -697,7 +706,14 @@
         </div>
 
         <!-- Initiative -->
-        <div class="bg-[#1f2937] rounded-lg p-2">
+        <div
+          onclick={handleInitiativeRoll}
+          onkeydown={(e) => e.key === 'Enter' && handleInitiativeRoll()}
+          role="button"
+          tabindex="0"
+          title={`Jet d'initiative (d20)`}
+          class="bg-[#1f2937] rounded-lg p-2 cursor-pointer hover:bg-[#374151] transition-colors"
+        >
           <div class="text-[9px] font-bold text-[#9ca3af]">INITIATIVE</div>
           <div class="text-xl font-bold leading-none mt-0.5" style="color: {STAT_COLORS.agilite}">
             {calc.initiative}
@@ -732,7 +748,14 @@
           <div class="text-[8px] font-bold text-[#9ca3af]">CANALIS.</div>
           <div class="text-base font-bold">{formatModifier(calc.canalisation)}</div>
         </div>
-        <div class="bg-[#111827] rounded-md px-2 py-1.5">
+        <div
+          onclick={handleVolonteRoll}
+          onkeydown={(e) => e.key === 'Enter' && handleVolonteRoll()}
+          role="button"
+          tabindex="0"
+          title={`Jet de volonté (d20)`}
+          class="bg-[#111827] rounded-md px-2 py-1.5 cursor-pointer hover:bg-[#1f2937] transition-colors"
+        >
           <div class="text-[8px] font-bold text-[#9ca3af]">VOLONTÉ</div>
           <div class="text-base font-bold">{calc.volonte}</div>
         </div>
