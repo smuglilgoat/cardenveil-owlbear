@@ -6,6 +6,7 @@
   import { RACES } from './deck.js';
   import {
     STAT_COLORS,
+    STAT_LABELS,
     SKILL_GROUPS,
     SKILL_LABELS,
     colorLabel,
@@ -349,6 +350,11 @@
     checkUnsavedChanges(() => handleDiceRoll(label, `d20${mod >= 0 ? '+' + mod : mod}`));
   }
 
+  function handleStatRoll(stat) {
+    const mod = getStatModifier(stat);
+    checkUnsavedChanges(() => handleDiceRoll(STAT_LABELS[stat] || stat, `d20${mod >= 0 ? '+' + mod : mod}`));
+  }
+
   function checkUnsavedChanges(actionCallback) {
     if (isEditing) {
       pendingAction = actionCallback;
@@ -652,8 +658,16 @@
       <!-- ═══ STATS ROW ═══ -->
       <div class="grid grid-cols-4 gap-2 mt-2.5">
         {#each ['force', 'agilite', 'esprit', 'social'] as stat}
-          <div class="bg-[#111827] rounded-lg p-2">
-            <div class="text-[9px] font-bold text-[#9ca3af]">{stat.toUpperCase()}</div>
+          {@const statLabel = STAT_LABELS[stat]}
+          <div
+            onclick={() => handleStatRoll(stat)}
+            onkeydown={(e) => e.key === 'Enter' && handleStatRoll(stat)}
+            role="button"
+            tabindex="0"
+            title={`Jet de ${statLabel} (d20)`}
+            class="bg-[#111827] rounded-lg p-2 cursor-pointer hover:bg-[#1f2937] transition-colors"
+          >
+            <div class="text-[9px] font-bold text-[#9ca3af]">{statLabel.toUpperCase()}</div>
             <div class="flex items-baseline justify-between mt-0.5">
               <span class="text-xl font-bold leading-none" style="color: {STAT_COLORS[stat]}">
                 {toNumber(view.stats?.[stat])}

@@ -6,6 +6,9 @@ import { supabase } from './supabaseClient.js';
 import { RACES } from './deck.js';
 
 // ─── Shared UI constants (used by CharacterSheet + SheetPopover) ───
+// French display labels for stat keys
+export const STAT_LABELS = { force: 'Force', agilite: 'Agilité', esprit: 'Esprit', social: 'Social' };
+
 export const STAT_COLORS = {
   force: '#f87171',
   agilite: '#4ade80',

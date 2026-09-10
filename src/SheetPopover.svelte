@@ -6,6 +6,7 @@
   import ActionDiamonds from './lib/ActionDiamonds.svelte';
   import {
     STAT_COLORS,
+    STAT_LABELS,
     SKILL_GROUPS,
     SKILL_LABELS,
     fetchCharacterSheet,
@@ -222,8 +223,15 @@
       </div>
       <div class="grid grid-cols-4 gap-1.5 mt-2">
         {#each ['force', 'agilite', 'esprit', 'social'] as stat}
-          <div class="bg-[#111827] rounded-md px-1.5 py-1 text-center">
-            <div class="text-[7px] font-bold text-[#9ca3af]">{stat.toUpperCase()}</div>
+          <div
+            onclick={() => doRoll(STAT_LABELS[stat] || stat, `d20${statMod(stat) >= 0 ? '+' + statMod(stat) : statMod(stat)}`)}
+            role="button"
+            tabindex="0"
+            onkeydown={(e) => e.key === 'Enter' && doRoll(STAT_LABELS[stat] || stat, `d20${statMod(stat) >= 0 ? '+' + statMod(stat) : statMod(stat)}`)}
+            title={`Jet de ${STAT_LABELS[stat] || stat} (d20)`}
+            class="bg-[#111827] rounded-md px-1.5 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
+          >
+            <div class="text-[7px] font-bold text-[#9ca3af]">{(STAT_LABELS[stat] || stat).toUpperCase()}</div>
             <div class="text-sm font-bold leading-tight" style="color: {STAT_COLORS[stat]}">
               {toNumber(sheet.stats?.[stat])}
               <span class="text-[10px] text-white">{fmt(statMod(stat))}</span>
