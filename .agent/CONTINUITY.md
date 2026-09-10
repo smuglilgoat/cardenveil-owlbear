@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-10T20:00Z]` `[USER]` Stats should be rollable on click (d20). `[CODE]` (main `7b6def5`) STAT_LABELS shared in characterSheet.js; header stat chips + SheetPopover stats grid roll `d20+mod` via handleDiceRoll/doRoll (dice popup + USE_CAPACITY log); unsaved-changes guard in edit mode; chips show proper French labels (AGILITÉ)
+## [PROGRESS]
 - `[2026-09-10T19:45Z]` `[USER]` Report: import crashed with `RACES is not defined` in CharacterSheet. `[CODE]` (main `af7070a`) `syncRaceToGameState` referenced `RACES` without importing it — Rollup does not flag unbound script identifiers as errors, so the build passed and the import click threw at runtime. Fixed with `import { RACES } from './deck.js'`; verified the RACES data lands in the built main bundle. LESSON: unbound global references in Svelte scripts are invisible to Rollup — check imports when wiring new helper calls
 ## [PROGRESS]
 - `[2026-09-10T17:35Z]` `[CODE]` Supabase Edge Function `action` REDEPLOYED — CONFIRMED: v12 ACTIVE 2026-09-10T17:33Z (project ref `ncisbwqsupywiicaycck`; CLI via `npx supabase@latest`, auth reused `~/.supabase/access-token`; `--no-verify-jwt` kept — client invokes with anon key; bundled via the `_deck.js` symlink). Player race self-assign now works server-side; SET_RACE race-wiring fully live
