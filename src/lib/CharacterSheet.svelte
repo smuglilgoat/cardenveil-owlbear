@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte';
   import OBR from '@owlbear-rodeo/sdk';
   import ActionDiamonds from './ActionDiamonds.svelte';
+  import { importSheetArchive } from './sheetAssets.js';
   import {
     STAT_COLORS,
     SKILL_GROUPS,
@@ -245,7 +246,7 @@
   async function handleImport() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json';
+    input.accept = '.json,.zip';
 
     input.onchange = async (e) => {
       const file = e.target.files[0];
@@ -253,8 +254,9 @@
 
       try {
         importError = '';
-        const text = await file.text();
-        const imported = await importCharacterSheet(playerId, roomId, text);
+        const imported = file.name.toLowerCase().endsWith('.zip')
+          ? await importSheetArchive(playerId, roomId, await file.arrayBuffer())
+          : await importCharacterSheet(playerId, roomId, await file.text());
         sheet = imported.data;
         isEditing = false;
         editSheet = null;

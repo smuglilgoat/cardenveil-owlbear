@@ -31,6 +31,7 @@
     "@owlbear-rodeo/sdk": "^3.1.0",
     "@supabase/supabase-js": "^2.49.1",
     "@tailwindcss/vite": "^4.1.17",
+    "fflate": "^0.8.3",
     "tailwindcss": "^4.1.17"
   }
 }
