@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-10T19:45Z]` `[USER]` Report: import crashed with `RACES is not defined` in CharacterSheet. `[CODE]` (main `af7070a`) `syncRaceToGameState` referenced `RACES` without importing it — Rollup does not flag unbound script identifiers as errors, so the build passed and the import click threw at runtime. Fixed with `import { RACES } from './deck.js'`; verified the RACES data lands in the built main bundle. LESSON: unbound global references in Svelte scripts are invisible to Rollup — check imports when wiring new helper calls
+## [PROGRESS]
 - `[2026-09-10T17:35Z]` `[CODE]` Supabase Edge Function `action` REDEPLOYED — CONFIRMED: v12 ACTIVE 2026-09-10T17:33Z (project ref `ncisbwqsupywiicaycck`; CLI via `npx supabase@latest`, auth reused `~/.supabase/access-token`; `--no-verify-jwt` kept — client invokes with anon key; bundled via the `_deck.js` symlink). Player race self-assign now works server-side; SET_RACE race-wiring fully live
 ## [PROGRESS]
 - `[2026-09-10T20:20Z]` `[USER]` Confirmed `character-assets` bucket migration ran; wire imported sheet race into game state for both player + GM. `[CODE]` (main `45969af`) `SET_RACE` relaxed in deck.js (single source of truth): GM sets anyone, a player may self-assign (import/save sync); CharacterSheet dispatches SET_RACE(self) after import AND edit-modal save when the sheet race is a recognized id differing from game state; GMDashboard sheet-modal save does the same (GM, any target) + raceLabel display. 4 reducer tests (133 total). ⚠ ACTION REQUIRED: Supabase Edge Function `action` MUST be redeployed — server-side reducer copy predates the self-assign rule; until deploy, player self-assign is reverted by realtime (client optimistic + Netlify fallback unaffected)
