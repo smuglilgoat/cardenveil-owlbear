@@ -3,6 +3,7 @@
  * Handles CRUD operations for character sheets stored in Supabase
  */
 import { supabase } from './supabaseClient.js';
+import { RACES } from './deck.js';
 
 // ─── Shared UI constants (used by CharacterSheet + SheetPopover) ───
 export const STAT_COLORS = {
@@ -142,6 +143,42 @@ export const ITEM_TYPE_OPTIONS = ['Arme', 'Armure', 'Équipement', 'Consommable'
 
 export function itemTypeColor(type) {
   return ITEM_TYPE_COLORS[String(type ?? '').trim().toLowerCase()] || '#9ca3af';
+}
+
+// ─── Race name normalization (sheet imports carry free-text race names) ───
+
+function canonicalRace(value) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '-');
+}
+
+/**
+ * Map a free-text race name to a canonical race id when recognizable
+ * ("Haut Elfe" → "haut-elfe"). Unrecognized values pass through untouched
+ * so manually typed races ("Humain", …) keep their text.
+ * @param {unknown} race - Raw race value
+ * @returns {unknown} Race id when matched, otherwise the input unchanged
+ */
+export function normalizeRaceName(race) {
+  if (race == null) return race;
+  const raw = String(race).trim();
+  if (!raw) return race;
+  const canon = canonicalRace(raw);
+  const hit = RACES.find((r) => canonicalRace(r.id) === canon || canonicalRace(r.label) === canon);
+  return hit ? hit.id : race;
+}
+
+/**
+ * Display label for a race value (race id → label, anything else as-is).
+ * @param {unknown} race - Race id or free text
+ * @returns {string}
+ */
+export function raceLabel(race) {
+  const value = String(race ?? '').trim();
+  return RACES.find((r) => r.id === value)?.label ?? value;
 }
 
 /**
@@ -605,6 +642,10 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
       narrative: { ...empty.narrative, ...parsed.narrative },
       equipment: { ...empty.equipment, ...parsed.equipment }
     };
+
+    // Exports often carry free-text race names ("Haut Elfe") — canonize to
+    // the race id so game-side race lookups keep working.
+    merged.identity.race = normalizeRaceName(merged.identity.race);
 
     const synced = syncStatsFromEquipment(syncSkillBonuses(merged));
 

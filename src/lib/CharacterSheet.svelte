@@ -27,6 +27,7 @@
     findEquipmentTemplate,
     itemTypeColor,
     ITEM_TYPE_OPTIONS,
+    raceLabel,
     syncSkillBonuses,
     syncStatsFromEquipment,
     toNumber
@@ -537,7 +538,7 @@
     <div class="h-10 bg-[#1f2937] flex items-center px-3 shrink-0">
       <span class="text-sm font-bold tracking-wide">CARDENVEIL</span>
       <span class="text-xs font-medium text-[#9ca3af] ml-4 truncate hidden @2xl:block">
-        {view.identity?.nom || '—'} · {view.identity?.race || '—'} · Niveau {view.identity?.niveau ?? 1}
+        {view.identity?.nom || '—'} · {raceLabel(view.identity?.race) || '—'} · Niveau {view.identity?.niveau ?? 1}
       </span>
       <div class="ml-auto flex items-center gap-1.5 shrink-0">
         <button
@@ -597,7 +598,7 @@
         <div class="flex-1 min-w-0">
           <h1 class="text-xl font-bold leading-tight truncate">{view.identity?.nom || 'Sans nom'}</h1>
           <p class="text-[11px] font-medium text-[#9ca3af] truncate">
-            {view.identity?.race || '—'} · {view.identity?.alignement || '—'}
+            {raceLabel(view.identity?.race) || '—'} · {view.identity?.alignement || '—'}
           </p>
           <div class="flex gap-1.5 mt-1.5 flex-wrap">
             <span class="px-2 py-0.5 bg-[#111827] rounded-full text-[10px] font-semibold">

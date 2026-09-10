@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -627,6 +627,35 @@ describe('Character Sheet dice helpers', () => {
 
     it('should expose the editable type options', () => {
       expect(ITEM_TYPE_OPTIONS).toEqual(['Arme', 'Armure', 'Équipement', 'Consommable', 'Divers']);
+    });
+  });
+
+  describe('normalizeRaceName', () => {
+    it('should map free-text race names to canonical race ids', () => {
+      expect(normalizeRaceName('Haut Elfe')).toBe('haut-elfe');
+      expect(normalizeRaceName('haut-elfe')).toBe('haut-elfe');
+      expect(normalizeRaceName('Haut-Elfe')).toBe('haut-elfe');
+      expect(normalizeRaceName('TIEFFELIN')).toBe('tieffelin');
+      expect(normalizeRaceName('Aasimar')).toBe('aasimar');
+      expect(normalizeRaceName('halfling')).toBe('halfling');
+      expect(normalizeRaceName('Sporelin')).toBe('sporelin');
+    });
+
+    it('should keep unrecognized races untouched', () => {
+      expect(normalizeRaceName('Humain')).toBe('Humain');
+      expect(normalizeRaceName('')).toBe('');
+      expect(normalizeRaceName(null)).toBeNull();
+      expect(normalizeRaceName(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('raceLabel', () => {
+    it('should map race ids to display labels', () => {
+      expect(raceLabel('haut-elfe')).toBe('Haut-Elfe');
+      expect(raceLabel('aasimar')).toBe('Aasimar');
+      expect(raceLabel('Humain')).toBe('Humain');
+      expect(raceLabel('')).toBe('');
+      expect(raceLabel(null)).toBe('');
     });
   });
 });

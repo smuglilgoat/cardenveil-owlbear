@@ -12,6 +12,7 @@
     isDiceFormula,
     rollDice,
     saveCharacterSheet,
+    raceLabel,
     skillModifier,
     subscribeToCharacterSheet,
     suitColor,
@@ -208,7 +209,7 @@
         <div class="flex-1 min-w-0">
           <div class="text-sm font-bold truncate">{sheet.identity?.nom || 'Sans nom'}</div>
           <div class="text-[10px] text-[#9ca3af] truncate">
-            {sheet.identity?.race || '—'} · Niv. {sheet.identity?.niveau ?? 1}
+            {raceLabel(sheet.identity?.race) || '—'} · Niv. {sheet.identity?.niveau ?? 1}
           </div>
         </div>
         <div class="text-right shrink-0">
