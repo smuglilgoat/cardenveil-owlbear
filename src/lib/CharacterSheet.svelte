@@ -11,6 +11,7 @@
     SKILL_LABELS,
     colorLabel,
     capacityType,
+    sanitizeHtml,
     fetchCharacterSheet,
     saveCharacterSheet,
     deleteCharacterSheet,
@@ -842,7 +843,7 @@
               </div>
               <div class="flex-1 min-w-0">
                 <div class="text-xs font-bold">{view.totem?.nom || '—'}</div>
-                <div class="text-[10px] text-[#9ca3af] whitespace-pre-wrap mt-1">{view.totem?.description || '—'}</div>
+                <div class="rich-html text-[10px] text-[#9ca3af] whitespace-pre-wrap mt-1">{@html sanitizeHtml(view.totem?.description) || '—'}</div>
               </div>
             </div>
           </div>
@@ -909,7 +910,7 @@
                       </span>
                       <span class="text-[#9ca3af]"> · {capacity.usage || '—'}</span>
                     </div>
-                    <div class="text-[10px] text-[#9ca3af] mt-1 line-clamp-2">{capacity.description || '—'}</div>
+                    <div class="rich-html text-[10px] text-[#9ca3af] mt-1 line-clamp-2">{@html sanitizeHtml(capacity.description) || '—'}</div>
                     {#if capacity.description && stripHtml(capacity.description).length > 120}
                       <button
                         onclick={() => (expandedCapacity = capacity)}
@@ -992,8 +993,8 @@
                     <div class="ml-auto text-xs font-bold">›</div>
                   </div>
                   {#if openSlot !== slot}
-                    <div class="text-[9px] text-[#9ca3af] mt-1.5 line-clamp-2">
-                      {stripHtml(slotData?.description) || '—'}
+                    <div class="rich-html text-[9px] text-[#9ca3af] mt-1.5 line-clamp-2">
+                      {@html sanitizeHtml(slotData?.description) || '—'}
                     </div>
                   {/if}
                 </div>
@@ -1768,7 +1769,7 @@
           </button>
         </div>
         {#if stripHtml(expandedCapacity.description)}
-          <div class="text-xs text-[#d1d5db] leading-relaxed mt-3 whitespace-pre-line">{stripHtml(expandedCapacity.description)}</div>
+          <div class="rich-html text-xs text-[#d1d5db] leading-relaxed mt-3">{@html sanitizeHtml(expandedCapacity.description)}</div>
         {/if}
         {#if expandedCapacity.value?.main && isDiceFormula(expandedCapacity.value.main, view?.stats ?? {})}
           <button
@@ -1821,6 +1822,19 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: #9ca3af;
     border-radius: 2px;
+  }
+
+  /* ── Rich HTML descriptions (sanitized) ── */
+  .rich-html :is(ul) {
+    list-style: disc;
+    padding-left: 1.2em;
+  }
+  .rich-html :is(ol) {
+    list-style: decimal;
+    padding-left: 1.2em;
+  }
+  .rich-html :is(p) {
+    margin: 0.25em 0;
   }
 
   /* ── Inventory / weapons editor cards ── */

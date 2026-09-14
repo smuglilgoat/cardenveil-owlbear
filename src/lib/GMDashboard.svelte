@@ -27,7 +27,8 @@
     syncStatsFromEquipment,
     toNumber,
     normalizeRaceName,
-    raceLabel
+    raceLabel,
+    sanitizeHtml
   } from "./characterSheet.js";
   import { tooltip } from "./tooltip.js";
 
@@ -1658,7 +1659,7 @@
                             <span class="px-2 py-0.5 bg-indigo-600 text-white text-xs rounded">Préparée</span>
                           {/if}
                         </div>
-                        <p class="text-sm text-gray-400 mb-2">{capacity.description || ''}</p>
+                        <p class="rich-html text-sm text-gray-400 mb-2">{@html sanitizeHtml(capacity.description) || ''}</p>
                         <div class="flex gap-4 text-xs text-gray-500">
                           <span>Coût: {capacity.cost?.total || 0} {capacity.cost?.color || ''}</span>
                           <span>Usage: {capacity.usage || '—'}</span>
@@ -1733,3 +1734,9 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .rich-html :is(ul) { list-style: disc; padding-left: 1.2em; }
+  .rich-html :is(ol) { list-style: decimal; padding-left: 1.2em; }
+  .rich-html :is(p) { margin: 0.25em 0; }
+</style>

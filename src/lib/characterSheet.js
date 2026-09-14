@@ -696,6 +696,20 @@ export function statModifier(score) {
  * @param {unknown} value - Value to coerce
  * @returns {number}
  */
+/**
+ * Sanitize imported HTML for {@html} rendering: keeps a whitelist of
+ * formatting tags (b/strong/i/em/u/s/br/p/ul/ol/li/span/h1-h6) with ALL
+ * attributes stripped; every other tag is removed entirely.
+ * @param {unknown} html - Raw description text, possibly containing HTML
+ * @returns {string} Safe HTML string
+ */
+const SAFE_HTML_TAGS = /^(b|strong|i|em|u|s|br|p|ul|ol|li|span|h[1-6])$/i;
+export function sanitizeHtml(html) {
+  return String(html ?? '').replace(/<\/?([a-z0-9]+)[^>]*>/gi, (tag, name) =>
+    SAFE_HTML_TAGS.test(name) ? `<${tag[1] === '/' ? '/' : ''}${name.toLowerCase()}>` : ''
+  );
+}
+
 export function toNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;

@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -646,6 +646,30 @@ describe('Character Sheet dice helpers', () => {
       expect(normalizeRaceName('')).toBe('');
       expect(normalizeRaceName(null)).toBeNull();
       expect(normalizeRaceName(undefined)).toBeUndefined();
+    });
+  });
+
+  describe('sanitizeHtml', () => {
+    it('should keep whitelisted formatting tags', () => {
+      expect(sanitizeHtml('<p>Hello <b>bold</b> <i>italic</i> <u>u</u></p>'))
+        .toBe('<p>Hello <b>bold</b> <i>italic</i> <u>u</u></p>');
+      expect(sanitizeHtml('<ul><li>a</li><li>b</li></ul>'))
+        .toBe('<ul><li>a</li><li>b</li></ul>');
+      expect(sanitizeHtml('line<br/>break')).toBe('line<br>break');
+    });
+
+    it('should strip all attributes from kept tags', () => {
+      expect(sanitizeHtml('<p onclick="alert(1)" style="color:red" class="x">a</p>')).toBe('<p>a</p>');
+    });
+
+    it('should remove non-whitelisted tags entirely', () => {
+      expect(sanitizeHtml('<script>x</script><iframe src="y"></iframe><a href="z">l</a>')).toBe('xl');
+    });
+
+    it('should pass plain text and empty values through', () => {
+      expect(sanitizeHtml('juste du texte')).toBe('juste du texte');
+      expect(sanitizeHtml('')).toBe('');
+      expect(sanitizeHtml(null)).toBe('');
     });
   });
 
