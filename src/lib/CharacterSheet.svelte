@@ -826,6 +826,26 @@
             La valeur en dés est l'élément automatisable et cliquable.
           </p>
 
+          <!-- Totem effect on top of the tab -->
+          <div class="bg-[#111827] rounded-lg p-3 mb-3">
+            <div class="text-[10px] font-bold text-[#9ca3af] mb-2.5">TOTEM</div>
+            <div class="flex gap-3 items-start">
+              <div class="w-14 h-14 bg-[#1f2937] rounded-md flex items-center justify-center shrink-0 overflow-hidden">
+                {#if view.totem?.image && isImageUrl(view.totem.image)}
+                  <img src={view.totem.image} alt="Totem" class="w-full h-full object-cover" />
+                {:else if view.totem?.image}
+                  <span class="text-2xl leading-none">{view.totem.image}</span>
+                {:else}
+                  <span class="text-xl text-[#4b5563]">◈</span>
+                {/if}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold">{view.totem?.nom || '—'}</div>
+                <div class="text-[10px] text-[#9ca3af] whitespace-pre-wrap mt-1">{view.totem?.description || '—'}</div>
+              </div>
+            </div>
+          </div>
+
           <!-- Per-turn action diamonds (centered; long hover shows the combat actions reference) -->
           <div class="flex justify-center mb-3">
             <ActionDiamonds
@@ -920,26 +940,6 @@
                 </div>
               </div>
             {/each}
-          </div>
-
-          <!-- Totem -->
-          <div class="bg-[#111827] rounded-lg p-3 mt-5">
-            <div class="text-[10px] font-bold text-[#9ca3af] mb-2.5">TOTEM</div>
-            <div class="flex gap-3 items-start">
-              <div class="w-14 h-14 bg-[#1f2937] rounded-md flex items-center justify-center shrink-0 overflow-hidden">
-                {#if view.totem?.image && isImageUrl(view.totem.image)}
-                  <img src={view.totem.image} alt="Totem" class="w-full h-full object-cover" />
-                {:else if view.totem?.image}
-                  <span class="text-2xl leading-none">{view.totem.image}</span>
-                {:else}
-                  <span class="text-xl text-[#4b5563]">◈</span>
-                {/if}
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="text-xs font-bold">{view.totem?.nom || '—'}</div>
-                <div class="text-[10px] text-[#9ca3af] whitespace-pre-wrap mt-1">{view.totem?.description || '—'}</div>
-              </div>
-            </div>
           </div>
 
           {#if diceResult}
