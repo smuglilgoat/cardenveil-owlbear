@@ -49,6 +49,7 @@
   let pendingAction = $state(null);
   let activeTab = $state('competences');
   let diceResult = $state(null);
+  let expandedCapacity = $state(null); // capacity object shown in the expand modal
   let freeFormula = $state('');
   let importError = $state('');
   let openSlot = $state(null);
@@ -909,6 +910,15 @@
                       <span class="text-[#9ca3af]"> · {capacity.usage || '—'}</span>
                     </div>
                     <div class="text-[10px] text-[#9ca3af] mt-1 line-clamp-2">{capacity.description || '—'}</div>
+                    {#if capacity.description && stripHtml(capacity.description).length > 120}
+                      <button
+                        onclick={() => (expandedCapacity = capacity)}
+                        title="Afficher toute la capacité"
+                        class="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 mt-0.5"
+                      >
+                        Lire plus →
+                      </button>
+                    {/if}
                   </div>
                   <div class="text-right shrink-0 flex flex-col items-end gap-1">
                     <div class="text-[8px] font-bold text-[#9ca3af]">COÛT</div>
@@ -1704,6 +1714,71 @@
             Annuler
           </button>
         </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Capacity Expand Modal -->
+  {#if expandedCapacity}
+    <div
+      class="fixed inset-0 bg-black/75 flex items-center justify-center z-[70] p-4"
+      onclick={() => (expandedCapacity = null)}
+      onkeydown={(e) => e.key === 'Escape' && (expandedCapacity = null)}
+      role="button"
+      tabindex="0"
+    >
+      <div
+        class="bg-[#1f2937] border border-[#374151] rounded-lg p-5 w-[92%] max-w-lg max-h-[85vh] overflow-y-auto scrollbar-thin"
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="presentation"
+      >
+        <div class="flex items-start gap-3">
+          {#if expandedCapacity.image && isImageUrl(expandedCapacity.image)}
+            <img src={expandedCapacity.image} alt={expandedCapacity.name || 'Capacité'} class="w-16 h-16 object-cover rounded-md shrink-0" />
+          {:else if expandedCapacity.image}
+            <span class="text-3xl leading-none shrink-0">{expandedCapacity.image}</span>
+          {/if}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5">
+              <div class="text-base font-bold">{expandedCapacity.name || 'Sans nom'}</div>
+              {#if capacityType(expandedCapacity.usage)}
+                {@const typeBadge = capacityType(expandedCapacity.usage)}
+                <span
+                  class="px-1.5 py-0.5 rounded text-[8px] font-bold shrink-0"
+                  style="color: {typeBadge.color}; background: {typeBadge.color}22"
+                >
+                  {typeBadge.label}
+                </span>
+              {/if}
+            </div>
+            <div class="text-[11px] font-medium mt-1">
+              <span class="text-[#9ca3af]">COÛT</span>
+              <span class="ml-1.5 font-bold">{expandedCapacity.cost?.total ?? 0}</span>
+              <span class="ml-0.5 font-bold" style="color: {suitColor(expandedCapacity.cost?.color)}">{suitSymbol(expandedCapacity.cost?.color)}</span>
+              <span class="text-[#9ca3af]"> · {expandedCapacity.usage || '—'}</span>
+            </div>
+          </div>
+          <button
+            onclick={() => (expandedCapacity = null)}
+            title="Fermer"
+            class="w-7 h-7 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[11px] font-bold flex items-center justify-center shrink-0 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+        {#if stripHtml(expandedCapacity.description)}
+          <div class="text-xs text-[#d1d5db] leading-relaxed mt-3 whitespace-pre-line">{stripHtml(expandedCapacity.description)}</div>
+        {/if}
+        {#if expandedCapacity.value?.main && isDiceFormula(expandedCapacity.value.main, view?.stats ?? {})}
+          <button
+            onclick={() => handleDiceRoll(expandedCapacity.name || 'Capacité', expandedCapacity.value.main)}
+            title="Lancer {expandedCapacity.value.main}"
+            class="mt-4 px-4 h-10 bg-slate-500 rounded-lg text-sm font-bold hover:bg-slate-400 transition-colors"
+          >
+            🎲 Lancer {expandedCapacity.value.main}
+          </button>
+        {/if}
       </div>
     </div>
   {/if}
