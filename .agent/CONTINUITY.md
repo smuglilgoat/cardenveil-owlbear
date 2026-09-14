@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T20:00Z]` `[USER]` In the ÉDITION modal, identity and stats should be on separate tabs, not always visible. `[CODE]` (main `6b4bd39`) Modal tab bar now EDIT_TABS = [IDENTITÉ, STATS, ...TABS] driven by new `editTab` state (separate from main-sheet activeTab); identity+PV+XP on IDENTITÉ, characteristics+computed defense chips on STATS; tab edit form renders only for the 6 standard tabs. GOTCHA: the TABS.some wrapper `{/if}` must sit AFTER the border-t div close (div opened inside the wrapper) — wrong order = svelte 'Unexpected block closing tag' at build
+## [PROGRESS]
 - `[2026-09-14T19:45Z]` `[USER]` Put the expand button in the capacité action column (text '+'), make notes HTML-parsable, bump capacity text size. `[CODE]` (main `f61443f`) '+' round button in the right column (COÛT/dice/📌); capacity description 10px→11px; NOTES tab renders via `renderNotes()` (markdown-lite **bold**/__underline__ from the notes toolbar → HTML + sanitizeHtml)
 ## [PROGRESS]
 - `[2026-09-14T19:35Z]` `[USER]` Implement HTML tag parsing for descriptions. `[CODE]` (main `09c8b61`) `sanitizeHtml()` in characterSheet.js — whitelist b/strong/i/em/u/s/br/p/ul/ol/li/span/h1-h6, ALL attributes stripped, other tags removed; rendered via {@html} in capacity cards + expand modal, GM sheet-modal capacity list, equipment slot descriptions, totem panel; `rich-html` CSS restores list bullets (Tailwind preflight removes them); single-line summaries (inventory rows, weapon joins, tooltips) keep stripHtml. 4 tests (137)
