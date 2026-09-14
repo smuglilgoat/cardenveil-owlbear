@@ -650,54 +650,38 @@
       </div>
     {/if}
 
-    <!-- ═══ CHARACTER HEADER (display-only; edited via the ÉDITION popup) ═══ -->
-    <div class="px-3 pt-3 pb-2.5 shrink-0">
-      <div class="flex items-center gap-3">
-        <!-- Portrait -->
-        <div class="w-14 h-16 bg-[#111827] rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
+    <!-- ═══ CHARACTER HEADER (compact ~20%; display-only, edited via ÉDITION) ═══ -->
+    <div class="px-3 pt-2 pb-1.5 shrink-0">
+      <!-- Identity row -->
+      <div class="flex items-center gap-2">
+        <div class="w-10 h-10 bg-[#111827] rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
           {#if view.portrait && isImageUrl(view.portrait)}
             <img src={view.portrait} alt="Portrait" class="w-full h-full object-cover" />
           {:else if view.portrait}
-            <span class="text-2xl leading-none">{view.portrait}</span>
+            <span class="text-lg leading-none">{view.portrait}</span>
           {:else}
-            <span class="text-[8px] font-bold text-[#9ca3af]">PORTRAIT</span>
+            <span class="text-[7px] font-bold text-[#9ca3af]">PORTRAIT</span>
           {/if}
         </div>
-
-        <!-- Identity -->
         <div class="flex-1 min-w-0">
-          <h1 class="text-xl font-bold leading-tight truncate">{view.identity?.nom || 'Sans nom'}</h1>
-          <p class="text-[11px] font-medium text-[#9ca3af] truncate">
-            {raceLabel(view.identity?.race) || '—'} · {view.identity?.alignement || '—'}
-          </p>
-          <div class="flex gap-1.5 mt-1.5 flex-wrap">
-            <span class="px-2 py-0.5 bg-[#111827] rounded-full text-[10px] font-semibold">
-              XP {view.progression?.xpDepenses ?? 0}/{view.progression?.xpDisponibles ?? 0}
-            </span>
-            <span class="px-2 py-0.5 bg-[#111827] rounded-full text-[10px] font-semibold">
-              Niv. {view.identity?.niveau ?? 1}
-            </span>
+          <div class="text-base font-bold leading-tight truncate">{view.identity?.nom || 'Sans nom'}</div>
+          <div class="text-[9px] font-medium text-[#9ca3af] truncate">
+            {raceLabel(view.identity?.race) || '—'} · {view.identity?.alignement || '—'} · Niv. {view.identity?.niveau ?? 1} · XP {view.progression?.xpDepenses ?? 0}/{view.progression?.xpDisponibles ?? 0}
           </div>
         </div>
-
-        <!-- PV -->
         <div class="text-right shrink-0">
-          <div class="text-[9px] font-bold text-[#9ca3af]">PV</div>
-          <div class="flex items-baseline gap-1 justify-end mt-0.5">
-            <span class="text-2xl font-bold leading-none">{toNumber(view.derived?.pvActuels)}</span>
-            <span class="text-xs font-semibold text-[#9ca3af]">/ {toNumber(view.derived?.pvMax)}</span>
+          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">PV</div>
+          <div class="text-lg font-bold leading-none mt-0.5">
+            {toNumber(view.derived?.pvActuels)}<span class="text-[10px] text-[#9ca3af] font-semibold">/{toNumber(view.derived?.pvMax)}</span>
           </div>
-          <div class="text-[9px] text-[#9ca3af] mt-1">
-            TEMP {view.derived?.pvTemporaires || '—'} · FAT
-            {#if toNumber(view.derived?.fatigue) > 0}
-              {'●'.repeat(Math.min(10, toNumber(view.derived.fatigue)))}
-            {:else}—{/if}
+          <div class="text-[8px] text-[#9ca3af] leading-none mt-0.5">
+            T{view.derived?.pvTemporaires || 0} · F{toNumber(view.derived?.fatigue) || 0}
           </div>
         </div>
       </div>
 
-      <!-- ═══ STATS ROW ═══ -->
-      <div class="grid grid-cols-4 gap-2 mt-2.5">
+      <!-- Stats row (click = d20 roll) -->
+      <div class="grid grid-cols-4 gap-1 mt-1.5">
         {#each ['force', 'agilite', 'esprit', 'social'] as stat}
           {@const statLabel = STAT_LABELS[stat]}
           <div
@@ -706,95 +690,70 @@
             role="button"
             tabindex="0"
             title={`Jet de ${statLabel} (d20)`}
-            class="bg-[#111827] rounded-lg p-2 cursor-pointer hover:bg-[#1f2937] transition-colors"
+            class="bg-[#111827] rounded-md px-1.5 py-1 cursor-pointer hover:bg-[#1f2937] transition-colors text-center"
           >
-            <div class="text-[9px] font-bold text-[#9ca3af]">{statLabel.toUpperCase()}</div>
-            <div class="flex items-baseline justify-between mt-0.5">
-              <span class="text-xl font-bold leading-none" style="color: {STAT_COLORS[stat]}">
-                {toNumber(view.stats?.[stat])}
-              </span>
-              <span class="text-base font-bold">{formatModifier(getStatModifier(stat))}</span>
+            <div class="text-[7px] font-bold text-[#9ca3af] leading-none">{statLabel.toUpperCase()}</div>
+            <div class="mt-0.5 leading-none">
+              <span class="text-sm font-bold" style="color: {STAT_COLORS[stat]}">{toNumber(view.stats?.[stat])}</span>
+              <span class="text-[11px] font-bold">{formatModifier(getStatModifier(stat))}</span>
             </div>
           </div>
         {/each}
       </div>
 
-      <!-- ═══ DEFENSE ROW ═══ -->
-      <div class="grid grid-cols-3 gap-2 mt-2">
-        <!-- Parade -->
-        <div class="bg-[#1f2937] rounded-lg p-2">
-          <div class="text-[9px] font-bold text-[#9ca3af]">PARADE</div>
-          <div class="flex items-baseline gap-1.5 mt-0.5">
-            <span class="text-xl font-bold leading-none">
-              {calc.parade}
-            </span>
-            <span class="text-[10px] text-[#9ca3af] font-medium whitespace-nowrap">
-              = <span class="text-teal-400 font-bold">{calc.deflexion}</span>+
-              <span class="text-orange-400 font-bold">{calc.garde}</span>+
-              <span class="font-bold">{calc.paradeBonus}</span>
-            </span>
-          </div>
-          <div class="text-[9px] text-[#9ca3af] mt-1">Armure {calc.armure}</div>
+      <!-- Combat row -->
+      <div class="grid grid-cols-8 gap-1 mt-1">
+        <div title={`Parade = ${calc.deflexion} déflexion + ${calc.garde} garde + ${calc.paradeBonus} mod`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
+          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">PARADE</div>
+          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.parade}</div>
         </div>
-
-        <!-- Initiative -->
         <div
           onclick={handleInitiativeRoll}
           onkeydown={(e) => e.key === 'Enter' && handleInitiativeRoll()}
           role="button"
           tabindex="0"
-          title={`Jet d'initiative (d20)`}
-          class="bg-[#1f2937] rounded-lg p-2 cursor-pointer hover:bg-[#374151] transition-colors"
+          title={`Jet d'initiative (d20) = Agi − 10 + gantelets`}
+          class="bg-[#111827] rounded-md px-1 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
         >
-          <div class="text-[9px] font-bold text-[#9ca3af]">INITIATIVE</div>
-          <div class="text-xl font-bold leading-none mt-0.5" style="color: {STAT_COLORS.agilite}">
-            {calc.initiative}
-          </div>
-          <div class="text-[9px] text-[#9ca3af] mt-1 hidden @2xl:block">Agi − 10 + gants</div>
+          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">INIT</div>
+          <div class="text-[13px] font-bold leading-none mt-0.5" style="color: {STAT_COLORS.agilite}">{calc.initiative}</div>
         </div>
-
-        <!-- Mouvement -->
-        <div class="bg-[#1f2937] rounded-lg p-2">
-          <div class="text-[9px] font-bold text-[#9ca3af]">MOUVEMENT</div>
-          <div class="mt-0.5">
-            <span class="text-xl font-bold leading-none" style="color: {STAT_COLORS.social}">
-              {calc.mouvement}
-            </span>
-            <span class="text-[10px] font-bold text-[#9ca3af]">m</span>
-          </div>
-          <div class="text-[9px] text-[#9ca3af] mt-1 hidden @2xl:block">8 + Agi/2 + bottes</div>
+        <div title="Armure (équipement)" class="bg-[#111827] rounded-md px-1 py-1 text-center">
+          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">ARMURE</div>
+          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.armure}</div>
         </div>
-      </div>
-
-      <!-- ═══ PILLS ROW ═══ -->
-      <div class="grid grid-cols-4 gap-2 mt-2">
-        <div class="bg-[#111827] rounded-md px-2 py-1.5">
-          <div class="text-[8px] font-bold text-[#9ca3af]">SEUIL MISS</div>
-          <div class="text-base font-bold">{calc.seuilMiss}</div>
+        <div title={`Mouvement = 8 + Agi/2 + bottes`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
+          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">VITESSE</div>
+          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.mouvement}<span class="text-[8px] font-bold text-[#9ca3af]">m</span></div>
         </div>
-        <div class="bg-[#111827] rounded-md px-2 py-1.5">
-          <div class="text-[8px] font-bold text-[#9ca3af]">BNS ATT.</div>
-          <div class="text-base font-bold">{formatModifier(calc.bonusAttaque)}</div>
+        <div title={`Seuil miss = max(1, 1 − mod Agi)`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
+          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">MISS</div>
+          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.seuilMiss}</div>
         </div>
-        <div class="bg-[#111827] rounded-md px-2 py-1.5">
-          <div class="text-[8px] font-bold text-[#9ca3af]">CANALIS.</div>
-          <div class="text-base font-bold">{formatModifier(calc.canalisation)}</div>
+        <div title={`Bonus attaque = stat + tier de l'arme`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
+          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">BNS</div>
+          <div class="text-[13px] font-bold leading-none mt-0.5">{formatModifier(calc.bonusAttaque)}</div>
+        </div>
+        <div title={`Canalisation = mod Esprit`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
+          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">CANAL</div>
+          <div class="text-[13px] font-bold leading-none mt-0.5">{formatModifier(calc.canalisation)}</div>
         </div>
         <div
           onclick={handleVolonteRoll}
           onkeydown={(e) => e.key === 'Enter' && handleVolonteRoll()}
           role="button"
           tabindex="0"
-          title={`Jet de volonté (d20)`}
-          class="bg-[#111827] rounded-md px-2 py-1.5 cursor-pointer hover:bg-[#1f2937] transition-colors"
+          title={`Jet de volonté (d20) = mod Résilience + casque`}
+          class="bg-[#111827] rounded-md px-1 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
         >
-          <div class="text-[8px] font-bold text-[#9ca3af]">VOLONTÉ</div>
-          <div class="text-base font-bold">{calc.volonte}</div>
+          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">VOLONTÉ</div>
+          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.volonte}</div>
         </div>
       </div>
+
       <button
         onclick={() => (activeTab = 'capacites')}
-        class="w-full mt-2 bg-indigo-600 rounded-md px-2.5 py-1.5 flex items-center justify-between hover:bg-indigo-500 transition-colors text-left"
+        class="w-full mt-1.5 bg-indigo-600 rounded-md px-2.5 py-1 flex items-center justify-between hover:bg-indigo-500 transition-colors text-left"
       >
         <span class="text-[10px] font-bold truncate">TOTEM &nbsp;{view.totem?.nom || '—'}</span>
         <span class="text-[9px] font-medium text-indigo-200 shrink-0">Voir effet →</span>
