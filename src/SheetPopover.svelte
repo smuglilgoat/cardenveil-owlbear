@@ -301,7 +301,12 @@
           onclick={() => doRoll(SKILL_LABELS[skillKey] || skillKey, `d20${skillMod(skillKey) >= 0 ? '+' + skillMod(skillKey) : skillMod(skillKey)}`)}
         >
           <div class="w-1 h-5 rounded-full" style="background: {skillColor(skillKey)}"></div>
-          <span class="text-[11px] font-medium truncate">{SKILL_LABELS[skillKey] || skillKey}</span>
+          <span class="text-[11px] font-medium truncate">
+            {SKILL_LABELS[skillKey] || skillKey}
+            {#if sheet?.skills?.[skillKey]?.trained}
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 align-middle" title="Maîtrisée — modificateur doublé"></span>
+            {/if}
+          </span>
           <span class="ml-auto text-[11px] font-bold" style="color: {skillColor(skillKey)}">d20 {fmt(skillMod(skillKey))}</span>
         </button>
       {/each}

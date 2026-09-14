@@ -790,6 +790,9 @@
                       <div class="w-1 h-5 rounded-full shrink-0" style="background: {STAT_COLORS[group.stat]}"></div>
                       <span class="text-[11px] font-medium truncate flex-1">
                         {SKILL_LABELS[skillKey]} {formatModifier(mod)}
+                        {#if view.skills?.[skillKey]?.trained}
+                          <span class="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 align-middle ml-0.5" title="Maîtrisée — modificateur doublé"></span>
+                        {/if}
                       </span>
                       <button
                         onclick={(e) => {
