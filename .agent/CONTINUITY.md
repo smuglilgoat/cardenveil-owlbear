@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T20:40Z]` `[USER]` Mastered (trained) compétences roll with double the modifier. `[CODE]` (main `061fbc8`) `skillRollModifier(stats, skill, skillData)` in characterSheet.js = stat mod ×2 when `trained`; applied to full-sheet skill rows + rolls, SheetPopover pinned skills, GMDashboard skill display. NOTE: `skillModifier()` itself unchanged — computeDerived (volonté etc.) must stay single-weight
+## [PROGRESS]
 - `[2026-09-14T20:30Z]` `[USER]` Capacity buttons at the bottom of the card, full width, single line. `[CODE]` (main `e67dd8e`) Capacity card restructured: right button column removed; dice (+expand +pin) now a full-width bottom row below a hairline — 🎲 formula button flex-1, + and 📌 square buttons right; COÛT total folded into the color/usage line
 ## [PROGRESS]
 - `[2026-09-14T20:20Z]` `[USER]` Header stat panel too big — target ~20% height with 80% for tab content. `[CODE]` (main `d551258`) Header condensed: identity row (w-10 portrait, name + race/align/niv/XP one line, PV+TEMP+FAT inline), 4-col stats row (label + value+mod), 8-col combat row (PARADE/INIT/ARMURE/VITESSE/MISS/BNS/CANAL/VOLONTÉ, tiny 7px labels, 13px values); breakdown formulas moved to title tooltips; click-to-roll (stats/initiative/volonté) preserved; totem slimmed to py-1. Net −41 lines
