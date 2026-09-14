@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T20:55Z]` `[USER]` Capacity cost at the right of the card, dedicated div, big and visible. `[CODE]` (main `372aa12`) Right-aligned cost block: tiny COÛT label + 2xl/3xl value with colored suit symbol; usage line back to color label + usage type
+## [PROGRESS]
 - `[2026-09-14T20:45Z]` `[USER]` Visual distinction for mastered skills. `[CODE]` (main `5f09f1a`) Indigo dot after the skill label in full-sheet skill rows + SheetPopover pinned skills, tooltip 'Maîtrisée — modificateur doublé' (GM modal already had the trained checkbox indicator)
 ## [PROGRESS]
 - `[2026-09-14T20:40Z]` `[USER]` Mastered (trained) compétences roll with double the modifier. `[CODE]` (main `061fbc8`) `skillRollModifier(stats, skill, skillData)` in characterSheet.js = stat mod ×2 when `trained`; applied to full-sheet skill rows + rolls, SheetPopover pinned skills, GMDashboard skill display. NOTE: `skillModifier()` itself unchanged — computeDerived (volonté etc.) must stay single-weight
