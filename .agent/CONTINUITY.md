@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T19:05Z]` `[USER]` Add an expand option for capacities (some have very long text). `[CODE]` (main `04e36c5`) 'Lire plus →' link under the line-clamped capacity description (only when stripped text > 120 chars) opens a modal: full description (HTML stripped, whitespace-pre-line), type badge, COÛT + usage, image, dice-roll button for value.main; closes ✕/backdrop/Escape. `expandedCapacity` state in CharacterSheet
+## [PROGRESS]
 - `[2026-09-14T18:55Z]` `[USER]` Add vitesse, initiative, armure, parade to the compact popover. `[CODE]` (main `b38b622`) New 4-chip row in SheetPopover between stats grid and action diamonds: PARADE static, INITIAT. + VITESSE click-to-roll d20+value (doRoll), ARMURE static — all from `computeDerived()` (imported in SheetPopover); grid-cols-4 matches the stats row styling
 ## [PROGRESS]
 - `[2026-09-14T18:40Z]` `[USER]` Put the totem effect on top of the CAPACITÉS tab. `[CODE]` (main `6aee375`) TOTEM card moved above the action diamonds/free-roll/capacity list in CharacterSheet CAPACITÉS tab (was at the bottom); pure markup move, no logic change
