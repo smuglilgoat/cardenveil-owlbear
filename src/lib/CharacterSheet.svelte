@@ -723,7 +723,7 @@
           <div class="text-[7px] font-bold text-[#9ca3af] leading-none">ARMURE</div>
           <div class="text-[13px] font-bold leading-none mt-0.5">{calc.armure}</div>
         </div>
-        <div title={`Mouvement = 8 + Agi/2 + bottes`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
+        <div title={`Mouvement = 5 + Agi/2 + bottes`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
           <div class="text-[7px] font-bold text-[#9ca3af] leading-none">VITESSE</div>
           <div class="text-[13px] font-bold leading-none mt-0.5">{calc.mouvement}<span class="text-[8px] font-bold text-[#9ca3af]">m</span></div>
         </div>
@@ -1299,7 +1299,7 @@
               </div>
               <div class="bg-[#111827] rounded-md px-2 py-1.5">
                 <div class="text-[8px] font-bold text-[#9ca3af]">MOUVEMENT</div>
-                <div class="text-sm font-bold">{editCalc.mouvement} <span class="text-[9px] font-medium text-[#9ca3af]">= 8 + Agi/2 + bottes</span></div>
+                <div class="text-sm font-bold">{editCalc.mouvement} <span class="text-[9px] font-medium text-[#9ca3af]">= 5 + Agi/2 + bottes</span></div>
               </div>
               <div class="bg-[#111827] rounded-md px-2 py-1.5">
                 <div class="text-[8px] font-bold text-[#9ca3af]">SEUIL MISS</div>

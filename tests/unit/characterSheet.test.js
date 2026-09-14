@@ -426,7 +426,7 @@ describe('Character Sheet dice helpers', () => {
       expect(synced.defense.bonus).toBe(1); // agilité mod (12 → +1)
       expect(synced.derived.volonte).toBe(5); // résilience (force 14 → +2) + casque 3
       expect(synced.derived.initiative).toBe(2); // 12 - 10
-      expect(synced.derived.mouvement).toBe(14); // 8 + 12/2
+      expect(synced.derived.mouvement).toBe(11); // 5 + 12/2
       expect(synced.derived.seuilMiss).toBe(1); // max(1, 1 - 1)
       expect(synced.derived.canalisation).toBe(0); // esprit 10
       expect(synced.derived.bonusAttaque).toBe(2); // esprit mod 0 + tier 2
@@ -440,7 +440,7 @@ describe('Character Sheet dice helpers', () => {
       expect(synced.defense).toEqual({ bonus: 0, deflexion: 0, armure: 0, gardeBonus: 0 });
       expect(synced.derived.volonte).toBe(0);
       expect(synced.derived.initiative).toBe(0);
-      expect(synced.derived.mouvement).toBe(13);
+      expect(synced.derived.mouvement).toBe(10); // 5 + 10/2
       expect(synced.derived.seuilMiss).toBe(1);
       expect(synced.derived.canalisation).toBe(0);
       expect(synced.derived.bonusAttaque).toBe(0);
@@ -511,7 +511,7 @@ describe('Character Sheet dice helpers', () => {
     it('should compute initiative, mouvement, seuilMiss, canalisation, volonte, bonusAttaque', () => {
       const calc = computeDerived(sheet);
       expect(calc.initiative).toBe(1); // 6 - 10 + 5 (gantelets)
-      expect(calc.mouvement).toBe(13); // 8 + 3 (agi/2 floored) + 2 (bottes)
+      expect(calc.mouvement).toBe(10); // 5 + 3 (agi/2 floored) + 2 (bottes)
       expect(calc.seuilMiss).toBe(3); // max(1, 1 - (-2))
       expect(calc.canalisation).toBe(3); // esprit 16 → +3
       expect(calc.volonte).toBe(4); // résilience (force +2) + casque 2
@@ -535,7 +535,7 @@ describe('Character Sheet dice helpers', () => {
       const calc = computeDerived({});
       expect(calc.parade).toBe(0);
       expect(calc.initiative).toBe(0);
-      expect(calc.mouvement).toBe(13);
+      expect(calc.mouvement).toBe(10); // 5 + 10/2
       expect(calc.seuilMiss).toBe(1);
       expect(calc.bonusAttaque).toBe(0);
     });

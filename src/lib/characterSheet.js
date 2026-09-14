@@ -820,7 +820,7 @@ export function attackBonus(weapon, stats = {}) {
  * Compute all rule-derived combat values from a sheet.
  * - parade      = déflexion (equipped items) + garde (melee die/2) + modificateur
  * - initiative  = Agilité - 10 + initiative des gantelets
- * - mouvement   = 8 + Agilité/2 + vitesse des bottes
+ * - mouvement   = 5 + Agilité/2 + vitesse des bottes
  * - volonte     = modificateur de Résilience + volonté du casque
  * - seuilMiss   = max(1, 1 - mod Agilité)
  * - canalisation = modificateur d'Esprit
@@ -846,7 +846,7 @@ export function computeDerived(sheet = {}) {
     paradeBonus,
     parade: eq.deflexion + eq.garde + paradeBonus,
     initiative: weaponStatScore(stats, 'agilite') - 10 + gantelets,
-    mouvement: 8 + Math.floor(weaponStatScore(stats, 'agilite') / 2) + bottes,
+    mouvement: 5 + Math.floor(weaponStatScore(stats, 'agilite') / 2) + bottes,
     seuilMiss: Math.max(1, 1 - agiMod),
     canalisation: statModifier(weaponStatScore(stats, 'esprit')),
     bonusAttaque: firstEquipped ? attackBonus(firstEquipped, stats) : 0,
