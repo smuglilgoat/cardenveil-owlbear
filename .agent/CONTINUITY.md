@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T20:10Z]` `[USER]` Saveable custom dice rolls (pin from the free-form roller) + visible in compact view. `[CODE]` (main `35ddd25`) New `customRolls: [{name, formula}]` sheet field (schema + import merge); 📌 button on the free-roll row (prompt for name, isDiceFormula-validated, dedupe by formula, immediate save); chips in CAPACITÉS tab (click roll / ✕ remove); SheetPopover FAVORIS lists customRolls with click-to-roll
+## [PROGRESS]
 - `[2026-09-14T20:00Z]` `[USER]` In the ÉDITION modal, identity and stats should be on separate tabs, not always visible. `[CODE]` (main `6b4bd39`) Modal tab bar now EDIT_TABS = [IDENTITÉ, STATS, ...TABS] driven by new `editTab` state (separate from main-sheet activeTab); identity+PV+XP on IDENTITÉ, characteristics+computed defense chips on STATS; tab edit form renders only for the 6 standard tabs. GOTCHA: the TABS.some wrapper `{/if}` must sit AFTER the border-t div close (div opened inside the wrapper) — wrong order = svelte 'Unexpected block closing tag' at build
 ## [PROGRESS]
 - `[2026-09-14T19:45Z]` `[USER]` Put the expand button in the capacité action column (text '+'), make notes HTML-parsable, bump capacity text size. `[CODE]` (main `f61443f`) '+' round button in the right column (COÛT/dice/📌); capacity description 10px→11px; NOTES tab renders via `renderNotes()` (markdown-lite **bold**/__underline__ from the notes toolbar → HTML + sanitizeHtml)
