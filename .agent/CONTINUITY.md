@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-10T20:10Z]` `[USER]` Initiative + volonté should roll on click too. `[CODE]` (main `d21929b`) INITIATIVE chip (defense row) rolls `d20+calc.initiative`, VOLONTÉ pill (pills row) rolls `d20+calc.volonte` — both via handleDiceRoll (dice popup + USE_CAPACITY log) with the unsaved-changes guard; hover + title tooltips. LESSON (2nd occurrence): I keep committing onto `main` when the turn starts on it — ALWAYS create the feature branch BEFORE any edit, not after; both times the fix was `git branch <name> && git reset --hard origin/main && git merge --ff-only <name>`
+## [PROGRESS]
 - `[2026-09-10T20:00Z]` `[USER]` Stats should be rollable on click (d20). `[CODE]` (main `7b6def5`) STAT_LABELS shared in characterSheet.js; header stat chips + SheetPopover stats grid roll `d20+mod` via handleDiceRoll/doRoll (dice popup + USE_CAPACITY log); unsaved-changes guard in edit mode; chips show proper French labels (AGILITÉ)
 ## [PROGRESS]
 - `[2026-09-10T19:45Z]` `[USER]` Report: import crashed with `RACES is not defined` in CharacterSheet. `[CODE]` (main `af7070a`) `syncRaceToGameState` referenced `RACES` without importing it — Rollup does not flag unbound script identifiers as errors, so the build passed and the import click threw at runtime. Fixed with `import { RACES } from './deck.js'`; verified the RACES data lands in the built main bundle. LESSON: unbound global references in Svelte scripts are invisible to Rollup — check imports when wiring new helper calls
