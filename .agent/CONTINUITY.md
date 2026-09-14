@@ -36,6 +36,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T21:10Z]` `[USER]` INVENTAIRE tab redesign suggestions only, no implementation, tagged GLM-5.3-Flash. `[CODE]` (main `b3cb197`) docs/inventaire-ui-proposals.md — 3 ASCII-mockup directions (A sectioned panels / B 2-col slot rail @2xl / C data-sheet tables), comparison matrix, recommendation = A with C's collapsible DIVERS sections. When implementing, user picks a direction first
+## [PROGRESS]
 - `[2026-09-14T21:00Z]` `[USER]` Bump plugin version to 2.1 + full patch notes for GM/players. `[CODE]` (main `d50015e`) manifest version 0.3.7 → 2.1.0 in vite.config.js buildManifest (verified in dist/manifest.json); French patch notes at docs/patch-notes-2.1.md (sheets, imports, dice, mastered skills, favorites/compact, customization, GM tooling, combat formulas, under-the-hood)
 ## [PROGRESS]
 - `[2026-09-14T20:55Z]` `[USER]` Capacity cost at the right of the card, dedicated div, big and visible. `[CODE]` (main `372aa12`) Right-aligned cost block: tiny COÛT label + 2xl/3xl value with colored suit symbol; usage line back to color label + usage type
