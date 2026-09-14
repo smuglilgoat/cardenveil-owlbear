@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T21:00Z]` `[USER]` Bump plugin version to 2.1 + full patch notes for GM/players. `[CODE]` (main `d50015e`) manifest version 0.3.7 → 2.1.0 in vite.config.js buildManifest (verified in dist/manifest.json); French patch notes at docs/patch-notes-2.1.md (sheets, imports, dice, mastered skills, favorites/compact, customization, GM tooling, combat formulas, under-the-hood)
+## [PROGRESS]
 - `[2026-09-14T20:55Z]` `[USER]` Capacity cost at the right of the card, dedicated div, big and visible. `[CODE]` (main `372aa12`) Right-aligned cost block: tiny COÛT label + 2xl/3xl value with colored suit symbol; usage line back to color label + usage type
 ## [PROGRESS]
 - `[2026-09-14T20:45Z]` `[USER]` Visual distinction for mastered skills. `[CODE]` (main `5f09f1a`) Indigo dot after the skill label in full-sheet skill rows + SheetPopover pinned skills, tooltip 'Maîtrisée — modificateur doublé' (GM modal already had the trained checkbox indicator)
