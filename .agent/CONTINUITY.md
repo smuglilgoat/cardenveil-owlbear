@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T20:20Z]` `[USER]` Header stat panel too big — target ~20% height with 80% for tab content. `[CODE]` (main `d551258`) Header condensed: identity row (w-10 portrait, name + race/align/niv/XP one line, PV+TEMP+FAT inline), 4-col stats row (label + value+mod), 8-col combat row (PARADE/INIT/ARMURE/VITESSE/MISS/BNS/CANAL/VOLONTÉ, tiny 7px labels, 13px values); breakdown formulas moved to title tooltips; click-to-roll (stats/initiative/volonté) preserved; totem slimmed to py-1. Net −41 lines
+## [PROGRESS]
 - `[2026-09-14T20:10Z]` `[USER]` Saveable custom dice rolls (pin from the free-form roller) + visible in compact view. `[CODE]` (main `35ddd25`) New `customRolls: [{name, formula}]` sheet field (schema + import merge); 📌 button on the free-roll row (prompt for name, isDiceFormula-validated, dedupe by formula, immediate save); chips in CAPACITÉS tab (click roll / ✕ remove); SheetPopover FAVORIS lists customRolls with click-to-roll
 ## [PROGRESS]
 - `[2026-09-14T20:00Z]` `[USER]` In the ÉDITION modal, identity and stats should be on separate tabs, not always visible. `[CODE]` (main `6b4bd39`) Modal tab bar now EDIT_TABS = [IDENTITÉ, STATS, ...TABS] driven by new `editTab` state (separate from main-sheet activeTab); identity+PV+XP on IDENTITÉ, characteristics+computed defense chips on STATS; tab edit form renders only for the 6 standard tabs. GOTCHA: the TABS.some wrapper `{/if}` must sit AFTER the border-t div close (div opened inside the wrapper) — wrong order = svelte 'Unexpected block closing tag' at build
