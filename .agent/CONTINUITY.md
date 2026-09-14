@@ -36,6 +36,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T21:25Z]` `[USER]` Two more sets of 3 INVENTAIRE UI proposals, tagged 'deepseek v4.1 flash' and 'qwen 3.8 max' (tags requested by user; content generated in this planner session). `[CODE]` (main `ffc5427`) docs/inventaire-ui-proposals-set2.md (D item-tile grid / E accordions+summaries / F master-detail, pick E) and -set3.md (G paper-doll / H summary bar+generous rows / I PORTE-SAC switch, pick H) + nine-proposal overview table; set 1 cross-links both. Still proposals only — user picks before any implementation
+## [PROGRESS]
 - `[2026-09-14T21:10Z]` `[USER]` INVENTAIRE tab redesign suggestions only, no implementation, tagged GLM-5.3-Flash. `[CODE]` (main `b3cb197`) docs/inventaire-ui-proposals.md — 3 ASCII-mockup directions (A sectioned panels / B 2-col slot rail @2xl / C data-sheet tables), comparison matrix, recommendation = A with C's collapsible DIVERS sections. When implementing, user picks a direction first
 ## [PROGRESS]
 - `[2026-09-14T21:00Z]` `[USER]` Bump plugin version to 2.1 + full patch notes for GM/players. `[CODE]` (main `d50015e`) manifest version 0.3.7 → 2.1.0 in vite.config.js buildManifest (verified in dist/manifest.json); French patch notes at docs/patch-notes-2.1.md (sheets, imports, dice, mastered skills, favorites/compact, customization, GM tooling, combat formulas, under-the-hood)
