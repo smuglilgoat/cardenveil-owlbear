@@ -931,11 +931,19 @@
                     </div>
                     <div class="text-[10px] font-medium mt-0.5 truncate">
                       <span style="color: {suitColor(capacity.cost?.color)}">
-                        {colorLabel(capacity.cost?.color)} {suitSymbol(capacity.cost?.color)} {capacity.cost?.total ?? 0}
+                        {colorLabel(capacity.cost?.color)} {suitSymbol(capacity.cost?.color)}
                       </span>
                       <span class="text-[#9ca3af]"> · {capacity.usage || '—'}</span>
                     </div>
                     <div class="rich-html text-[11px] text-[#9ca3af] mt-1 line-clamp-2">{@html sanitizeHtml(capacity.description) || '—'}</div>
+                  </div>
+                  <!-- Cost: big, right-aligned -->
+                  <div class="text-right shrink-0 pl-2">
+                    <div class="text-[7px] font-bold text-[#9ca3af] leading-none">COÛT</div>
+                    <div class="flex items-baseline justify-end gap-0.5 mt-0.5">
+                      <div class="text-2xl @2xl:text-3xl font-bold leading-none">{capacity.cost?.total ?? 0}</div>
+                      <span class="text-lg font-bold" style="color: {suitColor(capacity.cost?.color)}">{suitSymbol(capacity.cost?.color)}</span>
+                    </div>
                   </div>
                 </div>
                 <!-- Actions row: full width, bottom -->
