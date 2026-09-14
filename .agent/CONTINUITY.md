@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T20:45Z]` `[USER]` Visual distinction for mastered skills. `[CODE]` (main `5f09f1a`) Indigo dot after the skill label in full-sheet skill rows + SheetPopover pinned skills, tooltip 'Maîtrisée — modificateur doublé' (GM modal already had the trained checkbox indicator)
+## [PROGRESS]
 - `[2026-09-14T20:40Z]` `[USER]` Mastered (trained) compétences roll with double the modifier. `[CODE]` (main `061fbc8`) `skillRollModifier(stats, skill, skillData)` in characterSheet.js = stat mod ×2 when `trained`; applied to full-sheet skill rows + rolls, SheetPopover pinned skills, GMDashboard skill display. NOTE: `skillModifier()` itself unchanged — computeDerived (volonté etc.) must stay single-weight
 ## [PROGRESS]
 - `[2026-09-14T20:30Z]` `[USER]` Capacity buttons at the bottom of the card, full width, single line. `[CODE]` (main `e67dd8e`) Capacity card restructured: right button column removed; dice (+expand +pin) now a full-width bottom row below a hairline — 🎲 formula button flex-1, + and 📌 square buttons right; COÛT total folded into the color/usage line
