@@ -927,48 +927,44 @@
                     </div>
                     <div class="text-[10px] font-medium mt-0.5 truncate">
                       <span style="color: {suitColor(capacity.cost?.color)}">
-                        {colorLabel(capacity.cost?.color)} {suitSymbol(capacity.cost?.color)}
+                        {colorLabel(capacity.cost?.color)} {suitSymbol(capacity.cost?.color)} {capacity.cost?.total ?? 0}
                       </span>
                       <span class="text-[#9ca3af]"> · {capacity.usage || '—'}</span>
                     </div>
                     <div class="rich-html text-[11px] text-[#9ca3af] mt-1 line-clamp-2">{@html sanitizeHtml(capacity.description) || '—'}</div>
                   </div>
-                  <div class="text-right shrink-0 flex flex-col items-end gap-1">
-                    <div class="text-[8px] font-bold text-[#9ca3af]">COÛT</div>
-                    <div class="flex items-baseline gap-0.5">
-                      <div class="text-base @2xl:text-lg font-bold">{capacity.cost?.total ?? 0}</div>
-                      <span class="text-sm font-bold" style="color: {suitColor(capacity.cost?.color)}">
-                        {suitSymbol(capacity.cost?.color)}
-                      </span>
-                    </div>
-                    {#if capacity.value?.main && isDiceFormula(capacity.value.main, view?.stats ?? {})}
-                      <button
-                        onclick={() => handleDiceRoll(capacity.name || 'Capacité', capacity.value.main)}
-                        title="Lancer {capacity.value.main}"
-                        class="min-w-16 max-w-28 px-2 h-9 @2xl:h-12 @2xl:text-base bg-slate-500 rounded-lg text-sm font-bold hover:bg-slate-400 transition-colors truncate"
-                      >
-                        {capacity.value.main}
-                      </button>
-                    {/if}
-                    {#if capacity.description && stripHtml(capacity.description).length > 120}
-                      <button
-                        onclick={() => (expandedCapacity = capacity)}
-                        title="Afficher toute la capacité"
-                        class="w-6 h-6 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[11px] font-bold flex items-center justify-center transition-colors"
-                      >
-                        +
-                      </button>
-                    {/if}
+                </div>
+                <!-- Actions row: full width, bottom -->
+                <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-[#242424]">
+                  {#if capacity.value?.main && isDiceFormula(capacity.value.main, view?.stats ?? {})}
                     <button
-                      onclick={() => togglePin('pinnedCapacities', pinKey)}
-                      title={pinned ? 'Retirer des favoris' : 'Épingler en favori'}
-                      class="text-[11px] leading-none shrink-0 transition-opacity {pinned
-                        ? ''
-                        : 'opacity-25 hover:opacity-70'}"
+                      onclick={() => handleDiceRoll(capacity.name || 'Capacité', capacity.value.main)}
+                      title="Lancer {capacity.value.main}"
+                      class="flex-1 min-w-0 px-2 h-8 @2xl:h-9 bg-slate-500 rounded-lg text-sm font-bold hover:bg-slate-400 transition-colors truncate"
                     >
-                      📌
+                      🎲 {capacity.value.main}
                     </button>
-                  </div>
+                  {:else}
+                    <div class="flex-1"></div>
+                  {/if}
+                  {#if capacity.description && stripHtml(capacity.description).length > 120}
+                    <button
+                      onclick={() => (expandedCapacity = capacity)}
+                      title="Afficher toute la capacité"
+                      class="w-8 h-8 @2xl:h-9 shrink-0 rounded-lg bg-[#242424] border border-[#374151] text-[#9ca3af] hover:text-white text-sm font-bold flex items-center justify-center transition-colors"
+                    >
+                      +
+                    </button>
+                  {/if}
+                  <button
+                    onclick={() => togglePin('pinnedCapacities', pinKey)}
+                    title={pinned ? 'Retirer des favoris' : 'Épingler en favori'}
+                    class="w-8 h-8 @2xl:h-9 shrink-0 rounded-lg bg-[#242424] border border-[#374151] text-[11px] flex items-center justify-center transition-opacity {pinned
+                      ? ''
+                      : 'opacity-40 hover:opacity-100'}"
+                  >
+                    📌
+                  </button>
                 </div>
               </div>
             {/each}
