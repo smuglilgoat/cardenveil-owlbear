@@ -12,8 +12,8 @@ export const STAT_LABELS = { force: 'Force', agilite: 'Agilité', esprit: 'Espri
 export const STAT_COLORS = {
   force: '#f87171',
   agilite: '#4ade80',
-  esprit: '#a78bfa',
-  social: '#60a5fa'
+  esprit: '#60a5fa',
+  social: '#a78bfa'
 };
 
 /** Skill → governing stat mapping (single source for groups + labels).

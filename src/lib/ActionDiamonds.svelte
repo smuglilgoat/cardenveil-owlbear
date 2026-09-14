@@ -1,6 +1,9 @@
 <script>
   import { onDestroy } from 'svelte';
-  import { ACTION_CHECKS } from './characterSheet.js';
+  import { ACTION_CHECKS, STAT_COLORS } from './characterSheet.js';
+
+  // Rulebook color classes: guide-force (Force), guide-agilite (Agilité),
+  // guide-esprit (Esprit), guide-social (Social) — mapped to the stat palette.
 
   let {
     checks = {},
@@ -16,14 +19,17 @@
       entries: [
         {
           name: 'Attaque secondaire',
+          stat: 'force',
           bullets: ['Une seconde attaque en mêlée', 'Sans modificateur aux dégâts']
         },
         {
           name: 'Poussée',
+          stat: 'force',
           bullets: ['Repoussez une créature de 5 m', 'Contestation de vos jets d’Athlétisme']
         },
         {
           name: 'Ruée',
+          stat: 'agilite',
           bullets: [
             'Augmentez votre vitesse de déplacement de moitié',
             'Vous permet un troisième mouvement durant le round'
@@ -31,6 +37,7 @@
         },
         {
           name: 'Planque',
+          stat: 'agilite',
           bullets: [
             'Si vous êtes hors de vue ou obscurci, cachez-vous',
             'Faites un jet de Discrétion contre la Perception ennemie',
@@ -41,14 +48,17 @@
         },
         {
           name: 'Consommable',
+          stat: 'agilite',
           bullets: ['Boire une potion', 'Utiliser un parchemin', 'Ou un consommable du même type']
         },
         {
           name: 'Échange d’équipement',
+          stat: 'agilite',
           bullets: ['Alterner entre deux armes ou équipements']
         },
         {
           name: 'Stabilisation',
+          stat: 'agilite',
           bullets: [
             'Mettez fin à une condition dont la sortie est possible',
             'Sur un allié ou sur vous si la condition le permet',
@@ -58,6 +68,7 @@
         },
         {
           name: 'Analyse',
+          stat: 'esprit',
           bullets: [
             'Faites un jet d’Investigation : DC 10 + mod. Agilité',
             'Sur une créature adverse',
@@ -67,6 +78,7 @@
         },
         {
           name: 'Imprégnation',
+          stat: 'esprit',
           bullets: [
             'Imprégnez une arme ou un projectile avec un consommable',
             'Si une source élémentaire est à portée (feu, poison, etc.), utilisez-la pour imprégner votre arme',
@@ -75,6 +87,7 @@
         },
         {
           name: 'Canalisation',
+          stat: 'esprit',
           bullets: [
             'Canalisez votre catalyseur et activez son bonus de couleur pour ce round et le suivant',
             'Les capacités de la couleur correspondante voient leur coût réduit de votre modificateur d’Esprit + le bonus du catalyseur',
@@ -85,6 +98,7 @@
         },
         {
           name: 'Provocation',
+          stat: 'social',
           bullets: [
             'Provoquez une créature',
             'Faites un jet de Représentation contre sa Perspicacité',
@@ -93,6 +107,7 @@
         },
         {
           name: 'Flatterie',
+          stat: 'social',
           bullets: [
             'Faites un jet de Tromperie contre la Perspicacité de l’allié',
             'En cas de réussite, l’allié gagne + mod. Social aux dégâts de sa prochaine attaque'
@@ -105,6 +120,7 @@
       entries: [
         {
           name: 'Attaque d’opportunité',
+          stat: 'force',
           bullets: [
             'Si un ennemi quitte votre zone de contrôle',
             'S’il lance une capacité à distance',
@@ -115,6 +131,7 @@
         },
         {
           name: 'Parade',
+          stat: 'force',
           bullets: [
             'Parez avec votre bouclier ou vos armes',
             'Vous réduisez les dégâts subits avant réduction d’armure',
@@ -126,14 +143,17 @@
         },
         {
           name: 'Bastion',
+          stat: 'force',
           bullets: ['Interceptez une attaque ciblée visant un allié', 'Jet d’Acrobaties = 3 + 2 × distance en mètres']
         },
         {
           name: 'Soutien',
+          stat: 'force',
           bullets: ['Lorsqu’un allié dans votre zone de contrôle attaque', 'Offrez-lui avantage à son jet d’attaque']
         },
         {
           name: 'Ciblage',
+          stat: 'agilite',
           bullets: [
             'Lorsqu’un ennemi agit (attaque, mouvement, etc.)',
             'Utilisez votre réaction pour vous focaliser sur lui',
@@ -143,6 +163,7 @@
         },
         {
           name: 'Précipitation',
+          stat: 'agilite',
           bullets: [
             'Utilisez votre réaction pour précipiter votre tour',
             'Faites un jet d’initiative avec avantage pendant l’action d’une autre créature',
@@ -154,6 +175,7 @@
         },
         {
           name: 'Harmonisation',
+          stat: 'esprit',
           bullets: [
             'Lorsqu’une créature lance une capacité utilisant l’Esprit',
             'Accentuer : + mod. Esprit au jet de valeur brute de la capacité et au seuil de sauvegarde',
@@ -162,6 +184,7 @@
         },
         {
           name: 'Altération',
+          stat: 'esprit',
           bullets: [
             'Lorsque vous utilisez une capacité',
             'Vous pouvez ajuster son effet ou sa portée',
@@ -171,6 +194,7 @@
         },
         {
           name: 'Dissuasion',
+          stat: 'social',
           bullets: [
             'Faites un jet d’Intimidation contre la Perspicacité de l’ennemi',
             'Donnez-lui désavantage à son attaque en mêlée'
@@ -178,6 +202,7 @@
         },
         {
           name: 'Coordination',
+          stat: 'social',
           bullets: [
             'En réaction, choisissez un allié à 2 × mod. Persuasion m',
             'Cet allié peut immédiatement utiliser une réaction',
@@ -189,9 +214,10 @@
     {
       group: 'Actions',
       entries: [
-        { name: 'Attaquer', bullets: ['Attaquez votre cible'] },
+        { name: 'Attaquer', stat: 'force', bullets: ['Attaquez votre cible'] },
         {
           name: 'Esquive',
+          stat: 'agilite',
           bullets: ['Désavantage aux attaques contre vous', 'Pas d’attaques d’opportunité']
         }
       ]
@@ -270,7 +296,7 @@
           <div class="text-[10px] font-bold text-indigo-300 uppercase tracking-wide">{section.group}</div>
           {#each section.entries as entry}
             <div class="mt-2">
-              <div class="text-[11px] font-bold">{entry.name}</div>
+              <div class="text-[11px] font-bold" style="color: {STAT_COLORS[entry.stat] ?? '#e5e7eb'}">{entry.name}</div>
               <ul class="mt-0.5 space-y-0.5">
                 {#each entry.bullets as bullet}
                   <li class="text-[10px] leading-snug text-[#9ca3af] flex gap-1.5">
