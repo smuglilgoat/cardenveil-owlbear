@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T18:55Z]` `[USER]` Add vitesse, initiative, armure, parade to the compact popover. `[CODE]` (main `b38b622`) New 4-chip row in SheetPopover between stats grid and action diamonds: PARADE static, INITIAT. + VITESSE click-to-roll d20+value (doRoll), ARMURE static — all from `computeDerived()` (imported in SheetPopover); grid-cols-4 matches the stats row styling
+## [PROGRESS]
 - `[2026-09-14T18:40Z]` `[USER]` Put the totem effect on top of the CAPACITÉS tab. `[CODE]` (main `6aee375`) TOTEM card moved above the action diamonds/free-roll/capacity list in CharacterSheet CAPACITÉS tab (was at the bottom); pure markup move, no logic change
 ## [PROGRESS]
 - `[2026-09-10T20:10Z]` `[USER]` Initiative + volonté should roll on click too. `[CODE]` (main `d21929b`) INITIATIVE chip (defense row) rolls `d20+calc.initiative`, VOLONTÉ pill (pills row) rolls `d20+calc.volonte` — both via handleDiceRoll (dice popup + USE_CAPACITY log) with the unsaved-changes guard; hover + title tooltips. LESSON (2nd occurrence): I keep committing onto `main` when the turn starts on it — ALWAYS create the feature branch BEFORE any edit, not after; both times the fix was `git branch <name> && git reset --hard origin/main && git merge --ff-only <name>`
