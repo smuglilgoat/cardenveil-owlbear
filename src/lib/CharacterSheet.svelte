@@ -56,6 +56,7 @@
   let openSlot = $state(null);
   let expandedNarrative = $state({});
   let masteryText = $state({});
+  let editTab = $state('identite'); // active tab inside the ÉDITION modal
 
   const TABS = [
     { id: 'competences', label: 'COMPÉTENCES' },
@@ -65,6 +66,9 @@
     { id: 'maitrises', label: 'MAÎTRISES' },
     { id: 'notes', label: 'NOTES' }
   ];
+
+  // Edit-modal tab bar: identity and stats get their own tabs (not always visible)
+  const EDIT_TABS = [{ id: 'identite', label: 'IDENTITÉ' }, { id: 'stats', label: 'STATS' }, ...TABS];
 
   const NARRATIVE_FIELDS = [
     ['background', 'BACKGROUND'],
@@ -1170,10 +1174,10 @@
 
         <!-- Modal tab bar -->
         <div class="flex gap-1 px-2 py-1.5 bg-[#111827] border-b border-[#374151] overflow-x-auto shrink-0">
-          {#each TABS as tab}
+          {#each EDIT_TABS as tab}
             <button
-              onclick={() => (activeTab = tab.id)}
-              class="px-3 py-1.5 rounded-md text-[9px] font-semibold whitespace-nowrap transition-colors {activeTab === tab.id
+              onclick={() => (editTab = tab.id)}
+              class="px-3 py-1.5 rounded-md text-[9px] font-semibold whitespace-nowrap transition-colors {editTab === tab.id
                 ? 'bg-indigo-600 text-white'
                 : 'bg-[#1f2937] text-[#9ca3af] hover:bg-[#374151]'}"
             >
@@ -1184,6 +1188,7 @@
 
         <!-- Modal body -->
         <div class="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 space-y-4">
+          {#if editTab === 'identite'}
           <!-- Identity & core stats -->
           <div>
             <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">IDENTITÉ</h3>
@@ -1247,6 +1252,7 @@
             </div>
           </div>
 
+          {:else if editTab === 'stats'}
           <div>
             <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">CARACTÉRISTIQUES</h3>
             <div class="grid grid-cols-4 gap-2">
@@ -1298,13 +1304,16 @@
             </div>
           </div>
 
+          {/if}
+
           <!-- Active tab edit form -->
+          {#if TABS.some((t) => t.id === editTab)}
           <div class="border-t border-[#374151] pt-3">
             <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">
-              {TABS.find((t) => t.id === activeTab)?.label}
+              {TABS.find((t) => t.id === editTab)?.label}
             </h3>
 
-            {#if activeTab === 'competences'}
+            {#if editTab === 'competences'}
               <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-x-5 gap-y-3">
                 {#each SKILL_GROUPS as group}
                   <div>
@@ -1326,7 +1335,7 @@
                   </div>
                 {/each}
               </div>
-            {:else if activeTab === 'capacites'}
+            {:else if editTab === 'capacites'}
               <div class="flex justify-end mb-2">
                 <button
                   onclick={() => {
@@ -1428,7 +1437,7 @@
                 <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">Description</label>
                 <textarea bind:value={editSheet.totem.description} class="w-full px-3 py-2 bg-[#242424] border border-[#374151] rounded text-xs focus:outline-none focus:border-indigo-500" rows="3"></textarea>
               </div>
-            {:else if activeTab === 'inventaire'}
+            {:else if editTab === 'inventaire'}
               <div class="space-y-3">
                 <div>
                   <h4 class="text-[10px] font-bold text-[#9ca3af] mb-1.5">ÉQUIPEMENT</h4>
@@ -1632,7 +1641,7 @@
                   {/if}
                 </div>
               </div>
-            {:else if activeTab === 'narratif'}
+            {:else if editTab === 'narratif'}
               <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2.5">
                 {#each NARRATIVE_FIELDS as [field, label]}
                   <div class="bg-[#111827] rounded-lg p-2.5">
@@ -1641,14 +1650,14 @@
                   </div>
                 {/each}
               </div>
-            {:else if activeTab === 'maitrises'}
+            {:else if editTab === 'maitrises'}
               {#each MASTERY_BLOCKS as [key, dataKey, label]}
                 <div class="bg-[#111827] rounded-lg p-3 mb-2.5">
                   <div class="text-[10px] font-bold text-[#9ca3af] mb-2">{label}</div>
                   <textarea bind:value={masteryText[key]} placeholder="Un élément par ligne" class="w-full px-3 py-2 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" rows="3"></textarea>
                 </div>
               {/each}
-            {:else if activeTab === 'notes'}
+            {:else if editTab === 'notes'}
               <div class="bg-[#111827] rounded-md px-2 py-2 flex gap-2 mb-2.5 flex-wrap">
                 <button onclick={() => wrapNotesSelection('**', '**')} title="Gras" class="px-4 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors">B</button>
                 <button onclick={() => wrapNotesSelection('__', '__')} title="Souligné" class="px-4 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors">U</button>
@@ -1669,6 +1678,7 @@
               </div>
             {/if}
           </div>
+          {/if}
         </div>
 
         <!-- Modal footer -->
