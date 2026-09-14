@@ -407,6 +407,15 @@
     return (text || '').replace(/<[^>]*>/g, '').trim();
   }
 
+  // Notes toolbar markup (**bold**, __underline__) + imported HTML → sanitized HTML
+  function renderNotes(text) {
+    return sanitizeHtml(
+      String(text ?? '')
+        .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+        .replace(/__([^_\n]+)__/g, '<u>$1</u>')
+    );
+  }
+
   function masteryLabel(mastery) {
     if (typeof mastery === 'string') return mastery;
     return mastery?.nom || mastery?.name || '';
@@ -910,16 +919,7 @@
                       </span>
                       <span class="text-[#9ca3af]"> · {capacity.usage || '—'}</span>
                     </div>
-                    <div class="rich-html text-[10px] text-[#9ca3af] mt-1 line-clamp-2">{@html sanitizeHtml(capacity.description) || '—'}</div>
-                    {#if capacity.description && stripHtml(capacity.description).length > 120}
-                      <button
-                        onclick={() => (expandedCapacity = capacity)}
-                        title="Afficher toute la capacité"
-                        class="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 mt-0.5"
-                      >
-                        Lire plus →
-                      </button>
-                    {/if}
+                    <div class="rich-html text-[11px] text-[#9ca3af] mt-1 line-clamp-2">{@html sanitizeHtml(capacity.description) || '—'}</div>
                   </div>
                   <div class="text-right shrink-0 flex flex-col items-end gap-1">
                     <div class="text-[8px] font-bold text-[#9ca3af]">COÛT</div>
@@ -936,6 +936,15 @@
                         class="min-w-16 max-w-28 px-2 h-9 @2xl:h-12 @2xl:text-base bg-slate-500 rounded-lg text-sm font-bold hover:bg-slate-400 transition-colors truncate"
                       >
                         {capacity.value.main}
+                      </button>
+                    {/if}
+                    {#if capacity.description && stripHtml(capacity.description).length > 120}
+                      <button
+                        onclick={() => (expandedCapacity = capacity)}
+                        title="Afficher toute la capacité"
+                        class="w-6 h-6 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[11px] font-bold flex items-center justify-center transition-colors"
+                      >
+                        +
                       </button>
                     {/if}
                     <button
@@ -1120,8 +1129,8 @@
           <h2 class="text-sm font-bold mb-3">NOTES</h2>
           <div class="bg-[#111827] rounded-lg p-3.5 min-h-[240px]">
             <div class="text-lg font-bold mb-2.5">Notes de session</div>
-            <div class="text-xs leading-relaxed whitespace-pre-wrap">
-              {view.notes || 'Aucune note pour le moment.'}
+            <div class="rich-html text-xs leading-relaxed whitespace-pre-wrap">
+              {@html renderNotes(view.notes) || 'Aucune note pour le moment.'}
             </div>
             <div class="text-[9px] font-medium text-[#9ca3af] mt-6 pt-2.5 border-t border-[#374151]">
               Écriture libre — modifiable en mode ÉDITION
