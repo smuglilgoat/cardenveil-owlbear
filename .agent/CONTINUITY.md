@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T19:35Z]` `[USER]` Implement HTML tag parsing for descriptions. `[CODE]` (main `09c8b61`) `sanitizeHtml()` in characterSheet.js — whitelist b/strong/i/em/u/s/br/p/ul/ol/li/span/h1-h6, ALL attributes stripped, other tags removed; rendered via {@html} in capacity cards + expand modal, GM sheet-modal capacity list, equipment slot descriptions, totem panel; `rich-html` CSS restores list bullets (Tailwind preflight removes them); single-line summaries (inventory rows, weapon joins, tooltips) keep stripHtml. 4 tests (137)
+## [PROGRESS]
 - `[2026-09-14T19:20Z]` `[USER]` Color-code the ACTIONS DE COMBAT tooltip entries per the rulebook guide classes (guide-force/agilite/esprit/social); red=Force, green=Agilité, **blue=Esprit, purple=Social**; fix wrong stat colors in the app. `[CODE]` (main `546ccd0`) Each ACTION_RULES entry carries a `stat` key; title rendered with STAT_COLORS. FIXED: STAT_COLORS had esprit/social swapped (esprit was purple, social blue) — now esprit #60a5fa (blue), social #a78bfa (purple), matching the token palettes (PlayerHand/HandPopover/TokenPanel esprit=#3b82f6). Note: the old Figma prototype (docs/character-sheet-prototype.html esprit:#7559ba/social:#5489db) had the same swap — superseded by user rule
 ## [PROGRESS]
 - `[2026-09-14T19:05Z]` `[USER]` Add an expand option for capacities (some have very long text). `[CODE]` (main `04e36c5`) 'Lire plus →' link under the line-clamped capacity description (only when stripped text > 120 chars) opens a modal: full description (HTML stripped, whitespace-pre-line), type badge, COÛT + usage, image, dice-roll button for value.main; closes ✕/backdrop/Escape. `expandedCapacity` state in CharacterSheet
