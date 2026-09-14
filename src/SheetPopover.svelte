@@ -305,6 +305,19 @@
         </button>
       {/each}
 
+      {#each sheet.customRolls ?? [] as roll}
+        {#if roll?.formula && isDiceFormula(roll.formula, sheet?.stats ?? {})}
+          <button
+            class="w-full flex items-center gap-2 bg-[#111827] hover:bg-[#1f2937] rounded-md px-2.5 py-2 text-left transition-colors"
+            onclick={() => doRoll(roll.name || roll.formula, roll.formula)}
+          >
+            <div class="w-1 h-5 rounded-full bg-slate-500"></div>
+            <span class="text-[11px] font-medium truncate flex-1">{roll.name || roll.formula}</span>
+            <span class="ml-auto text-[11px] font-bold text-slate-300">{roll.formula}</span>
+          </button>
+        {/if}
+      {/each}
+
       {#each pinnedCapacities as capacity, i}
         {@const formula = capacity?.value?.main}
         <button

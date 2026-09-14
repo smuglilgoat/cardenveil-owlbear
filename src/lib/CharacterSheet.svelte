@@ -486,6 +486,23 @@
     saveCharacterSheet(playerId, roomId, next).catch(console.error);
   }
 
+  // ─── Custom saved rolls (free-form formulas pinned to the sheet) ───
+  function saveCustomRoll() {
+    const formula = (freeFormula || '').trim();
+    if (!formula || !isDiceFormula(formula, view?.stats ?? {})) return;
+    const name = (prompt('Nom du lancer personnalisé :', formula) || '').trim() || formula;
+    const rolls = (sheet?.customRolls ?? []).filter((r) => r.formula !== formula);
+    const next = { ...sheet, customRolls: [...rolls, { name, formula }] };
+    sheet = next;
+    saveCharacterSheet(playerId, roomId, next).catch(console.error);
+  }
+
+  function removeCustomRoll(formula) {
+    const next = { ...sheet, customRolls: (sheet?.customRolls ?? []).filter((r) => r.formula !== formula) };
+    sheet = next;
+    saveCharacterSheet(playerId, roomId, next).catch(console.error);
+  }
+
   // ─── Per-turn action diamonds (toggle + persist, no reset logic) ───
   function toggleActionCheck(key) {
     if (isEditing) return;
@@ -887,7 +904,39 @@
             >
               Lancer
             </button>
+            <button
+              onclick={saveCustomRoll}
+              title="Sauver ce lancer en favori"
+              class="px-3 py-2 bg-[#111827] border border-[#374151] hover:bg-[#374151] text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+            >
+              📌
+            </button>
           </div>
+
+          {#if (view.customRolls ?? []).length}
+            <div class="flex flex-wrap gap-1.5 mb-3">
+              {#each view.customRolls ?? [] as roll}
+                {#if roll?.formula}
+                  <div class="flex items-center gap-1 bg-[#111827] rounded-md pl-2 pr-1 py-1">
+                    <button
+                      onclick={() => handleDiceRoll(roll.name || roll.formula, roll.formula)}
+                      title={`Lancer ${roll.formula}`}
+                      class="text-[10px] font-semibold hover:text-indigo-300 transition-colors"
+                    >
+                      {roll.name || roll.formula} <span class="text-[#9ca3af]">{roll.formula}</span>
+                    </button>
+                    <button
+                      onclick={() => removeCustomRoll(roll.formula)}
+                      title="Supprimer ce lancer"
+                      class="text-[9px] text-[#6b7280] hover:text-red-400 leading-none"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                {/if}
+              {/each}
+            </div>
+          {/if}
 
           <div class="space-y-2.5">
             {#each view.capacities || [] as capacity, i}

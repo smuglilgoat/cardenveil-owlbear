@@ -478,6 +478,7 @@ export function createEmptyCharacterSheet() {
     notes: '',
     pinnedSkills: [],
     pinnedCapacities: [],
+    customRolls: [],
     actionChecks: { action: false, bonus: false, reaction: false }
   };
 }
