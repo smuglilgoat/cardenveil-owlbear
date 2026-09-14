@@ -23,6 +23,7 @@
     createEmptyCharacterSheet,
     equipmentStats,
     skillModifier,
+    skillRollModifier,
     syncSkillBonuses,
     syncStatsFromEquipment,
     toNumber,
@@ -1556,7 +1557,7 @@
             <div class="grid grid-cols-2 gap-3">
               {#each Object.entries(viewingSheet.sheet.skills || {}) as [skill, data]}
                 {@const sheetData = viewingSheet.sheet.skills?.[skill] ?? data}
-                {@const bonus = skillModifier(viewingSheet.sheet.stats, skill, sheetData?.bonus ?? 0)}
+                {@const bonus = skillRollModifier(viewingSheet.sheet.stats, skill, sheetData)}
                 <div class="bg-gray-800 border border-gray-700 rounded-lg p-3 flex items-center justify-between">
                   <div class="flex items-center gap-3">
                     {#if viewingSheet.isEditing}

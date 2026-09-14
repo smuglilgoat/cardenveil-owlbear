@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -177,6 +177,24 @@ describe('Character Sheet dice helpers', () => {
       expect(statModifier(14)).toBe(2);
       expect(statModifier(10)).toBe(0);
       expect(statModifier(6)).toBe(-2);
+    });
+  });
+
+  describe('skillRollModifier', () => {
+    const stats = { force: 8, agilite: 14, esprit: 18, social: 10 };
+    it('should return the stat modifier for untrained skills', () => {
+      expect(skillRollModifier(stats, 'athletisme', { trained: false })).toBe(-1);
+      expect(skillRollModifier(stats, 'acrobaties', { trained: false })).toBe(2);
+    });
+
+    it('should double the modifier for mastered (trained) skills', () => {
+      expect(skillRollModifier(stats, 'athletisme', { trained: true })).toBe(-2);
+      expect(skillRollModifier(stats, 'acrobaties', { trained: true })).toBe(4);
+      expect(skillRollModifier(stats, 'arcanes', { trained: true })).toBe(8);
+    });
+
+    it('should handle missing skill data', () => {
+      expect(skillRollModifier(stats, 'acrobaties')).toBe(2);
     });
   });
 

@@ -22,6 +22,7 @@
     isDiceFormula,
     rollDice,
     skillModifier,
+    skillRollModifier,
     subscribeToCharacterSheet,
     suitColor,
     suitSymbol,
@@ -351,7 +352,7 @@
   }
 
   function handleSkillRoll(skillKey) {
-    const mod = skillModifier(view.stats, skillKey, view.skills?.[skillKey]?.bonus ?? 0);
+    const mod = skillRollModifier(view.stats, skillKey, view.skills?.[skillKey]);
     const label = SKILL_LABELS[skillKey] || skillKey;
     checkUnsavedChanges(() => handleDiceRoll(label, `d20${mod >= 0 ? '+' + mod : mod}`));
   }
@@ -777,7 +778,7 @@
                 </div>
                 <div class="space-y-1">
                   {#each group.skills as skillKey}
-                    {@const mod = skillModifier(view.stats, skillKey, view.skills?.[skillKey]?.bonus ?? 0)}
+                    {@const mod = skillRollModifier(view.stats, skillKey, view.skills?.[skillKey])}
                     {@const pinned = isPinned(view.pinnedSkills, skillKey)}
                     <div
                       class="skill-row flex items-center gap-2 bg-[#111827] rounded-md px-2.5 py-2 cursor-pointer hover:bg-[#374151] transition-colors"

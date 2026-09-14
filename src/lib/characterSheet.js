@@ -955,6 +955,19 @@ export function skillModifier(stats, skill, fallback = 0) {
 }
 
 /**
+ * Roll modifier for a skill: governing-stat modifier, doubled when the
+ * skill is mastered (trained).
+ * @param {Object} stats - Character stats
+ * @param {string} skill - Skill key
+ * @param {Object} [skillData] - Skill entry ({trained, bonus})
+ * @returns {number}
+ */
+export function skillRollModifier(stats, skill, skillData = {}) {
+  const base = skillModifier(stats, skill, skillData?.bonus ?? 0);
+  return skillData?.trained ? base * 2 : base;
+}
+
+/**
  * Rewrite stored skill bonuses from governing stat modifiers.
  * Skills without a governing stat keep their stored bonus.
  * @param {Object} sheet - Character sheet data

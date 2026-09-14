@@ -15,6 +15,7 @@
     saveCharacterSheet,
     raceLabel,
     skillModifier,
+    skillRollModifier,
     computeDerived,
     subscribeToCharacterSheet,
     suitColor,
@@ -116,7 +117,7 @@
   }
 
   function skillMod(skillKey) {
-    return skillModifier(sheet?.stats ?? {}, skillKey, sheet?.skills?.[skillKey]?.bonus ?? 0);
+    return skillRollModifier(sheet?.stats ?? {}, skillKey, sheet?.skills?.[skillKey]);
   }
 
   // ─── Per-turn action diamonds (toggle + persist, no reset logic) ───
