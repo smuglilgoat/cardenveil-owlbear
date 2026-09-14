@@ -15,6 +15,7 @@
     saveCharacterSheet,
     raceLabel,
     skillModifier,
+    computeDerived,
     subscribeToCharacterSheet,
     suitColor,
     suitSymbol,
@@ -167,6 +168,8 @@
   let pinnedSkills = $derived(
     (sheet?.pinnedSkills ?? []).filter((key) => sheet?.skills?.[key])
   );
+  // Rule-derived combat values (parade, initiative, armure, vitesse)
+  let calc = $derived(computeDerived(sheet ?? {}));
   let pinnedCapacities = $derived(
     (sheet?.capacities ?? []).filter((capacity, i) =>
       (sheet?.pinnedCapacities ?? []).includes(capacity?.name || `#${i}`)
@@ -238,6 +241,39 @@
             </div>
           </div>
         {/each}
+      </div>
+      <!-- Combat values: Parade (static), Initiative + Vitesse (click-to-roll d20) -->
+      <div class="grid grid-cols-4 gap-1.5 mt-1.5">
+        <div class="bg-[#111827] rounded-md px-1.5 py-1 text-center">
+          <div class="text-[7px] font-bold text-[#9ca3af]">PARADE</div>
+          <div class="text-sm font-bold leading-tight text-[#e5e7eb]">{calc.parade}</div>
+        </div>
+        <div
+          onclick={() => doRoll('Initiative', `d20${fmt(calc.initiative)}`)}
+          role="button"
+          tabindex="0"
+          onkeydown={(e) => e.key === 'Enter' && doRoll('Initiative', `d20${fmt(calc.initiative)}`)}
+          title={`Jet d'initiative (d20)`}
+          class="bg-[#111827] rounded-md px-1.5 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
+        >
+          <div class="text-[7px] font-bold text-[#9ca3af]">INITIAT.</div>
+          <div class="text-sm font-bold leading-tight" style="color: {STAT_COLORS.agilite}">{calc.initiative}</div>
+        </div>
+        <div class="bg-[#111827] rounded-md px-1.5 py-1 text-center">
+          <div class="text-[7px] font-bold text-[#9ca3af]">ARMURE</div>
+          <div class="text-sm font-bold leading-tight text-[#60a5fa]">{calc.armure}</div>
+        </div>
+        <div
+          onclick={() => doRoll('Vitesse', `d20${fmt(calc.mouvement)}`)}
+          role="button"
+          tabindex="0"
+          onkeydown={(e) => e.key === 'Enter' && doRoll('Vitesse', `d20${fmt(calc.mouvement)}`)}
+          title={`Jet de vitesse (d20)`}
+          class="bg-[#111827] rounded-md px-1.5 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
+        >
+          <div class="text-[7px] font-bold text-[#9ca3af]">VITESSE</div>
+          <div class="text-sm font-bold leading-tight text-[#4ade80]">{calc.mouvement}</div>
+        </div>
       </div>
       <!-- Per-turn action diamonds (centered; long hover shows the combat actions reference) -->
       <ActionDiamonds
