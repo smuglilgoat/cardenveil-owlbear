@@ -35,6 +35,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-14T20:30Z]` `[USER]` Capacity buttons at the bottom of the card, full width, single line. `[CODE]` (main `e67dd8e`) Capacity card restructured: right button column removed; dice (+expand +pin) now a full-width bottom row below a hairline — 🎲 formula button flex-1, + and 📌 square buttons right; COÛT total folded into the color/usage line
+## [PROGRESS]
 - `[2026-09-14T20:20Z]` `[USER]` Header stat panel too big — target ~20% height with 80% for tab content. `[CODE]` (main `d551258`) Header condensed: identity row (w-10 portrait, name + race/align/niv/XP one line, PV+TEMP+FAT inline), 4-col stats row (label + value+mod), 8-col combat row (PARADE/INIT/ARMURE/VITESSE/MISS/BNS/CANAL/VOLONTÉ, tiny 7px labels, 13px values); breakdown formulas moved to title tooltips; click-to-roll (stats/initiative/volonté) preserved; totem slimmed to py-1. Net −41 lines
 ## [PROGRESS]
 - `[2026-09-14T20:10Z]` `[USER]` Saveable custom dice rolls (pin from the free-form roller) + visible in compact view. `[CODE]` (main `35ddd25`) New `customRolls: [{name, formula}]` sheet field (schema + import merge); 📌 button on the free-roll row (prompt for name, isDiceFormula-validated, dedupe by formula, immediate save); chips in CAPACITÉS tab (click roll / ✕ remove); SheetPopover FAVORIS lists customRolls with click-to-roll
