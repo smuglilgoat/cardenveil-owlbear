@@ -36,6 +36,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T20:35Z]` `[USER]` Item editor showed field mismatches per item type. `[CODE]` (main `e97de32`) Root cause: imports dump the same fields on every item regardless of type. FIX: `ITEM_FIELDS` in characterSheet.js — Arme: slot/family/familySummary/catalystColor/raretePrix/degats/attributs/description; Armure+Équipement: slot/family/familySummary/raretePrix/attributs/description; Consommable+Divers: quantite/raretePrix/attributs/description; `itemFields(type)` fallback = Divers. Unknown fields preserved in data, hidden from the form; type switch swaps field sets. 151 tests
+## [PROGRESS]
 - `[2026-09-15T20:25Z]` `[USER]` Report: setting Main secondaire from ÉDITION doesn't equip in the doll. `[CODE]` (main `86b8752`) ROOT CAUSE: the ARMES hand-dropdown onchange pre-replaced the weapon with a cleared copy, breaking equipWeapon's by-reference match. FIX: pass the original array to equipWeapon; only the unequip path replaces the entry. LESSON: equipWeapon matches weapons by object reference — always hand it the live array
 ## [PROGRESS]
 - `[2026-09-15T20:15Z]` `[USER]` catalystColor dropdown; weapons only addable to ARMES; item slot dropdown needs weapon options; BUG: doll off-hand equip set hand 'main'. `[CODE]` (main `5d835c0`) FIXED equipWeapon (hand was hardcoded 'main' — now honors target hand, 2H→main) + regression test; catalystColor select (4 suits) shown for items with the field, auto-added when family=Catalyseurs or catalyst template; inventory template dropdown filtered to kind!=='arme' (armures only); slot select gains Main principale/secondaire for Arme items — syncItemSlot equips/unequips the matching weapon by name. 149 tests
