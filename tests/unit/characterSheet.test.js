@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -247,6 +247,22 @@ describe('Character Sheet dice helpers', () => {
         weapons: [{ ...dagger }, { ...sword, forceAgi: 'force' }],
       });
       expect(calc.bonusAttaque).toBe(2); // main-hand sword: force mod +2
+    });
+  });
+
+  describe('ITEM_FIELDS', () => {
+    it('should expose sensible per-type field lists', () => {
+      expect(ITEM_FIELDS.Arme).toContain('catalystColor');
+      expect(ITEM_FIELDS.Arme).not.toContain('quantite');
+      expect(ITEM_FIELDS.Consommable).toContain('quantite');
+      expect(ITEM_FIELDS.Consommable).not.toContain('degats');
+      expect(ITEM_FIELDS.Armure).toContain('slot');
+    });
+
+    it('itemFields should fall back to the Divers set', () => {
+      expect(itemFields('Inconnu')).toBe(ITEM_FIELDS.Divers);
+      expect(itemFields(null)).toBe(ITEM_FIELDS.Divers);
+      expect(itemFields('armure').length).toBeGreaterThan(0); // case-sensitive, falls back
     });
   });
 

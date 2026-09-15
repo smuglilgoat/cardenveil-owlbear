@@ -334,6 +334,28 @@ export const FAMILY_SUMMARIES = {
   'Armes uniques': '',
 };
 
+/**
+ * Editable fields per inventory item type (order = form order). Fields not
+ * listed stay in the data but are not rendered by the editor — imports carry
+ * a blanket field dump (weaponName, parade, …) that mismatches most types.
+ */
+export const ITEM_FIELDS = {
+  Arme: ['slot', 'family', 'familySummary', 'catalystColor', 'raretePrix', 'degats', 'attributs', 'description'],
+  Armure: ['slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
+  Équipement: ['slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
+  Consommable: ['quantite', 'raretePrix', 'attributs', 'description'],
+  Divers: ['quantite', 'raretePrix', 'attributs', 'description'],
+};
+
+/**
+ * Fields for an item type, falling back to the Divers set.
+ * @param {unknown} type - Item type
+ * @returns {string[]}
+ */
+export function itemFields(type) {
+  return ITEM_FIELDS[String(type ?? '').trim()] ?? ITEM_FIELDS.Divers;
+}
+
 export function findEquipmentTemplate(nom) {
   if (!nom) return null;
   for (const group of EQUIPMENT_CATALOG) {

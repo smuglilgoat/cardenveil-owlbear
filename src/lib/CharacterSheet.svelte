@@ -14,6 +14,7 @@
     sanitizeHtml,
     handSlots,
     equipWeapon,
+    itemFields,
     SUIT_LABELS,
     SUIT_SYMBOLS,
     FAMILY_SUMMARIES,
@@ -1637,7 +1638,7 @@
                       </div>
                       <!-- fields -->
                       <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2.5 px-3 pb-3">
-                        {#each Object.entries({ slot: '', family: '', familySummary: '', ...item }).filter(([field]) => field !== 'equipmentData' && field !== 'type' && field !== 'name') as [field, value]}
+                        {#each itemFields(item?.type) as field}
                           <div class={field === 'description' || field === 'attributs' || field === 'familySummary' ? 'col-span-full' : ''}>
                             <label class="block text-[9px] font-bold text-[#9ca3af] mb-1 capitalize">{field === 'familySummary' ? 'Résumé de famille (auto)' : field}</label>
                             {#if field === 'description' || field === 'attributs'}
