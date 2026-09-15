@@ -18,6 +18,7 @@
     skillRollModifier,
     computeDerived,
     subscribeToCharacterSheet,
+    onSheetBroadcast,
     suitColor,
     suitSymbol,
     toNumber,
@@ -64,6 +65,14 @@
       })
       .catch((err) => console.error('Failed to load character sheet (compact):', err));
 
+    // Same-origin instant sync: the main sheet (or this frame) broadcasts on
+    // every save (pins, diamonds, imports…). saveInFlight guards our own echo.
+    const offBroadcast = onSheetBroadcast((msg) => {
+      if (msg?.playerId === playerId && msg?.roomId === roomId && msg?.data && !saveInFlight) {
+        sheet = msg.data;
+      }
+    });
+
     // Reconcile poll: guarantees the diamonds follow the main sheet even if
     // BroadcastChannel/realtime don't deliver in this frame.
     async function reconcile() {
@@ -92,6 +101,7 @@
     });
     return () => {
       unsubscribe();
+      offBroadcast();
       clearInterval(pollTimer);
       window.removeEventListener('focus', reconcile);
       document.removeEventListener('visibilitychange', reconcile);

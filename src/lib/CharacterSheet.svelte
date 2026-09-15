@@ -32,6 +32,7 @@
     skillModifier,
     skillRollModifier,
     subscribeToCharacterSheet,
+    onSheetBroadcast,
     suitColor,
     suitSymbol,
     isImageUrl,
@@ -145,15 +146,21 @@
         sheet = createEmptyCharacterSheet();
       }
 
-      // Subscribe to realtime updates
+      // Subscribe to realtime updates + same-origin instant broadcasts
       const unsubscribe = subscribeToCharacterSheet(playerId, roomId, (newData) => {
         if (newData && !isEditing) {
           sheet = newData.data;
         }
       });
+      const offBroadcast = onSheetBroadcast((msg) => {
+        if (msg?.playerId === playerId && msg?.roomId === roomId && msg?.data && !isEditing) {
+          sheet = msg.data;
+        }
+      });
 
       return () => {
         unsubscribe();
+        offBroadcast();
       };
     } catch (err) {
       console.error('Failed to load character sheet:', err);

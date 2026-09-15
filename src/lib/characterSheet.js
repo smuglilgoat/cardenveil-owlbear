@@ -592,6 +592,8 @@ export async function saveCharacterSheet(playerId, roomId, sheetData) {
 
     if (error) throw error;
 
+    broadcastSheet({ playerId, roomId, data: sheetData });
+
     return data;
   } catch (err) {
     console.error('Failed to save character sheet:', err);
@@ -1140,6 +1142,46 @@ export function rollDice(formula, stats = {}) {
  * @param {Function} callback - Callback when sheet changes
  * @returns {Function} Unsubscribe function
  */
+// ─── Same-origin instant sheet sync (BroadcastChannel) ───
+// Supabase Realtime alone is slow/unreliable between the main sheet and the
+// compact popover (same browser, different frames) — this makes every save
+// apply instantly on the other frame. Cross-client sync stays on Realtime.
+let sheetChannel = null;
+
+function sheetChannelInstance() {
+  if (!sheetChannel && typeof BroadcastChannel !== 'undefined') {
+    sheetChannel = new BroadcastChannel('cardenveil-sheet');
+  }
+  return sheetChannel;
+}
+
+/**
+ * Broadcast a saved sheet to same-origin frames (main ↔ compact popover).
+ * JSON round-trip strips Svelte $state reactivity before posting.
+ * @param {{playerId: string, roomId: string, data: Object}} message
+ */
+export function broadcastSheet(message) {
+  try {
+    sheetChannelInstance()?.postMessage(JSON.parse(JSON.stringify(message)));
+  } catch (err) {
+    console.warn('Failed to broadcast sheet update:', err);
+  }
+}
+
+/**
+ * Listen for sheet broadcasts. Returns an unsubscribe function.
+ * @param {(message: {playerId: string, roomId: string, data: Object}) => void} callback
+ * @returns {() => void}
+ */
+export function onSheetBroadcast(callback) {
+  const channel = sheetChannelInstance();
+  if (!channel) return () => {};
+  channel.onmessage = (event) => callback(event.data);
+  return () => {
+    if (channel.onmessage === callback) channel.onmessage = null;
+  };
+}
+
 export function subscribeToCharacterSheet(playerId, roomId, callback) {
   const channel = supabase
     .channel(`character_sheet:${playerId}:${roomId}`)
