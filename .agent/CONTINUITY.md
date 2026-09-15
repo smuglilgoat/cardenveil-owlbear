@@ -37,6 +37,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T21:10Z]` `[USER]` ÉDITION dropdowns: race, alignement, capacité couleur, usage, incantation, sauvegarde. `[CODE]` (main `6d1149f`) Race = RACES ids (unknown kept as extra option); Alignement = classic 9 grid; COULEUR = 4 suits (SUIT_LABELS/SYMBOLS); USAGE = Action/Bonus/Réaction/Concentration + combos; INCANTATION = 4 stats; SAUVEGARDE = 'X' + each skill × (Aucun effet | Moitié dégâts) — matches imported values; all selects preserve unknown current values as an extra option
+## [PROGRESS]
 - `[2026-09-15T21:00Z]` `[USER]` Report: hovering items/equipment shows no tooltip. `[CODE]` (main `17e6c5d`) ROOT CAUSE: CharacterSheet.svelte used use:tooltip 4× (doll slots, hand slots, Sac chips) WITHOUT importing the tooltip action — unbound identifier invisible to Rollup (3rd occurrence of the RACES bug class). Fixed with `import { tooltip } from './tooltip.js'`; action body confirmed bundled in the shared api chunk
 ## [PROGRESS]
 - `[2026-09-15T20:45Z]` `[USER]` Sac UI disliked — chose chip wrap (B) via question + note: icon editable in edition. `[CODE]` (main `ef728f6`) Sac = flat flex-wrap of chips (type-colored left border, icon/name/xN, notes tooltip, no group headers); `icon` field added to every ITEM_FIELDS list (emoji or URL via isImageUrl, like portrait/totem); inventoryGroups/itemFamilies orphaned + deleted
