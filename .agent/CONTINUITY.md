@@ -36,6 +36,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T20:45Z]` `[USER]` Sac UI disliked — chose chip wrap (B) via question + note: icon editable in edition. `[CODE]` (main `ef728f6`) Sac = flat flex-wrap of chips (type-colored left border, icon/name/xN, notes tooltip, no group headers); `icon` field added to every ITEM_FIELDS list (emoji or URL via isImageUrl, like portrait/totem); inventoryGroups/itemFamilies orphaned + deleted
+## [PROGRESS]
 - `[2026-09-15T20:35Z]` `[USER]` Item editor showed field mismatches per item type. `[CODE]` (main `e97de32`) Root cause: imports dump the same fields on every item regardless of type. FIX: `ITEM_FIELDS` in characterSheet.js — Arme: slot/family/familySummary/catalystColor/raretePrix/degats/attributs/description; Armure+Équipement: slot/family/familySummary/raretePrix/attributs/description; Consommable+Divers: quantite/raretePrix/attributs/description; `itemFields(type)` fallback = Divers. Unknown fields preserved in data, hidden from the form; type switch swaps field sets. 151 tests
 ## [PROGRESS]
 - `[2026-09-15T20:25Z]` `[USER]` Report: setting Main secondaire from ÉDITION doesn't equip in the doll. `[CODE]` (main `86b8752`) ROOT CAUSE: the ARMES hand-dropdown onchange pre-replaced the weapon with a cleared copy, breaking equipWeapon's by-reference match. FIX: pass the original array to equipWeapon; only the unequip path replaces the entry. LESSON: equipWeapon matches weapons by object reference — always hand it the live array
