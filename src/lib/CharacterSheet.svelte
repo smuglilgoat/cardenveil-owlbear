@@ -1700,13 +1700,26 @@
                     <div class="item-editor bg-[#111827] rounded-lg mb-3 border-l-4 border-[#f87171] overflow-hidden">
                       <!-- header: equipped + name + delete -->
                       <div class="flex items-center gap-2 px-3 pt-3 pb-2">
-                        <label
-                          class="flex items-center gap-1.5 text-[10px] font-bold shrink-0 cursor-pointer select-none"
-                          style="color: {weapon?.equipped ? '#a5b4fc' : '#9ca3af'}"
+                        <select
+                          value={weapon?.equipped ? (weapon.hand ?? 'main') : ''}
+                          onchange={(e) => {
+                            const hand = e.currentTarget.value;
+                            const weapons = editSheet.weapons.map((w, j) => (j === i ? { ...weapon, equipped: false, hand: null } : w));
+                            if (hand) {
+                              editSheet.weapons = equipWeapon({ ...editSheet, weapons }, weapon, hand).weapons;
+                            } else {
+                              editSheet.weapons = weapons;
+                            }
+                          }}
+                          title="Emplacement d'équipement{isTwoHanded(weapon) ? ' — à deux mains : occupe les deux mains' : ''}"
+                          class="px-2 py-1.5 rounded-md text-[10px] font-bold border bg-[#242424] focus:outline-none shrink-0 {weapon?.equipped
+                            ? 'text-indigo-300 border-indigo-500'
+                            : 'text-[#9ca3af] border-[#374151]'}"
                         >
-                          <input type="checkbox" bind:checked={editSheet.weapons[i].equipped} class="w-3.5 h-3.5 accent-indigo-600" />
-                          Équipée
-                        </label>
+                          <option value="">— Non équipée —</option>
+                          <option value="main">Main principale</option>
+                          <option value="off">Main secondaire</option>
+                        </select>
                         <input
                           type="text"
                           placeholder="Nom de l'arme"
@@ -1725,7 +1738,7 @@
                       </div>
                       <!-- fields -->
                       <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2.5 px-3 pb-3">
-                        {#each Object.entries(weapon ?? {}).filter(([field]) => field !== 'nom' && field !== 'equipped') as [field]}
+                        {#each Object.entries(weapon ?? {}).filter(([field]) => field !== 'nom' && field !== 'equipped' && field !== 'hand') as [field]}
                           <div class={field === 'notes' || field === 'propriétés' ? 'col-span-full' : ''}>
                             <label class="block text-[9px] font-bold text-[#9ca3af] mb-1 capitalize">{field}</label>
                             {#if field === 'notes'}
