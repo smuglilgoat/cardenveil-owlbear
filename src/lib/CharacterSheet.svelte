@@ -1,6 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import OBR from '@owlbear-rodeo/sdk';
+  import { tooltip } from './tooltip.js';
   import ActionDiamonds from './ActionDiamonds.svelte';
   import { importSheetArchive } from './sheetAssets.js';
   import { RACES } from './deck.js';
