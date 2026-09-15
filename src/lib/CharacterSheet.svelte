@@ -668,7 +668,7 @@
   class="@container w-full h-full bg-[#242424] text-white rounded-b-2xl border border-[#374151] overflow-hidden flex flex-col relative"
 >
   {#if isLoading}
-    <div class="flex-1 flex items-center justify-center text-[#9ca3af] text-sm">
+    <div class="flex-1 flex items-center justify-center text-[#9ca3af] text-[15px]">
       Chargement de la fiche de personnage...
     </div>
   {:else}
@@ -715,12 +715,12 @@
     {#if isImporting}
       <div class="fixed inset-0 z-[80] bg-black/60 flex flex-col items-center justify-center gap-3">
         <div class="w-8 h-8 rounded-full border-2 border-[#4b5563] border-t-indigo-400 animate-spin"></div>
-        <div class="text-xs font-semibold text-[#9ca3af]">Import de la fiche en cours…</div>
+        <div class="text-[13px] font-semibold text-[#9ca3af]">Import de la fiche en cours…</div>
       </div>
     {/if}
 
     {#if importError}
-      <div class="bg-red-950 border-b border-red-800 px-3 py-2 text-red-200 text-xs">
+      <div class="bg-red-950 border-b border-red-800 px-3 py-2 text-red-200 text-[13px]">
         Erreur d'import : {importError}
       </div>
     {/if}
@@ -733,23 +733,23 @@
           {#if view.portrait && isImageUrl(view.portrait)}
             <img src={view.portrait} alt="Portrait" class="w-full h-full object-cover" />
           {:else if view.portrait}
-            <span class="text-lg leading-none">{view.portrait}</span>
+            <span class="text-[20px] leading-none">{view.portrait}</span>
           {:else}
-            <span class="text-[7px] font-bold text-[#9ca3af]">PORTRAIT</span>
+            <span class="text-[8px] font-bold text-[#9ca3af]">PORTRAIT</span>
           {/if}
         </div>
         <div class="flex-1 min-w-0">
-          <div class="text-base font-bold leading-tight truncate">{view.identity?.nom || 'Sans nom'}</div>
-          <div class="text-[9px] font-medium text-[#9ca3af] truncate">
+          <div class="text-[18px] font-bold leading-tight truncate">{view.identity?.nom || 'Sans nom'}</div>
+          <div class="text-[10px] font-medium text-[#9ca3af] truncate">
             {raceLabel(view.identity?.race) || '—'} · {view.identity?.alignement || '—'} · Niv. {view.identity?.niveau ?? 1} · XP {view.progression?.xpDepenses ?? 0}/{view.progression?.xpDisponibles ?? 0}
           </div>
         </div>
         <div class="text-right shrink-0">
-          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">PV</div>
-          <div class="text-lg font-bold leading-none mt-0.5">
-            {toNumber(view.derived?.pvActuels)}<span class="text-[10px] text-[#9ca3af] font-semibold">/{toNumber(view.derived?.pvMax)}</span>
+          <div class="text-[9px] font-bold text-[#9ca3af] leading-none">PV</div>
+          <div class="text-[20px] font-bold leading-none mt-0.5">
+            {toNumber(view.derived?.pvActuels)}<span class="text-[11px] text-[#9ca3af] font-semibold">/{toNumber(view.derived?.pvMax)}</span>
           </div>
-          <div class="text-[8px] text-[#9ca3af] leading-none mt-0.5">
+          <div class="text-[9px] text-[#9ca3af] leading-none mt-0.5">
             T{view.derived?.pvTemporaires || 0} · F{toNumber(view.derived?.fatigue) || 0}
           </div>
         </div>
@@ -767,10 +767,10 @@
             title={`Jet de ${statLabel} (d20)`}
             class="bg-[#111827] rounded-md px-1.5 py-1 cursor-pointer hover:bg-[#1f2937] transition-colors text-center"
           >
-            <div class="text-[7px] font-bold text-[#9ca3af] leading-none">{statLabel.toUpperCase()}</div>
+            <div class="text-[8px] font-bold text-[#9ca3af] leading-none">{statLabel.toUpperCase()}</div>
             <div class="mt-0.5 leading-none">
-              <span class="text-sm font-bold" style="color: {STAT_COLORS[stat]}">{toNumber(view.stats?.[stat])}</span>
-              <span class="text-[11px] font-bold">{formatModifier(getStatModifier(stat))}</span>
+              <span class="text-[15px] font-bold" style="color: {STAT_COLORS[stat]}">{toNumber(view.stats?.[stat])}</span>
+              <span class="text-[12px] font-bold">{formatModifier(getStatModifier(stat))}</span>
             </div>
           </div>
         {/each}
@@ -779,8 +779,8 @@
       <!-- Combat row -->
       <div class="grid grid-cols-8 gap-1 mt-1">
         <div title={`Parade = ${calc.deflexion} déflexion + ${calc.garde} garde + ${calc.paradeBonus} mod`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
-          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">PARADE</div>
-          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.parade}</div>
+          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">PARADE</div>
+          <div class="text-[14px] font-bold leading-none mt-0.5">{calc.parade}</div>
         </div>
         <div
           onclick={handleInitiativeRoll}
@@ -790,28 +790,28 @@
           title={`Jet d'initiative (d20) = Agi − 10 + gantelets`}
           class="bg-[#111827] rounded-md px-1 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
         >
-          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">INIT</div>
-          <div class="text-[13px] font-bold leading-none mt-0.5" style="color: {STAT_COLORS.agilite}">{calc.initiative}</div>
+          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">INIT</div>
+          <div class="text-[14px] font-bold leading-none mt-0.5" style="color: {STAT_COLORS.agilite}">{calc.initiative}</div>
         </div>
         <div title="Armure (équipement)" class="bg-[#111827] rounded-md px-1 py-1 text-center">
-          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">ARMURE</div>
-          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.armure}</div>
+          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">ARMURE</div>
+          <div class="text-[14px] font-bold leading-none mt-0.5">{calc.armure}</div>
         </div>
         <div title={`Mouvement = 5 + Agi/2 + bottes`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
-          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">VITESSE</div>
-          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.mouvement}<span class="text-[8px] font-bold text-[#9ca3af]">m</span></div>
+          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">VITESSE</div>
+          <div class="text-[14px] font-bold leading-none mt-0.5">{calc.mouvement}<span class="text-[9px] font-bold text-[#9ca3af]">m</span></div>
         </div>
         <div title={`Seuil miss = max(1, 1 − mod Agi)`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
-          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">MISS</div>
-          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.seuilMiss}</div>
+          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">MISS</div>
+          <div class="text-[14px] font-bold leading-none mt-0.5">{calc.seuilMiss}</div>
         </div>
         <div title={`Bonus attaque = stat + tier de l'arme`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
-          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">BNS</div>
-          <div class="text-[13px] font-bold leading-none mt-0.5">{formatModifier(calc.bonusAttaque)}</div>
+          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">BNS</div>
+          <div class="text-[14px] font-bold leading-none mt-0.5">{formatModifier(calc.bonusAttaque)}</div>
         </div>
         <div title={`Canalisation = mod Esprit`} class="bg-[#111827] rounded-md px-1 py-1 text-center">
-          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">CANAL</div>
-          <div class="text-[13px] font-bold leading-none mt-0.5">{formatModifier(calc.canalisation)}</div>
+          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">CANAL</div>
+          <div class="text-[14px] font-bold leading-none mt-0.5">{formatModifier(calc.canalisation)}</div>
         </div>
         <div
           onclick={handleVolonteRoll}
@@ -821,8 +821,8 @@
           title={`Jet de volonté (d20) = mod Résilience + casque`}
           class="bg-[#111827] rounded-md px-1 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
         >
-          <div class="text-[7px] font-bold text-[#9ca3af] leading-none">VOLONTÉ</div>
-          <div class="text-[13px] font-bold leading-none mt-0.5">{calc.volonte}</div>
+          <div class="text-[8px] font-bold text-[#9ca3af] leading-none">VOLONTÉ</div>
+          <div class="text-[14px] font-bold leading-none mt-0.5">{calc.volonte}</div>
         </div>
       </div>
 
@@ -830,8 +830,8 @@
         onclick={() => (activeTab = 'capacites')}
         class="w-full mt-1.5 bg-indigo-600 rounded-md px-2.5 py-1 flex items-center justify-between hover:bg-indigo-500 transition-colors text-left"
       >
-        <span class="text-[10px] font-bold truncate">TOTEM &nbsp;{view.totem?.nom || '—'}</span>
-        <span class="text-[9px] font-medium text-indigo-200 shrink-0">Voir effet →</span>
+        <span class="text-[11px] font-bold truncate">TOTEM &nbsp;{view.totem?.nom || '—'}</span>
+        <span class="text-[10px] font-medium text-indigo-200 shrink-0">Voir effet →</span>
       </button>
     </div>
 
@@ -840,14 +840,14 @@
       {#if activeTab === 'competences'}
         <!-- TAB: COMPÉTENCES -->
         <div>
-          <h2 class="text-sm font-bold mb-1">COMPÉTENCES</h2>
-          <p class="text-[10px] text-[#9ca3af] mb-3">
+          <h2 class="text-[15px] font-bold mb-1">COMPÉTENCES</h2>
+          <p class="text-[11px] text-[#9ca3af] mb-3">
             Cliquer sur une compétence lance un jet d20 + modificateur — 📌 épingler en favori
           </p>
           <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-x-6 gap-y-4">
             {#each SKILL_GROUPS as group}
               <div>
-                <div class="text-[11px] font-bold mb-1.5" style="color: {STAT_COLORS[group.stat]}">
+                <div class="text-[12px] font-bold mb-1.5" style="color: {STAT_COLORS[group.stat]}">
                   {group.label}
                 </div>
                 <div class="space-y-1">
@@ -862,7 +862,7 @@
                       onkeydown={(e) => e.key === 'Enter' && handleSkillRoll(skillKey)}
                     >
                       <div class="w-1 h-5 rounded-full shrink-0" style="background: {STAT_COLORS[group.stat]}"></div>
-                      <span class="text-[11px] font-medium truncate flex-1">
+                      <span class="text-[12px] font-medium truncate flex-1">
                         {SKILL_LABELS[skillKey]} {formatModifier(mod)}
                         {#if view.skills?.[skillKey]?.trained}
                           <span class="inline-block w-1.5 h-1.5 rounded-full bg-indigo-400 align-middle ml-0.5" title="Maîtrisée — modificateur doublé"></span>
@@ -874,7 +874,7 @@
                           togglePin('pinnedSkills', skillKey);
                         }}
                         title={pinned ? 'Retirer des favoris' : 'Épingler en favori'}
-                        class="text-[11px] leading-none shrink-0 transition-opacity {pinned
+                        class="text-[12px] leading-none shrink-0 transition-opacity {pinned
                           ? ''
                           : 'opacity-25 hover:opacity-70'}"
                       >
@@ -890,27 +890,27 @@
       {:else if activeTab === 'capacites'}
         <!-- TAB: CAPACITÉS -->
         <div>
-          <h2 class="text-sm font-bold mb-1">CAPACITÉS</h2>
-          <p class="text-[10px] text-[#9ca3af] mb-3">
+          <h2 class="text-[15px] font-bold mb-1">CAPACITÉS</h2>
+          <p class="text-[11px] text-[#9ca3af] mb-3">
             La valeur en dés est l'élément automatisable et cliquable.
           </p>
 
           <!-- Totem effect on top of the tab -->
           <div class="bg-[#111827] rounded-lg p-3 mb-3">
-            <div class="text-[10px] font-bold text-[#9ca3af] mb-2.5">TOTEM</div>
+            <div class="text-[11px] font-bold text-[#9ca3af] mb-2.5">TOTEM</div>
             <div class="flex gap-3 items-start">
               <div class="w-14 h-14 bg-[#1f2937] rounded-md flex items-center justify-center shrink-0 overflow-hidden">
                 {#if view.totem?.image && isImageUrl(view.totem.image)}
                   <img src={view.totem.image} alt="Totem" class="w-full h-full object-cover" />
                 {:else if view.totem?.image}
-                  <span class="text-2xl leading-none">{view.totem.image}</span>
+                  <span class="text-[26px] leading-none">{view.totem.image}</span>
                 {:else}
-                  <span class="text-xl text-[#4b5563]">◈</span>
+                  <span class="text-[22px] text-[#4b5563]">◈</span>
                 {/if}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-xs font-bold">{view.totem?.nom || '—'}</div>
-                <div class="rich-html text-[10px] text-[#9ca3af] whitespace-pre-wrap mt-1">{@html sanitizeHtml(view.totem?.description) || '—'}</div>
+                <div class="text-[13px] font-bold">{view.totem?.nom || '—'}</div>
+                <div class="rich-html text-[11px] text-[#9ca3af] whitespace-pre-wrap mt-1">{@html sanitizeHtml(view.totem?.description) || '—'}</div>
               </div>
             </div>
           </div>
@@ -933,18 +933,18 @@
               onkeydown={(e) => {
                 if (e.key === 'Enter') handleDiceRoll('Lancer libre', freeFormula);
               }}
-              class="flex-1 min-w-0 px-3 py-2 bg-[#111827] border border-[#374151] rounded-lg text-xs focus:outline-none focus:border-indigo-500"
+              class="flex-1 min-w-0 px-3 py-2 bg-[#111827] border border-[#374151] rounded-lg text-[13px] focus:outline-none focus:border-indigo-500"
             />
             <button
               onclick={() => handleDiceRoll('Lancer libre', freeFormula)}
-              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-[13px] font-bold rounded-lg transition-colors whitespace-nowrap"
             >
               Lancer
             </button>
             <button
               onclick={saveCustomRoll}
               title="Sauver ce lancer en favori"
-              class="px-3 py-2 bg-[#111827] border border-[#374151] hover:bg-[#374151] text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+              class="px-3 py-2 bg-[#111827] border border-[#374151] hover:bg-[#374151] text-[13px] font-bold rounded-lg transition-colors whitespace-nowrap"
             >
               📌
             </button>
@@ -958,14 +958,14 @@
                     <button
                       onclick={() => handleDiceRoll(roll.name || roll.formula, roll.formula)}
                       title={`Lancer ${roll.formula}`}
-                      class="text-[10px] font-semibold hover:text-indigo-300 transition-colors"
+                      class="text-[11px] font-semibold hover:text-indigo-300 transition-colors"
                     >
                       {roll.name || roll.formula} <span class="text-[#9ca3af]">{roll.formula}</span>
                     </button>
                     <button
                       onclick={() => removeCustomRoll(roll.formula)}
                       title="Supprimer ce lancer"
-                      class="text-[9px] text-[#6b7280] hover:text-red-400 leading-none"
+                      class="text-[10px] text-[#6b7280] hover:text-red-400 leading-none"
                     >
                       ✕
                     </button>
@@ -986,37 +986,37 @@
                     {#if capacity.image && isImageUrl(capacity.image)}
                       <img src={capacity.image} alt={capacity.name || 'Capacité'} class="w-full h-full object-cover" />
                     {:else if capacity.image}
-                      <span class="text-2xl leading-none">{capacity.image}</span>
+                      <span class="text-[26px] leading-none">{capacity.image}</span>
                     {:else}
-                      <span class="text-[9px] font-bold text-[#9ca3af]">IMAGE</span>
+                      <span class="text-[10px] font-bold text-[#9ca3af]">IMAGE</span>
                     {/if}
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-1.5">
-                      <div class="text-sm font-bold truncate">{capacity.name || 'Sans nom'}</div>
+                      <div class="text-[15px] font-bold truncate">{capacity.name || 'Sans nom'}</div>
                       {#if typeBadge}
                         <span
-                          class="px-1.5 py-0.5 rounded text-[8px] font-bold shrink-0"
+                          class="px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0"
                           style="color: {typeBadge.color}; background: {typeBadge.color}22"
                         >
                           {typeBadge.label}
                         </span>
                       {/if}
                     </div>
-                    <div class="text-[10px] font-medium mt-0.5 truncate">
+                    <div class="text-[11px] font-medium mt-0.5 truncate">
                       <span style="color: {suitColor(capacity.cost?.color)}">
                         {colorLabel(capacity.cost?.color)} {suitSymbol(capacity.cost?.color)}
                       </span>
                       <span class="text-[#9ca3af]"> · {capacity.usage || '—'}</span>
                     </div>
-                    <div class="rich-html text-[11px] text-[#9ca3af] mt-1 line-clamp-2">{@html sanitizeHtml(capacity.description) || '—'}</div>
+                    <div class="rich-html text-[12px] text-[#9ca3af] mt-1 line-clamp-2">{@html sanitizeHtml(capacity.description) || '—'}</div>
                   </div>
                   <!-- Cost: big, right-aligned -->
                   <div class="text-right shrink-0 pl-2">
-                    <div class="text-[7px] font-bold text-[#9ca3af] leading-none">COÛT</div>
+                    <div class="text-[8px] font-bold text-[#9ca3af] leading-none">COÛT</div>
                     <div class="flex items-baseline justify-end gap-0.5 mt-0.5">
-                      <div class="text-2xl @2xl:text-3xl font-bold leading-none">{capacity.cost?.total ?? 0}</div>
-                      <span class="text-lg font-bold" style="color: {suitColor(capacity.cost?.color)}">{suitSymbol(capacity.cost?.color)}</span>
+                      <div class="text-[26px] @2xl:text-[33px] font-bold leading-none">{capacity.cost?.total ?? 0}</div>
+                      <span class="text-[20px] font-bold" style="color: {suitColor(capacity.cost?.color)}">{suitSymbol(capacity.cost?.color)}</span>
                     </div>
                   </div>
                 </div>
@@ -1026,7 +1026,7 @@
                     <button
                       onclick={() => handleDiceRoll(capacity.name || 'Capacité', capacity.value.main)}
                       title="Lancer {capacity.value.main}"
-                      class="flex-1 min-w-0 px-2 h-8 @2xl:h-9 bg-slate-500 rounded-lg text-sm font-bold hover:bg-slate-400 transition-colors truncate"
+                      class="flex-1 min-w-0 px-2 h-8 @2xl:h-9 bg-slate-500 rounded-lg text-[15px] font-bold hover:bg-slate-400 transition-colors truncate"
                     >
                       🎲 {capacity.value.main}
                     </button>
@@ -1037,7 +1037,7 @@
                     <button
                       onclick={() => (expandedCapacity = capacity)}
                       title="Afficher toute la capacité"
-                      class="w-8 h-8 @2xl:h-9 shrink-0 rounded-lg bg-[#242424] border border-[#374151] text-[#9ca3af] hover:text-white text-sm font-bold flex items-center justify-center transition-colors"
+                      class="w-8 h-8 @2xl:h-9 shrink-0 rounded-lg bg-[#242424] border border-[#374151] text-[#9ca3af] hover:text-white text-[15px] font-bold flex items-center justify-center transition-colors"
                     >
                       +
                     </button>
@@ -1045,7 +1045,7 @@
                   <button
                     onclick={() => togglePin('pinnedCapacities', pinKey)}
                     title={pinned ? 'Retirer des favoris' : 'Épingler en favori'}
-                    class="w-8 h-8 @2xl:h-9 shrink-0 rounded-lg bg-[#242424] border border-[#374151] text-[11px] flex items-center justify-center transition-opacity {pinned
+                    class="w-8 h-8 @2xl:h-9 shrink-0 rounded-lg bg-[#242424] border border-[#374151] text-[12px] flex items-center justify-center transition-opacity {pinned
                       ? ''
                       : 'opacity-40 hover:opacity-100'}"
                   >
@@ -1059,13 +1059,13 @@
           {#if diceResult}
             {#if diceResult.error}
               <div class="mt-3 bg-red-950 border border-red-800 rounded-lg p-3">
-                <div class="text-xs text-red-200">Formule invalide : {diceResult.error}</div>
+                <div class="text-[13px] text-red-200">Formule invalide : {diceResult.error}</div>
               </div>
             {:else}
               <div class="mt-3 bg-indigo-600 border border-indigo-400 rounded-lg p-3">
-                <div class="text-xs mb-1">Résultat du lancer ({diceResult.timestamp})</div>
-                <div class="text-2xl font-bold">{diceResult.total}</div>
-                <div class="text-[10px] text-indigo-200 mt-1">
+                <div class="text-[13px] mb-1">Résultat du lancer ({diceResult.timestamp})</div>
+                <div class="text-[26px] font-bold">{diceResult.total}</div>
+                <div class="text-[11px] text-indigo-200 mt-1">
                   {diceResult.formula}: {(diceResult.rolls ?? []).join(', ')}{diceResult.modifier ? ` ${diceResult.modifier > 0 ? '+' : ''}${diceResult.modifier}` : ''}
                 </div>
               </div>
@@ -1075,7 +1075,7 @@
       {:else if activeTab === 'inventaire'}
         <!-- TAB: INVENTAIRE -->
         <div>
-          <h2 class="text-sm font-bold mb-3">ÉQUIPEMENT</h2>
+          <h2 class="text-[15px] font-bold mb-3">ÉQUIPEMENT</h2>
 
           <!-- Paper-doll: 7 armor slots + 2 hand slots -->
           {#if view}
@@ -1098,15 +1098,15 @@
                   ? 'bg-[#111827] hover:bg-[#374151]'
                   : 'border border-dashed border-[#374151] hover:border-[#6b7280]'}"
               >
-                <div class="text-base leading-none {occupied ? '' : 'opacity-40'}">{icon}</div>
-                <div class="text-[7px] font-bold text-[#9ca3af] leading-none mt-1">{slotLabel.toUpperCase()}</div>
+                <div class="text-[18px] leading-none {occupied ? '' : 'opacity-40'}">{icon}</div>
+                <div class="text-[8px] font-bold text-[#9ca3af] leading-none mt-1">{slotLabel.toUpperCase()}</div>
                 {#if occupied}
-                  <div class="text-[10px] font-bold leading-tight mt-0.5 truncate">{data.nom}</div>
+                  <div class="text-[11px] font-bold leading-tight mt-0.5 truncate">{data.nom}</div>
                   {#if slotStatChip(data)}
-                    <div class="text-[9px] font-bold text-indigo-300 leading-none mt-0.5">{slotStatChip(data)}</div>
+                    <div class="text-[10px] font-bold text-indigo-300 leading-none mt-0.5">{slotStatChip(data)}</div>
                   {/if}
                 {:else}
-                  <div class="text-[9px] text-[#6b7280] leading-tight mt-0.5">vide</div>
+                  <div class="text-[10px] text-[#6b7280] leading-tight mt-0.5">vide</div>
                 {/if}
               </div>
             {/each}
@@ -1123,13 +1123,13 @@
                 ? 'bg-[#111827] hover:bg-[#374151] border-l-4 border-[#f87171]'
                 : 'border border-dashed border-[#374151] hover:border-[#6b7280]'}"
             >
-              <div class="text-base leading-none {hands.main ? '' : 'opacity-40'}">🗡</div>
-              <div class="text-[7px] font-bold text-[#9ca3af] leading-none mt-1">PRINCIPALE</div>
+              <div class="text-[18px] leading-none {hands.main ? '' : 'opacity-40'}">🗡</div>
+              <div class="text-[8px] font-bold text-[#9ca3af] leading-none mt-1">PRINCIPALE</div>
               {#if hands.main}
-                <div class="text-[10px] font-bold leading-tight mt-0.5 truncate">{hands.main.nom}</div>
-                <div class="text-[9px] font-bold text-slate-300 leading-none mt-0.5">{hands.main.de || '—'}</div>
+                <div class="text-[11px] font-bold leading-tight mt-0.5 truncate">{hands.main.nom}</div>
+                <div class="text-[10px] font-bold text-slate-300 leading-none mt-0.5">{hands.main.de || '—'}</div>
               {:else}
-                <div class="text-[9px] text-[#6b7280] leading-tight mt-0.5">vide</div>
+                <div class="text-[10px] text-[#6b7280] leading-tight mt-0.5">vide</div>
               {/if}
             </div>
 
@@ -1147,20 +1147,20 @@
                 ? 'bg-[#111827] cursor-pointer hover:bg-[#374151] border-l-4 border-[#f87171]'
                 : 'border border-dashed border-[#374151] hover:border-[#6b7280] cursor-pointer'}"
             >
-              <div class="text-base leading-none {hands.main ? '' : 'opacity-40'}">🗡</div>
-              <div class="text-[7px] font-bold text-[#9ca3af] leading-none mt-1">SECONDAIRE</div>
+              <div class="text-[18px] leading-none {hands.main ? '' : 'opacity-40'}">🗡</div>
+              <div class="text-[8px] font-bold text-[#9ca3af] leading-none mt-1">SECONDAIRE</div>
               {#if hands.twoHanded}
-                <div class="text-[10px] font-bold leading-tight mt-0.5 truncate">{hands.main.nom}</div>
-                <div class="text-[8px] font-bold text-amber-400 leading-none mt-0.5">à 2 mains</div>
+                <div class="text-[11px] font-bold leading-tight mt-0.5 truncate">{hands.main.nom}</div>
+                <div class="text-[9px] font-bold text-amber-400 leading-none mt-0.5">à 2 mains</div>
               {:else if hands.off}
-                <div class="text-[10px] font-bold leading-tight mt-0.5 truncate">{hands.off.nom}</div>
-                <div class="text-[9px] font-bold text-slate-300 leading-none mt-0.5">{hands.off.de || '—'}</div>
+                <div class="text-[11px] font-bold leading-tight mt-0.5 truncate">{hands.off.nom}</div>
+                <div class="text-[10px] font-bold text-slate-300 leading-none mt-0.5">{hands.off.de || '—'}</div>
               {:else}
-                <div class="text-[9px] text-[#6b7280] leading-tight mt-0.5">vide</div>
+                <div class="text-[10px] text-[#6b7280] leading-tight mt-0.5">vide</div>
               {/if}
             </div>
           </div>
-          <div class="text-[9px] text-[#6b7280] text-center mb-4">
+          <div class="text-[10px] text-[#6b7280] text-center mb-4">
             Survoler un emplacement : aperçu · Cliquer : détails et changement d'équipement
           </div>
           {/if}
@@ -1178,37 +1178,37 @@
                     {#if item?.icon && isImageUrl(item.icon)}
                       <img src={item.icon} alt="" class="w-4 h-4 rounded object-cover shrink-0" />
                     {:else if item?.icon}
-                      <span class="text-[11px] leading-none shrink-0">{item.icon}</span>
+                      <span class="text-[12px] leading-none shrink-0">{item.icon}</span>
                     {:else}
                       <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: {itemTypeColor(item?.type)}"></span>
                     {/if}
-                    <span class="text-[11px] font-semibold truncate max-w-40">{item.name}</span>
+                    <span class="text-[12px] font-semibold truncate max-w-40">{item.name}</span>
                     {#if itemCenterValue(item)}
-                      <span class="text-[10px] font-bold text-[#9ca3af] shrink-0">{itemCenterValue(item)}</span>
+                      <span class="text-[11px] font-bold text-[#9ca3af] shrink-0">{itemCenterValue(item)}</span>
                     {/if}
                   </div>
                 {/if}
               {/each}
             </div>
           {:else}
-            <div class="text-[10px] text-[#9ca3af]">Le sac est vide — armures et armes vivent dans les emplacements ci-dessus.</div>
+            <div class="text-[11px] text-[#9ca3af]">Le sac est vide — armures et armes vivent dans les emplacements ci-dessus.</div>
           {/if}
         </div>
       {:else if activeTab === 'narratif'}
         <!-- TAB: NARRATIF -->
         <div>
-          <h2 class="text-sm font-bold mb-3">ASPECTS NARRATIFS</h2>
+          <h2 class="text-[15px] font-bold mb-3">ASPECTS NARRATIFS</h2>
           <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2.5">
             {#each NARRATIVE_FIELDS as [field, label]}
               <div class="narrative-card bg-[#111827] rounded-lg p-2.5 border border-transparent hover:border-indigo-500 transition-colors">
-                <div class="text-[9px] font-bold text-[#9ca3af] mb-1.5">{label}</div>
-                <div class="text-[10px] leading-relaxed {expandedNarrative[field] ? '' : 'line-clamp-4'} whitespace-pre-wrap">
+                <div class="text-[10px] font-bold text-[#9ca3af] mb-1.5">{label}</div>
+                <div class="text-[11px] leading-relaxed {expandedNarrative[field] ? '' : 'line-clamp-4'} whitespace-pre-wrap">
                   {view.narrative?.[field] || '—'}
                 </div>
                 <div class="text-right mt-1.5">
                   <button
                     onclick={() => (expandedNarrative[field] = !expandedNarrative[field])}
-                    class="text-[9px] font-semibold text-[#9ca3af] hover:text-white transition-colors"
+                    class="text-[10px] font-semibold text-[#9ca3af] hover:text-white transition-colors"
                   >
                     {expandedNarrative[field] ? 'Réduire ←' : 'Développer →'}
                   </button>
@@ -1220,25 +1220,25 @@
       {:else if activeTab === 'maitrises'}
         <!-- TAB: MAÎTRISES -->
         <div>
-          <h2 class="text-sm font-bold mb-1">MAÎTRISES & ÉVOLUTION</h2>
+          <h2 class="text-[15px] font-bold mb-1">MAÎTRISES & ÉVOLUTION</h2>
           <div class="flex gap-2 mb-4 mt-1.5">
-            <span class="px-3 py-1 bg-[#111827] rounded-full text-[10px] font-semibold">
+            <span class="px-3 py-1 bg-[#111827] rounded-full text-[11px] font-semibold">
               XP dépensés {view.progression?.xpDepenses ?? 0}
             </span>
-            <span class="px-3 py-1 bg-[#111827] rounded-full text-[10px] font-semibold">
+            <span class="px-3 py-1 bg-[#111827] rounded-full text-[11px] font-semibold">
               XP disponibles {view.progression?.xpDisponibles ?? 0}
             </span>
           </div>
 
           {#each MASTERY_BLOCKS as [key, dataKey, label]}
             <div class="bg-[#111827] rounded-lg p-3 mb-2.5">
-              <div class="text-[10px] font-bold text-[#9ca3af] mb-2.5">{label}</div>
+              <div class="text-[11px] font-bold text-[#9ca3af] mb-2.5">{label}</div>
               <div class="flex gap-2.5 flex-wrap">
                 {#each masteryItems(key) as item}
-                  <span class="pill px-4 py-1.5 bg-indigo-600 rounded-full text-[10px] font-semibold">{item}</span>
+                  <span class="pill px-4 py-1.5 bg-indigo-600 rounded-full text-[11px] font-semibold">{item}</span>
                 {/each}
                 {#if !masteryItems(key).length}
-                  <span class="pill px-4 py-1.5 bg-[#1f2937] rounded-full text-[10px] font-semibold text-[#9ca3af]">Aucun</span>
+                  <span class="pill px-4 py-1.5 bg-[#1f2937] rounded-full text-[11px] font-semibold text-[#9ca3af]">Aucun</span>
                 {/if}
               </div>
             </div>
@@ -1247,15 +1247,15 @@
       {:else if activeTab === 'notes'}
         <!-- TAB: NOTES (free inline editing + single save) -->
         <div>
-          <h2 class="text-sm font-bold mb-3">NOTES</h2>
+          <h2 class="text-[15px] font-bold mb-3">NOTES</h2>
           <div class="bg-[#111827] rounded-lg p-3.5 min-h-[240px]">
             <div class="flex items-center justify-between mb-2.5">
-              <div class="text-lg font-bold">Notes de session</div>
+              <div class="text-[20px] font-bold">Notes de session</div>
               <button
                 onclick={saveNotes}
                 disabled={!notesDraftDirty}
                 title="Sauvegarder les notes"
-                class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-default rounded-lg text-[10px] font-bold transition-colors"
+                class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-default rounded-lg text-[11px] font-bold transition-colors"
               >
                 💾 Sauvegarder
               </button>
@@ -1264,9 +1264,9 @@
               bind:value={notesDraft}
               oninput={() => (notesDraftDirty = true)}
               placeholder="Écriture libre — notes de session"
-              class="w-full min-h-[240px] px-3 py-2 bg-[#242424] border border-[#374151] rounded text-xs leading-relaxed focus:outline-none focus:border-indigo-500"
+              class="w-full min-h-[240px] px-3 py-2 bg-[#242424] border border-[#374151] rounded text-[13px] leading-relaxed focus:outline-none focus:border-indigo-500"
             ></textarea>
-            <div class="text-[9px] font-medium text-[#9ca3af] mt-2.5">
+            <div class="text-[10px] font-medium text-[#9ca3af] mt-2.5">
               Écriture libre — rendu enrichi (**gras**, __souligné__, HTML) à l'affichage ; le bouton sauvegarde la fiche entière.
             </div>
           </div>
@@ -1295,11 +1295,11 @@
       <div class="bg-[#1f2937] border border-[#374151] rounded-xl w-[94%] max-w-3xl max-h-[94%] flex flex-col overflow-hidden">
         <!-- Modal header -->
         <div class="h-10 bg-[#111827] flex items-center px-3 shrink-0 border-b border-[#374151]">
-          <span class="text-xs font-bold">ÉDITION</span>
-          <span class="text-[10px] text-[#9ca3af] ml-3 truncate">
+          <span class="text-[13px] font-bold">ÉDITION</span>
+          <span class="text-[11px] text-[#9ca3af] ml-3 truncate">
             {editSheet.identity?.nom || 'Fiche de personnage'}
           </span>
-          <span class="text-[9px] text-[#9ca3af] ml-auto">La fiche affiche les valeurs en direct</span>
+          <span class="text-[10px] text-[#9ca3af] ml-auto">La fiche affiche les valeurs en direct</span>
         </div>
 
         <!-- Modal tab bar -->
@@ -1321,15 +1321,15 @@
           {#if editTab === 'identite'}
           <!-- Identity & core stats -->
           <div>
-            <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">IDENTITÉ</h3>
+            <h3 class="text-[11px] font-bold text-[#9ca3af] mb-2">IDENTITÉ</h3>
             <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2">
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Nom</label>
-                <input type="text" bind:value={editSheet.identity.nom} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">Nom</label>
+                <input type="text" bind:value={editSheet.identity.nom} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Race</label>
-                <select bind:value={editSheet.identity.race} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1 py-1 focus:outline-none focus:border-indigo-500">
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">Race</label>
+                <select bind:value={editSheet.identity.race} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1 py-1 focus:outline-none focus:border-indigo-500">
                   <option value="">— Aucune —</option>
                   {#each RACES as race}
                     <option value={race.id}>{race.label}</option>
@@ -1340,8 +1340,8 @@
                 </select>
               </div>
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Alignement</label>
-                <select bind:value={editSheet.identity.alignement} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1 py-1 focus:outline-none focus:border-indigo-500">
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">Alignement</label>
+                <select bind:value={editSheet.identity.alignement} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1 py-1 focus:outline-none focus:border-indigo-500">
                   <option value="">— Aucun —</option>
                   {#each ALIGNEMENTS as alignement}
                     <option value={alignement}>{alignement}</option>
@@ -1352,63 +1352,63 @@
                 </select>
               </div>
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Niveau</label>
-                <input type="number" bind:value={editSheet.identity.niveau} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">Niveau</label>
+                <input type="number" bind:value={editSheet.identity.niveau} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
               {#each IDENTITY_EXTRAS as [field, label]}
                 <div>
-                  <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">{label}</label>
-                  <input type="text" bind:value={editSheet.identity[field]} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                  <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">{label}</label>
+                  <input type="text" bind:value={editSheet.identity[field]} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
                 </div>
               {/each}
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Portrait (URL ou emoji)</label>
-                <input type="text" bind:value={editSheet.portrait} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">Portrait (URL ou emoji)</label>
+                <input type="text" bind:value={editSheet.portrait} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">XP dépensés</label>
-                <input type="number" bind:value={editSheet.progression.xpDepenses} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">XP dépensés</label>
+                <input type="number" bind:value={editSheet.progression.xpDepenses} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">XP disponibles</label>
-                <input type="number" bind:value={editSheet.progression.xpDisponibles} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">XP disponibles</label>
+                <input type="number" bind:value={editSheet.progression.xpDisponibles} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
             </div>
           </div>
 
           <div>
-            <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">POINTS DE VIE</h3>
+            <h3 class="text-[11px] font-bold text-[#9ca3af] mb-2">POINTS DE VIE</h3>
             <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2">
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">PV actuels</label>
-                <input type="number" bind:value={editSheet.derived.pvActuels} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">PV actuels</label>
+                <input type="number" bind:value={editSheet.derived.pvActuels} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">PV max</label>
-                <input type="number" bind:value={editSheet.derived.pvMax} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">PV max</label>
+                <input type="number" bind:value={editSheet.derived.pvMax} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">PV temporaires</label>
-                <input type="number" bind:value={editSheet.derived.pvTemporaires} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">PV temporaires</label>
+                <input type="number" bind:value={editSheet.derived.pvTemporaires} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
               <div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Fatigue</label>
-                <input type="number" bind:value={editSheet.derived.fatigue} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">Fatigue</label>
+                <input type="number" bind:value={editSheet.derived.fatigue} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
             </div>
           </div>
 
           {:else if editTab === 'stats'}
           <div>
-            <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">CARACTÉRISTIQUES</h3>
+            <h3 class="text-[11px] font-bold text-[#9ca3af] mb-2">CARACTÉRISTIQUES</h3>
             <div class="grid grid-cols-4 gap-2">
               {#each ['force', 'agilite', 'esprit', 'social'] as stat}
                 <div>
-                  <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">{stat.toUpperCase()}</label>
+                  <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">{stat.toUpperCase()}</label>
                   <input
                     type="number"
                     bind:value={editSheet.stats[stat]}
-                    class="w-full text-[11px] font-bold bg-[#242424] border border-[#374151] rounded px-1.5 py-1 text-center focus:outline-none focus:border-indigo-500"
+                    class="w-full text-[12px] font-bold bg-[#242424] border border-[#374151] rounded px-1.5 py-1 text-center focus:outline-none focus:border-indigo-500"
                     style="color: {STAT_COLORS[stat]}"
                   />
                 </div>
@@ -1417,35 +1417,35 @@
           </div>
 
           <div>
-            <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">DÉFENSE &amp; JETS (calculés)</h3>
+            <h3 class="text-[11px] font-bold text-[#9ca3af] mb-2">DÉFENSE &amp; JETS (calculés)</h3>
             <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2">
               <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[8px] font-bold text-[#9ca3af]">PARADE</div>
-                <div class="text-sm font-bold">{editCalc.parade} <span class="text-[9px] font-medium text-[#9ca3af]">= {editCalc.deflexion}+{editCalc.garde}+{editCalc.paradeBonus}</span></div>
+                <div class="text-[9px] font-bold text-[#9ca3af]">PARADE</div>
+                <div class="text-[15px] font-bold">{editCalc.parade} <span class="text-[10px] font-medium text-[#9ca3af]">= {editCalc.deflexion}+{editCalc.garde}+{editCalc.paradeBonus}</span></div>
               </div>
               <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[8px] font-bold text-[#9ca3af]">INITIATIVE</div>
-                <div class="text-sm font-bold">{editCalc.initiative} <span class="text-[9px] font-medium text-[#9ca3af]">= Agi − 10 + gants</span></div>
+                <div class="text-[9px] font-bold text-[#9ca3af]">INITIATIVE</div>
+                <div class="text-[15px] font-bold">{editCalc.initiative} <span class="text-[10px] font-medium text-[#9ca3af]">= Agi − 10 + gants</span></div>
               </div>
               <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[8px] font-bold text-[#9ca3af]">MOUVEMENT</div>
-                <div class="text-sm font-bold">{editCalc.mouvement} <span class="text-[9px] font-medium text-[#9ca3af]">= 5 + Agi/2 + bottes</span></div>
+                <div class="text-[9px] font-bold text-[#9ca3af]">MOUVEMENT</div>
+                <div class="text-[15px] font-bold">{editCalc.mouvement} <span class="text-[10px] font-medium text-[#9ca3af]">= 5 + Agi/2 + bottes</span></div>
               </div>
               <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[8px] font-bold text-[#9ca3af]">SEUIL MISS</div>
-                <div class="text-sm font-bold">{editCalc.seuilMiss} <span class="text-[9px] font-medium text-[#9ca3af]">= max(1, 1 − mod Agi)</span></div>
+                <div class="text-[9px] font-bold text-[#9ca3af]">SEUIL MISS</div>
+                <div class="text-[15px] font-bold">{editCalc.seuilMiss} <span class="text-[10px] font-medium text-[#9ca3af]">= max(1, 1 − mod Agi)</span></div>
               </div>
               <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[8px] font-bold text-[#9ca3af]">BONUS ATTAQUE</div>
-                <div class="text-sm font-bold">{formatModifier(editCalc.bonusAttaque)} <span class="text-[9px] font-medium text-[#9ca3af]">= stat + tier de l'arme</span></div>
+                <div class="text-[9px] font-bold text-[#9ca3af]">BONUS ATTAQUE</div>
+                <div class="text-[15px] font-bold">{formatModifier(editCalc.bonusAttaque)} <span class="text-[10px] font-medium text-[#9ca3af]">= stat + tier de l'arme</span></div>
               </div>
               <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[8px] font-bold text-[#9ca3af]">CANALISATION</div>
-                <div class="text-sm font-bold">{formatModifier(editCalc.canalisation)} <span class="text-[9px] font-medium text-[#9ca3af]">= mod Esprit</span></div>
+                <div class="text-[9px] font-bold text-[#9ca3af]">CANALISATION</div>
+                <div class="text-[15px] font-bold">{formatModifier(editCalc.canalisation)} <span class="text-[10px] font-medium text-[#9ca3af]">= mod Esprit</span></div>
               </div>
               <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[8px] font-bold text-[#9ca3af]">VOLONTÉ</div>
-                <div class="text-sm font-bold">{editCalc.volonte} <span class="text-[9px] font-medium text-[#9ca3af]">= mod Résilience + casque</span></div>
+                <div class="text-[9px] font-bold text-[#9ca3af]">VOLONTÉ</div>
+                <div class="text-[15px] font-bold">{editCalc.volonte} <span class="text-[10px] font-medium text-[#9ca3af]">= mod Résilience + casque</span></div>
               </div>
             </div>
           </div>
@@ -1455,7 +1455,7 @@
           <!-- Active tab edit form -->
           {#if TABS.some((t) => t.id === editTab)}
           <div class="border-t border-[#374151] pt-3">
-            <h3 class="text-[10px] font-bold text-[#9ca3af] mb-2">
+            <h3 class="text-[11px] font-bold text-[#9ca3af] mb-2">
               {TABS.find((t) => t.id === editTab)?.label}
             </h3>
 
@@ -1463,17 +1463,17 @@
               <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-x-5 gap-y-3">
                 {#each SKILL_GROUPS as group}
                   <div>
-                    <div class="text-[10px] font-bold mb-1.5" style="color: {STAT_COLORS[group.stat]}">{group.label}</div>
+                    <div class="text-[11px] font-bold mb-1.5" style="color: {STAT_COLORS[group.stat]}">{group.label}</div>
                     <div class="space-y-1">
                       {#each group.skills as skillKey}
                         <div class="flex items-center gap-2 bg-[#111827] rounded-md px-2.5 py-1.5">
                           <input type="checkbox" bind:checked={editSheet.skills[skillKey].trained} class="w-3.5 h-3.5 accent-indigo-600" title="Maîtrisée" />
-                          <span class="text-[11px] font-medium truncate flex-1">{SKILL_LABELS[skillKey]}</span>
+                          <span class="text-[12px] font-medium truncate flex-1">{SKILL_LABELS[skillKey]}</span>
                           <input
                             type="number"
                             bind:value={editSheet.skills[skillKey].bonus}
                             title="Bonus manuel"
-                            class="w-14 text-[11px] font-bold bg-[#242424] border border-[#374151] rounded px-1 py-0.5 text-center focus:outline-none focus:border-indigo-500"
+                            class="w-14 text-[12px] font-bold bg-[#242424] border border-[#374151] rounded px-1 py-0.5 text-center focus:outline-none focus:border-indigo-500"
                           />
                         </div>
                       {/each}
@@ -1497,7 +1497,7 @@
                       usage: ''
                     }];
                   }}
-                  class="px-3 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors"
+                  class="px-3 py-1 bg-indigo-600 rounded-full text-[11px] font-semibold hover:bg-indigo-500 transition-colors"
                 >
                   + Ajouter une capacité
                 </button>
@@ -1510,14 +1510,14 @@
                         type="text"
                         placeholder="Nom de la capacité"
                         bind:value={editSheet.capacities[i].name}
-                        class="flex-1 min-w-0 px-3 py-2 bg-[#242424] border border-[#374151] rounded text-xs font-bold focus:outline-none focus:border-indigo-500"
+                        class="flex-1 min-w-0 px-3 py-2 bg-[#242424] border border-[#374151] rounded text-[13px] font-bold focus:outline-none focus:border-indigo-500"
                       />
                       <button
                         onclick={() => {
                           editSheet.capacities.splice(i, 1);
                           editSheet.capacities = [...editSheet.capacities];
                         }}
-                        class="px-3 py-1.5 bg-red-900 hover:bg-red-800 text-red-200 text-[10px] font-semibold rounded transition-colors shrink-0"
+                        class="px-3 py-1.5 bg-red-900 hover:bg-red-800 text-red-200 text-[11px] font-semibold rounded transition-colors shrink-0"
                       >
                         Supprimer
                       </button>
@@ -1525,21 +1525,21 @@
                     <textarea
                       placeholder="Description"
                       bind:value={editSheet.capacities[i].description}
-                      class="w-full px-3 py-2 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500"
+                      class="w-full px-3 py-2 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500"
                       rows="2"
                     ></textarea>
                     <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2">
                       <div>
-                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">IMAGE (URL ou emoji)</label>
-                        <input type="text" bind:value={editSheet.capacities[i].image} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
+                        <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">IMAGE (URL ou emoji)</label>
+                        <input type="text" bind:value={editSheet.capacities[i].image} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500" />
                       </div>
                       <div>
-                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">COÛT TOTAL</label>
-                        <input type="number" bind:value={editSheet.capacities[i].cost.total} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
+                        <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">COÛT TOTAL</label>
+                        <input type="number" bind:value={editSheet.capacities[i].cost.total} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500" />
                       </div>
                       <div>
-                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">COULEUR</label>
-                        <select bind:value={editSheet.capacities[i].cost.color} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500">
+                        <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">COULEUR</label>
+                        <select bind:value={editSheet.capacities[i].cost.color} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500">
                           <option value="">— Aucune —</option>
                           {#each Object.keys(SUIT_LABELS) as suit}
                             <option value={suit}>{SUIT_LABELS[suit]} {SUIT_SYMBOLS[suit]}</option>
@@ -1547,8 +1547,8 @@
                         </select>
                       </div>
                       <div>
-                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">USAGE</label>
-                        <select bind:value={editSheet.capacities[i].usage} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500">
+                        <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">USAGE</label>
+                        <select bind:value={editSheet.capacities[i].usage} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500">
                           <option value="">— Aucun —</option>
                           {#each USAGE_OPTIONS as usageOption}
                             <option value={usageOption}>{usageOption}</option>
@@ -1561,12 +1561,12 @@
                     </div>
                     <div class="grid grid-cols-2 @2xl:grid-cols-3 gap-2">
                       <div>
-                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">DÉS (formule)</label>
-                        <input type="text" bind:value={editSheet.capacities[i].value.main} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
+                        <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">DÉS (formule)</label>
+                        <input type="text" bind:value={editSheet.capacities[i].value.main} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500" />
                       </div>
                       <div>
-                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">INCANTATION</label>
-                        <select bind:value={editSheet.capacities[i].incantation} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500">
+                        <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">INCANTATION</label>
+                        <select bind:value={editSheet.capacities[i].incantation} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500">
                           <option value="">— Aucune —</option>
                           {#each INCANTATION_OPTIONS.filter(Boolean) as stat}
                             <option value={stat}>{stat}</option>
@@ -1577,8 +1577,8 @@
                         </select>
                       </div>
                       <div>
-                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">SAUVEGARDE</label>
-                        <select bind:value={editSheet.capacities[i].save} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500">
+                        <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">SAUVEGARDE</label>
+                        <select bind:value={editSheet.capacities[i].save} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500">
                           {#each SAVE_OPTIONS as saveOption}
                             <option value={saveOption}>{saveOption === 'X' ? 'X — Aucune' : saveOption}</option>
                           {/each}
@@ -1588,7 +1588,7 @@
                         </select>
                       </div>
                     </div>
-                    <label class="flex items-center gap-2 text-[10px] text-[#9ca3af]">
+                    <label class="flex items-center gap-2 text-[11px] text-[#9ca3af]">
                       <input type="checkbox" bind:checked={editSheet.capacities[i].prepared} class="w-3.5 h-3.5 accent-indigo-600" />
                       Préparée
                     </label>
@@ -1597,36 +1597,36 @@
               </div>
 
               <div class="bg-[#111827] rounded-lg p-3 mt-3">
-                <div class="text-[10px] font-bold text-[#9ca3af] mb-2">TOTEM</div>
+                <div class="text-[11px] font-bold text-[#9ca3af] mb-2">TOTEM</div>
                 <div class="grid grid-cols-2 gap-2 mb-2">
                   <div>
-                    <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">Nom</label>
-                    <input type="text" bind:value={editSheet.totem.nom} class="w-full px-3 py-1.5 bg-[#242424] border border-[#374151] rounded text-xs focus:outline-none focus:border-indigo-500" />
+                    <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">Nom</label>
+                    <input type="text" bind:value={editSheet.totem.nom} class="w-full px-3 py-1.5 bg-[#242424] border border-[#374151] rounded text-[13px] focus:outline-none focus:border-indigo-500" />
                   </div>
                   <div>
-                    <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">Image (URL ou emoji)</label>
-                    <input type="text" bind:value={editSheet.totem.image} class="w-full px-3 py-1.5 bg-[#242424] border border-[#374151] rounded text-xs focus:outline-none focus:border-indigo-500" />
+                    <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">Image (URL ou emoji)</label>
+                    <input type="text" bind:value={editSheet.totem.image} class="w-full px-3 py-1.5 bg-[#242424] border border-[#374151] rounded text-[13px] focus:outline-none focus:border-indigo-500" />
                   </div>
                 </div>
-                <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">Description</label>
-                <textarea bind:value={editSheet.totem.description} class="w-full px-3 py-2 bg-[#242424] border border-[#374151] rounded text-xs focus:outline-none focus:border-indigo-500" rows="3"></textarea>
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-1">Description</label>
+                <textarea bind:value={editSheet.totem.description} class="w-full px-3 py-2 bg-[#242424] border border-[#374151] rounded text-[13px] focus:outline-none focus:border-indigo-500" rows="3"></textarea>
               </div>
             {:else if editTab === 'inventaire'}
               <div class="space-y-3">
                 <div>
-                  <h4 class="text-[10px] font-bold text-[#9ca3af] mb-1.5">ÉQUIPEMENT</h4>
+                  <h4 class="text-[11px] font-bold text-[#9ca3af] mb-1.5">ÉQUIPEMENT</h4>
                   <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2">
                     {#each EQUIP_SLOTS as [slot, slotLabel, icon]}
                       <div class="bg-[#111827] rounded-lg p-2.5">
-                        <div class="text-[10px] font-bold mb-1.5">{icon} {slotLabel}</div>
+                        <div class="text-[11px] font-bold mb-1.5">{icon} {slotLabel}</div>
                         <div class="grid grid-cols-2 gap-1.5">
                           {#each Object.keys(editSheet.equipment?.[slot] ?? {}) as field}
                             <div>
-                              <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5 capitalize">{field}</label>
+                              <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5 capitalize">{field}</label>
                               {#if field === 'description' || field === 'enchantement'}
-                                <textarea bind:value={editSheet.equipment[slot][field]} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
+                                <textarea bind:value={editSheet.equipment[slot][field]} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
                               {:else}
-                                <input type="text" bind:value={editSheet.equipment[slot][field]} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
+                                <input type="text" bind:value={editSheet.equipment[slot][field]} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500" />
                               {/if}
                             </div>
                           {/each}
@@ -1638,12 +1638,12 @@
 
                 <div>
                   <div class="flex items-center justify-between mb-1.5">
-                    <h4 class="text-[10px] font-bold text-[#9ca3af]">INVENTAIRE</h4>
+                    <h4 class="text-[11px] font-bold text-[#9ca3af]">INVENTAIRE</h4>
                     <div class="flex items-center gap-1.5">
                       <select
                         bind:value={itemTemplate}
                         title="Choisir un modèle d'équipement"
-                        class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
+                        class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
                       >
                         <option value="">— Modèle —</option>
                         {#each EQUIPMENT_CATALOG.filter((grp) => grp.kind !== 'arme') as grp}
@@ -1671,7 +1671,7 @@
                           }];
                           itemTemplate = '';
                         }}
-                        class="px-3 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
+                        class="px-3 py-1 bg-indigo-600 rounded-full text-[11px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
                       >
                         + Ajouter un objet
                       </button>
@@ -1687,7 +1687,7 @@
                         <select
                           value={item?.type || 'Divers'}
                           onchange={(e) => (item.type = e.currentTarget.value)}
-                          class="px-2 py-1.5 rounded-md text-[10px] font-bold border bg-[#242424] focus:outline-none shrink-0"
+                          class="px-2 py-1.5 rounded-md text-[11px] font-bold border bg-[#242424] focus:outline-none shrink-0"
                           style="color: {itemTypeColor(item?.type)}; border-color: {itemTypeColor(item?.type)}"
                         >
                           {#each ITEM_TYPE_OPTIONS as opt}
@@ -1698,7 +1698,7 @@
                           type="text"
                           placeholder="Nom de l'objet"
                           bind:value={item.name}
-                          class="flex-1 min-w-0 px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-xs font-bold focus:outline-none focus:border-indigo-500"
+                          class="flex-1 min-w-0 px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[13px] font-bold focus:outline-none focus:border-indigo-500"
                         />
                         <button
                           onclick={() => {
@@ -1706,7 +1706,7 @@
                             list.splice(list.indexOf(item), 1);
                             editSheet.inventoryItems = [...list];
                           }}
-                          class="px-3 py-1.5 bg-red-900 hover:bg-red-800 text-red-200 text-[10px] font-semibold rounded-md transition-colors shrink-0"
+                          class="px-3 py-1.5 bg-red-900 hover:bg-red-800 text-red-200 text-[11px] font-semibold rounded-md transition-colors shrink-0"
                         >
                           Supprimer
                         </button>
@@ -1715,14 +1715,14 @@
                       <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2.5 px-3 pb-3">
                         {#each itemFields(item?.type) as field}
                           <div class={field === 'description' || field === 'attributs' || field === 'familySummary' ? 'col-span-full' : ''}>
-                            <label class="block text-[9px] font-bold text-[#9ca3af] mb-1 capitalize">{field === 'familySummary' ? 'Résumé de famille (auto)' : field}</label>
+                            <label class="block text-[10px] font-bold text-[#9ca3af] mb-1 capitalize">{field === 'familySummary' ? 'Résumé de famille (auto)' : field}</label>
                             {#if field === 'description' || field === 'attributs'}
-                              <textarea bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
+                              <textarea bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
                             {:else if field === 'slot'}
                               <select
                                 bind:value={item.slot}
                                 onchange={(e) => syncItemSlot(item, e.currentTarget.value)}
-                                class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500"
+                                class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500"
                               >
                                 <option value="">— Aucun emplacement —</option>
                                 {#each EQUIP_SLOTS as [sl, slLabel]}
@@ -1734,7 +1734,7 @@
                                 {/if}
                               </select>
                             {:else if field === 'catalystColor'}
-                              <select bind:value={item.catalystColor} class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500">
+                              <select bind:value={item.catalystColor} class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500">
                                 <option value="">— Aucune couleur —</option>
                                 {#each Object.keys(SUIT_LABELS) as suit}
                                   <option value={suit}>{SUIT_LABELS[suit]} {SUIT_SYMBOLS[suit]}</option>
@@ -1748,7 +1748,7 @@
                                   item.familySummary = FAMILY_SUMMARIES[fam] ?? '';
                                   if (fam === 'Catalyseurs') item.catalystColor = item.catalystColor ?? '';
                                 }}
-                                class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500"
+                                class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500"
                               >
                                 <option value="">— Aucune famille —</option>
                                 {#each Object.keys(FAMILY_SUMMARIES) as fam}
@@ -1756,9 +1756,9 @@
                                 {/each}
                               </select>
                             {:else if field === 'familySummary'}
-                              <div class="rich-html px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] text-[#9ca3af]">{@html sanitizeHtml(item.familySummary) || '—'}</div>
+                              <div class="rich-html px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] text-[#9ca3af]">{@html sanitizeHtml(item.familySummary) || '—'}</div>
                             {:else}
-                              <input type="text" bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" />
+                              <input type="text" bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" />
                             {/if}
                           </div>
                         {/each}
@@ -1766,7 +1766,7 @@
                     </div>
                   {/each}
                   {#if !(editSheet.inventoryItems || []).length}
-                    <div class="text-[10px] text-[#9ca3af] bg-[#111827] rounded-lg px-3 py-3 text-center">
+                    <div class="text-[11px] text-[#9ca3af] bg-[#111827] rounded-lg px-3 py-3 text-center">
                       Aucun objet — choisissez un modèle (ou « — Modèle — » pour un objet vide) puis cliquez « + Ajouter un objet ».
                     </div>
                   {/if}
@@ -1774,12 +1774,12 @@
 
                 <div>
                   <div class="flex items-center justify-between mb-1.5">
-                    <h4 class="text-[10px] font-bold text-[#9ca3af]">ARMES</h4>
+                    <h4 class="text-[11px] font-bold text-[#9ca3af]">ARMES</h4>
                     <div class="flex items-center gap-1.5">
                       <select
                         bind:value={weaponTemplate}
                         title="Choisir un modèle d'arme"
-                        class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
+                        class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
                       >
                         <option value="">— Modèle —</option>
                         {#each EQUIPMENT_CATALOG as grp}
@@ -1803,7 +1803,7 @@
                           }];
                           weaponTemplate = '';
                         }}
-                        class="px-3 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
+                        class="px-3 py-1 bg-indigo-600 rounded-full text-[11px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
                       >
                         + Ajouter une arme
                       </button>
@@ -1825,7 +1825,7 @@
                             }
                           }}
                           title="Emplacement d'équipement{isTwoHanded(weapon) ? ' — à deux mains : occupe les deux mains' : ''}"
-                          class="px-2 py-1.5 rounded-md text-[10px] font-bold border bg-[#242424] focus:outline-none shrink-0 {weapon?.equipped
+                          class="px-2 py-1.5 rounded-md text-[11px] font-bold border bg-[#242424] focus:outline-none shrink-0 {weapon?.equipped
                             ? 'text-indigo-300 border-indigo-500'
                             : 'text-[#9ca3af] border-[#374151]'}"
                         >
@@ -1837,14 +1837,14 @@
                           type="text"
                           placeholder="Nom de l'arme"
                           bind:value={editSheet.weapons[i].nom}
-                          class="flex-1 min-w-0 px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-xs font-bold focus:outline-none focus:border-indigo-500"
+                          class="flex-1 min-w-0 px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[13px] font-bold focus:outline-none focus:border-indigo-500"
                         />
                         <button
                           onclick={() => {
                             editSheet.weapons.splice(i, 1);
                             editSheet.weapons = [...editSheet.weapons];
                           }}
-                          class="px-3 py-1.5 bg-red-900 hover:bg-red-800 text-red-200 text-[10px] font-semibold rounded-md transition-colors shrink-0"
+                          class="px-3 py-1.5 bg-red-900 hover:bg-red-800 text-red-200 text-[11px] font-semibold rounded-md transition-colors shrink-0"
                         >
                           Supprimer
                         </button>
@@ -1853,11 +1853,11 @@
                       <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2.5 px-3 pb-3">
                         {#each Object.entries(weapon ?? {}).filter(([field]) => field !== 'nom' && field !== 'equipped' && field !== 'hand') as [field]}
                           <div class={field === 'notes' || field === 'propriétés' ? 'col-span-full' : ''}>
-                            <label class="block text-[9px] font-bold text-[#9ca3af] mb-1 capitalize">{field}</label>
+                            <label class="block text-[10px] font-bold text-[#9ca3af] mb-1 capitalize">{field}</label>
                             {#if field === 'notes'}
-                              <textarea bind:value={editSheet.weapons[i][field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
+                              <textarea bind:value={editSheet.weapons[i][field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
                             {:else}
-                              <input type="text" bind:value={editSheet.weapons[i][field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" />
+                              <input type="text" bind:value={editSheet.weapons[i][field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" />
                             {/if}
                           </div>
                         {/each}
@@ -1865,7 +1865,7 @@
                     </div>
                   {/each}
                   {#if !(editSheet.weapons || []).length}
-                    <div class="text-[10px] text-[#9ca3af] bg-[#111827] rounded-lg px-3 py-3 text-center">
+                    <div class="text-[11px] text-[#9ca3af] bg-[#111827] rounded-lg px-3 py-3 text-center">
                       Aucune arme — choisissez un modèle (ou « — Modèle — » pour une arme vide) puis cliquez « + Ajouter une arme ».
                     </div>
                   {/if}
@@ -1875,34 +1875,34 @@
               <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2.5">
                 {#each NARRATIVE_FIELDS as [field, label]}
                   <div class="bg-[#111827] rounded-lg p-2.5">
-                    <div class="text-[9px] font-bold text-[#9ca3af] mb-1.5">{label}</div>
-                    <textarea bind:value={editSheet.narrative[field]} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" rows="4"></textarea>
+                    <div class="text-[10px] font-bold text-[#9ca3af] mb-1.5">{label}</div>
+                    <textarea bind:value={editSheet.narrative[field]} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500" rows="4"></textarea>
                   </div>
                 {/each}
               </div>
             {:else if editTab === 'maitrises'}
               {#each MASTERY_BLOCKS as [key, dataKey, label]}
                 <div class="bg-[#111827] rounded-lg p-3 mb-2.5">
-                  <div class="text-[10px] font-bold text-[#9ca3af] mb-2">{label}</div>
-                  <textarea bind:value={masteryText[key]} placeholder="Un élément par ligne" class="w-full px-3 py-2 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" rows="3"></textarea>
+                  <div class="text-[11px] font-bold text-[#9ca3af] mb-2">{label}</div>
+                  <textarea bind:value={masteryText[key]} placeholder="Un élément par ligne" class="w-full px-3 py-2 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500" rows="3"></textarea>
                 </div>
               {/each}
             {:else if editTab === 'notes'}
               <div class="bg-[#111827] rounded-md px-2 py-2 flex gap-2 mb-2.5 flex-wrap">
-                <button onclick={() => wrapNotesSelection('**', '**')} title="Gras" class="px-4 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors">B</button>
-                <button onclick={() => wrapNotesSelection('__', '__')} title="Souligné" class="px-4 py-1 bg-indigo-600 rounded-full text-[10px] font-semibold hover:bg-indigo-500 transition-colors">U</button>
-                <button title="Taille du texte — non implémenté" class="px-4 py-1 bg-[#1f2937] rounded-full text-[10px] font-semibold text-[#9ca3af] cursor-default">T-</button>
-                <button title="Taille du texte — non implémenté" class="px-4 py-1 bg-[#1f2937] rounded-full text-[10px] font-semibold text-[#9ca3af] cursor-default">T+</button>
-                <button onclick={() => prefixNotesLines('• ')} title="Liste à puces" class="px-3 py-1 bg-[#1f2937] rounded-full text-[10px] font-semibold hover:bg-[#374151] transition-colors">• Liste</button>
-                <button onclick={() => prefixNotesLines('☐ ')} title="Case à cocher" class="px-3 py-1 bg-[#1f2937] rounded-full text-[10px] font-semibold hover:bg-[#374151] transition-colors">☐</button>
-                <button onclick={() => insertNotesText('— ')} title="Insérer un tiret" class="px-3 py-1 bg-[#1f2937] rounded-full text-[10px] font-semibold hover:bg-[#374151] transition-colors">—</button>
+                <button onclick={() => wrapNotesSelection('**', '**')} title="Gras" class="px-4 py-1 bg-indigo-600 rounded-full text-[11px] font-semibold hover:bg-indigo-500 transition-colors">B</button>
+                <button onclick={() => wrapNotesSelection('__', '__')} title="Souligné" class="px-4 py-1 bg-indigo-600 rounded-full text-[11px] font-semibold hover:bg-indigo-500 transition-colors">U</button>
+                <button title="Taille du texte — non implémenté" class="px-4 py-1 bg-[#1f2937] rounded-full text-[11px] font-semibold text-[#9ca3af] cursor-default">T-</button>
+                <button title="Taille du texte — non implémenté" class="px-4 py-1 bg-[#1f2937] rounded-full text-[11px] font-semibold text-[#9ca3af] cursor-default">T+</button>
+                <button onclick={() => prefixNotesLines('• ')} title="Liste à puces" class="px-3 py-1 bg-[#1f2937] rounded-full text-[11px] font-semibold hover:bg-[#374151] transition-colors">• Liste</button>
+                <button onclick={() => prefixNotesLines('☐ ')} title="Case à cocher" class="px-3 py-1 bg-[#1f2937] rounded-full text-[11px] font-semibold hover:bg-[#374151] transition-colors">☐</button>
+                <button onclick={() => insertNotesText('— ')} title="Insérer un tiret" class="px-3 py-1 bg-[#1f2937] rounded-full text-[11px] font-semibold hover:bg-[#374151] transition-colors">—</button>
               </div>
               <div class="bg-[#111827] rounded-lg p-3">
-                <div class="text-sm font-bold mb-2">Notes de session</div>
+                <div class="text-[15px] font-bold mb-2">Notes de session</div>
                 <textarea
                   bind:this={notesArea}
                   bind:value={editSheet.notes}
-                  class="w-full min-h-[240px] px-3 py-2 bg-[#242424] border border-[#374151] rounded text-xs leading-relaxed focus:outline-none focus:border-indigo-500"
+                  class="w-full min-h-[240px] px-3 py-2 bg-[#242424] border border-[#374151] rounded text-[13px] leading-relaxed focus:outline-none focus:border-indigo-500"
                   placeholder="Écriture libre — notes de session"
                 ></textarea>
               </div>
@@ -1913,18 +1913,18 @@
 
         <!-- Modal footer -->
         <div class="h-12 bg-[#111827] border-t border-[#374151] flex items-center gap-2 px-3 shrink-0">
-          <span class="text-[9px] text-[#9ca3af] truncate">Les changements s'affichent en direct sur la fiche — sauvegarde manuelle.</span>
+          <span class="text-[10px] text-[#9ca3af] truncate">Les changements s'affichent en direct sur la fiche — sauvegarde manuelle.</span>
           <button
             onclick={cancelEdit}
             disabled={isSaving}
-            class="ml-auto px-4 py-1.5 bg-[#242424] hover:bg-[#374151] text-[11px] font-semibold rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+            class="ml-auto px-4 py-1.5 bg-[#242424] hover:bg-[#374151] text-[12px] font-semibold rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
           >
             Annuler
           </button>
           <button
             onclick={saveEdit}
             disabled={isSaving}
-            class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-[11px] font-semibold rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+            class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-[12px] font-semibold rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
           >
             {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
           </button>
@@ -1937,20 +1937,20 @@
   {#if showUnsavedModal}
     <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-[60]">
       <div class="bg-[#1f2937] border border-[#374151] rounded-lg p-6 w-[92%] max-w-md">
-        <h3 class="text-lg font-bold mb-4">Modifications non sauvegardées</h3>
-        <p class="text-[#9ca3af] text-sm mb-6">
+        <h3 class="text-[20px] font-bold mb-4">Modifications non sauvegardées</h3>
+        <p class="text-[#9ca3af] text-[15px] mb-6">
           Vous avez des modifications non sauvegardées. Voulez-vous sauvegarder avant de continuer ?
         </p>
         <div class="flex gap-3">
           <button
             onclick={discardAndContinue}
-            class="flex-1 px-4 py-2 bg-[#111827] hover:bg-[#374151] text-xs font-semibold rounded-lg transition-colors"
+            class="flex-1 px-4 py-2 bg-[#111827] hover:bg-[#374151] text-[13px] font-semibold rounded-lg transition-colors"
           >
             Ignorer
           </button>
           <button
             onclick={confirmSaveAndContinue}
-            class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-lg transition-colors"
+            class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-[13px] font-semibold rounded-lg transition-colors"
           >
             Sauvegarder
           </button>
@@ -1959,7 +1959,7 @@
               showUnsavedModal = false;
               pendingAction = null;
             }}
-            class="px-4 py-2 bg-red-900 hover:bg-red-800 text-red-200 text-xs font-semibold rounded-lg transition-colors"
+            class="px-4 py-2 bg-red-900 hover:bg-red-800 text-red-200 text-[13px] font-semibold rounded-lg transition-colors"
           >
             Annuler
           </button>
@@ -1989,17 +1989,17 @@
         role="presentation"
       >
         <div class="flex items-start gap-3">
-          <span class="text-3xl leading-none shrink-0">{expandedSlot.kind === 'hand' ? '🗡' : slotDef?.[2]}</span>
+          <span class="text-[33px] leading-none shrink-0">{expandedSlot.kind === 'hand' ? '🗡' : slotDef?.[2]}</span>
           <div class="flex-1 min-w-0">
-            <div class="text-base font-bold">
+            <div class="text-[18px] font-bold">
               {#if expandedSlot.kind === 'hand'}
                 {expandedSlot.hand === 'main' ? 'Main principale' : 'Main secondaire'}
-                {#if hands.twoHanded}<span class="text-[10px] font-bold text-amber-400 ml-1">à deux mains</span>{/if}
+                {#if hands.twoHanded}<span class="text-[11px] font-bold text-amber-400 ml-1">à deux mains</span>{/if}
               {:else}
                 {slotDef?.[1]}
               {/if}
             </div>
-            <div class="text-[11px] text-[#9ca3af] mt-0.5">
+            <div class="text-[12px] text-[#9ca3af] mt-0.5">
               {#if expandedSlot.kind === 'hand'}
                 {weapon ? weapon.nom : 'Vide'}
               {:else}
@@ -2010,7 +2010,7 @@
           <button
             onclick={() => { expandedSlot = null; slotPickerOpen = false; }}
             title="Fermer"
-            class="w-7 h-7 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[11px] font-bold flex items-center justify-center shrink-0 transition-colors"
+            class="w-7 h-7 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[12px] font-bold flex items-center justify-center shrink-0 transition-colors"
           >
             ✕
           </button>
@@ -2020,16 +2020,16 @@
           <!-- Details -->
           <div class="mt-3 space-y-1.5">
             {#if expandedSlot.kind === 'hand' && weapon}
-              <div class="flex gap-2 text-[11px]">
+              <div class="flex gap-2 text-[12px]">
                 <span class="text-[#9ca3af] w-24 shrink-0">Dégâts</span>
                 <span class="font-bold">{weapon.de || '—'}</span>
               </div>
-              <div class="flex gap-2 text-[11px]">
+              <div class="flex gap-2 text-[12px]">
                 <span class="text-[#9ca3af] w-24 shrink-0">Bonus attaque</span>
                 <span class="font-bold" style="color: {STAT_COLORS.force}">{formatModifier(attackBonus(weapon, view?.stats ?? {}))}</span>
               </div>
               {#if weapon.notes}
-                <div class="flex gap-2 text-[11px]">
+                <div class="flex gap-2 text-[12px]">
                   <span class="text-[#9ca3af] w-24 shrink-0">Propriétés</span>
                   <div class="rich-html flex-1">{@html sanitizeHtml(weapon.notes)}</div>
                 </div>
@@ -2037,21 +2037,21 @@
             {:else if expandedSlot.kind === 'slot' && slotData?.nom}
               {#each Object.entries(slotData) as [field, value]}
                 {#if value !== '' && value != null}
-                  <div class="flex gap-2 text-[11px]">
+                  <div class="flex gap-2 text-[12px]">
                     <span class="text-[#9ca3af] w-24 shrink-0 capitalize">{field}</span>
                     <div class="rich-html flex-1 whitespace-pre-wrap">{@html sanitizeHtml(value)}</div>
                   </div>
                 {/if}
               {/each}
             {:else}
-              <div class="text-[10px] text-[#9ca3af]">Emplacement vide.</div>
+              <div class="text-[11px] text-[#9ca3af]">Emplacement vide.</div>
             {/if}
           </div>
 
           <div class="flex gap-2 mt-4">
             <button
               onclick={() => (slotPickerOpen = true)}
-              class="flex-1 px-3 h-10 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-bold transition-colors"
+              class="flex-1 px-3 h-10 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-[13px] font-bold transition-colors"
             >
               ⇄ Changer d'équipement
             </button>
@@ -2062,7 +2062,7 @@
                   else clearEquipmentSlot(expandedSlot.slot);
                 }}
                 title="Vider l'emplacement"
-                class="px-3 h-10 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-lg text-xs font-bold text-[#9ca3af] hover:text-white transition-colors"
+                class="px-3 h-10 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-lg text-[13px] font-bold text-[#9ca3af] hover:text-white transition-colors"
               >
                 Vider
               </button>
@@ -2071,7 +2071,7 @@
         {:else}
           <!-- Switcher: possessed items of this category -->
           <div class="mt-3">
-            <div class="text-[9px] font-bold text-[#9ca3af] mb-1.5">
+            <div class="text-[10px] font-bold text-[#9ca3af] mb-1.5">
               {expandedSlot.kind === 'hand' ? 'ARMES POSSÉDÉES — cliquer pour équiper' : 'OBJETS POSSÉDÉS — cliquer pour équiper'}
             </div>
             <div class="space-y-1.5 max-h-72 overflow-y-auto scrollbar-thin pr-1">
@@ -2086,22 +2086,22 @@
                   }}
                 >
                   <div class="w-1 h-5 rounded-full {expandedSlot.kind === 'hand' ? 'bg-[#f87171]' : 'bg-indigo-500'}"></div>
-                  <span class="text-[11px] font-semibold truncate flex-1">{candName || '—'}</span>
+                  <span class="text-[12px] font-semibold truncate flex-1">{candName || '—'}</span>
                   {#if expandedSlot.kind === 'hand'}
-                    <span class="text-[10px] text-[#9ca3af] shrink-0">{candidate.de || '—'}{isTwoHanded(candidate) ? ' · 2M' : ''}{candidate.equipped ? ' · équipée' : ''}</span>
+                    <span class="text-[11px] text-[#9ca3af] shrink-0">{candidate.de || '—'}{isTwoHanded(candidate) ? ' · 2M' : ''}{candidate.equipped ? ' · équipée' : ''}</span>
                   {:else if candidate?.family}
-                    <span class="text-[9px] text-[#9ca3af] shrink-0">{candidate.family}</span>
+                    <span class="text-[10px] text-[#9ca3af] shrink-0">{candidate.family}</span>
                   {/if}
                 </button>
               {:else}
-                <div class="text-[10px] text-[#9ca3af] bg-[#111827] rounded-md p-2.5">
+                <div class="text-[11px] text-[#9ca3af] bg-[#111827] rounded-md p-2.5">
                   Aucun objet de cette catégorie dans le sac.
                 </div>
               {/each}
             </div>
             <button
               onclick={() => (slotPickerOpen = false)}
-              class="w-full mt-2 px-3 py-1.5 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-lg text-[10px] font-bold text-[#9ca3af] hover:text-white transition-colors"
+              class="w-full mt-2 px-3 py-1.5 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-lg text-[11px] font-bold text-[#9ca3af] hover:text-white transition-colors"
             >
               ← Retour aux détails
             </button>
@@ -2130,22 +2130,22 @@
           {#if expandedCapacity.image && isImageUrl(expandedCapacity.image)}
             <img src={expandedCapacity.image} alt={expandedCapacity.name || 'Capacité'} class="w-16 h-16 object-cover rounded-md shrink-0" />
           {:else if expandedCapacity.image}
-            <span class="text-3xl leading-none shrink-0">{expandedCapacity.image}</span>
+            <span class="text-[33px] leading-none shrink-0">{expandedCapacity.image}</span>
           {/if}
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-1.5">
-              <div class="text-base font-bold">{expandedCapacity.name || 'Sans nom'}</div>
+              <div class="text-[18px] font-bold">{expandedCapacity.name || 'Sans nom'}</div>
               {#if capacityType(expandedCapacity.usage)}
                 {@const typeBadge = capacityType(expandedCapacity.usage)}
                 <span
-                  class="px-1.5 py-0.5 rounded text-[8px] font-bold shrink-0"
+                  class="px-1.5 py-0.5 rounded text-[9px] font-bold shrink-0"
                   style="color: {typeBadge.color}; background: {typeBadge.color}22"
                 >
                   {typeBadge.label}
                 </span>
               {/if}
             </div>
-            <div class="text-[11px] font-medium mt-1">
+            <div class="text-[12px] font-medium mt-1">
               <span class="text-[#9ca3af]">COÛT</span>
               <span class="ml-1.5 font-bold">{expandedCapacity.cost?.total ?? 0}</span>
               <span class="ml-0.5 font-bold" style="color: {suitColor(expandedCapacity.cost?.color)}">{suitSymbol(expandedCapacity.cost?.color)}</span>
@@ -2155,19 +2155,19 @@
           <button
             onclick={() => (expandedCapacity = null)}
             title="Fermer"
-            class="w-7 h-7 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[11px] font-bold flex items-center justify-center shrink-0 transition-colors"
+            class="w-7 h-7 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[12px] font-bold flex items-center justify-center shrink-0 transition-colors"
           >
             ✕
           </button>
         </div>
         {#if stripHtml(expandedCapacity.description)}
-          <div class="rich-html text-xs text-[#d1d5db] leading-relaxed mt-3">{@html sanitizeHtml(expandedCapacity.description)}</div>
+          <div class="rich-html text-[13px] text-[#d1d5db] leading-relaxed mt-3">{@html sanitizeHtml(expandedCapacity.description)}</div>
         {/if}
         {#if expandedCapacity.value?.main && isDiceFormula(expandedCapacity.value.main, view?.stats ?? {})}
           <button
             onclick={() => handleDiceRoll(expandedCapacity.name || 'Capacité', expandedCapacity.value.main)}
             title="Lancer {expandedCapacity.value.main}"
-            class="mt-4 px-4 h-10 bg-slate-500 rounded-lg text-sm font-bold hover:bg-slate-400 transition-colors"
+            class="mt-4 px-4 h-10 bg-slate-500 rounded-lg text-[15px] font-bold hover:bg-slate-400 transition-colors"
           >
             🎲 Lancer {expandedCapacity.value.main}
           </button>
@@ -2180,20 +2180,20 @@
   {#if showDeleteConfirm}
     <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-[60]">
       <div class="bg-[#1f2937] border border-[#374151] rounded-lg p-6 w-[92%] max-w-md">
-        <h3 class="text-lg font-bold mb-4">Confirmer la suppression</h3>
-        <p class="text-[#9ca3af] text-sm mb-6">
+        <h3 class="text-[20px] font-bold mb-4">Confirmer la suppression</h3>
+        <p class="text-[#9ca3af] text-[15px] mb-6">
           Êtes-vous sûr de vouloir supprimer cette fiche de personnage ? Cette action est irréversible.
         </p>
         <div class="flex gap-3">
           <button
             onclick={() => (showDeleteConfirm = false)}
-            class="flex-1 px-4 py-2 bg-[#111827] hover:bg-[#374151] text-xs font-semibold rounded-lg transition-colors"
+            class="flex-1 px-4 py-2 bg-[#111827] hover:bg-[#374151] text-[13px] font-semibold rounded-lg transition-colors"
           >
             Annuler
           </button>
           <button
             onclick={handleDelete}
-            class="flex-1 px-4 py-2 bg-red-900 hover:bg-red-800 text-red-200 text-xs font-semibold rounded-lg transition-colors"
+            class="flex-1 px-4 py-2 bg-red-900 hover:bg-red-800 text-red-200 text-[13px] font-semibold rounded-lg transition-colors"
           >
             Supprimer
           </button>
