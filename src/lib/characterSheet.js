@@ -200,6 +200,7 @@ export function isImageUrl(value) {
 export const EQUIPMENT_CATALOG = [
   {
     group: '⚔️ Épées droites — Garde',
+    family: 'Épées droites',
     kind: 'arme',
     items: [
       { nom: 'Dague', de: '1d4', degats: 'tranchant/perçant', proprietes: 'Finesse, Légère, Lancer (10m), Garde' },
@@ -210,6 +211,7 @@ export const EQUIPMENT_CATALOG = [
   },
   {
     group: '🗡 Épées courbes — Fluide',
+    family: 'Épées courbes',
     kind: 'arme',
     items: [
       { nom: 'Serpe', de: '1d4', degats: 'tranchant', proprietes: 'Légère, Fluide' },
@@ -220,6 +222,7 @@ export const EQUIPMENT_CATALOG = [
   },
   {
     group: '🪓 Haches — Brutalité',
+    family: 'Haches',
     kind: 'arme',
     items: [
       { nom: 'Hachette', de: '1d6', degats: 'tranchant', proprietes: 'Légère, Lancer (10m), Brutalité' },
@@ -229,6 +232,7 @@ export const EQUIPMENT_CATALOG = [
   },
   {
     group: '🔨 Massues — Impact',
+    family: 'Massues',
     kind: 'arme',
     items: [
       { nom: 'Gourdin', de: '1d4', degats: 'contondant', proprietes: 'Improvisée, Brute, Impact' },
@@ -238,6 +242,7 @@ export const EQUIPMENT_CATALOG = [
   },
   {
     group: '🪶 Armes à allonge — Allonge',
+    family: 'Armes à allonge',
     kind: 'arme',
     items: [
       { nom: 'Bâton long', de: '1d6', degats: 'contondant', proprietes: 'Allonge' },
@@ -247,6 +252,7 @@ export const EQUIPMENT_CATALOG = [
   },
   {
     group: '🏹 Arcs — Surplomb',
+    family: 'Arcs',
     kind: 'arme',
     items: [
       { nom: 'Arc court', de: '1d6', degats: 'perçant', proprietes: 'Distance, Deux mains, Surplomb' },
@@ -255,6 +261,7 @@ export const EQUIPMENT_CATALOG = [
   },
   {
     group: '🔫 Arbalètes — Perforant',
+    family: 'Arbalètes',
     kind: 'arme',
     items: [
       { nom: 'Arbalète de poing', de: '1d4', degats: 'perçant', proprietes: 'Distance, Brute, Tir léger, Secondaire, Perforant' },
@@ -264,6 +271,7 @@ export const EQUIPMENT_CATALOG = [
   },
   {
     group: '🔮 Catalyseurs',
+    family: 'Catalyseurs',
     kind: 'arme',
     items: [
       { nom: 'Focus', de: '1d4', degats: 'magique/élémentaire', proprietes: 'Distance, Brute, Tir léger, Secondaire, Catalyseur' },
@@ -272,11 +280,13 @@ export const EQUIPMENT_CATALOG = [
   },
   {
     group: '🛡️ Boucliers — Rempart',
+    family: 'Boucliers',
     kind: 'arme',
     items: [{ nom: 'Bouclier', de: '1d4', degats: 'contondant', proprietes: 'Brute, Secondaire, Rempart' }]
   },
   {
     group: 'Armes uniques',
+    family: 'Armes uniques',
     kind: 'arme',
     items: [
       { nom: 'Faux', de: '1d10', degats: 'tranchant', proprietes: 'Deux mains, Fluide, Allonge' },
@@ -289,6 +299,7 @@ export const EQUIPMENT_CATALOG = [
   },
   {
     group: '🛡️ Armures',
+    family: 'Armures',
     kind: 'armure',
     items: [
       { nom: 'Plastron', de: '', degats: '', proprietes: 'Déflexion + Armure (plastron)' },
@@ -304,6 +315,25 @@ export const EQUIPMENT_CATALOG = [
  * @param {string} [nom] - Catalog item name
  * @returns {Object|null} { nom, de, degats, proprietes, group, kind }
  */
+/**
+ * Condensed family property summaries (source: CARDENVEIL.md "Famille" sections).
+ * Keyed by family name; used by the item editor to auto-fill `familySummary`
+ * when a family is chosen, and as the family dropdown list.
+ */
+export const FAMILY_SUMMARIES = {
+  'Épées droites': 'Tranchant ou perçant au choix ; parade au dé/2 (Force possible) ; parer une mêlée donne l\'avantage à la prochaine attaque.',
+  'Épées courbes': 'Tranchant ; Danse offensive (attaquer avec désavantage → avantage à la prochaine attaque ce round) ; la cible a désavantage à ses attaques d\'opportunité contre vous.',
+  'Haches': 'Tranchant ; Brutalité : critique = 2 dés de dégâts, une paire sur les dés donne un nouveau critique.',
+  'Massues': 'Contondant ; Impact ignore l\'armure passive et réduit la Parade de moitié ; critique = jet d\'Athlétisme pour repousser de 4 m.',
+  'Armes à allonge': 'Portée 3 m ; attaque d\'opportunité quand une créature entre (1,5 m) ou sort (3 m) de la zone étendue.',
+  'Arcs': 'Surplomb : avantage en tirant depuis une surélévation ≥ 5 m.',
+  'Arbalètes': 'Perforante : ignore l\'armure passive, divise la Parade ; commence le combat rechargée.',
+  'Catalyseurs': "Utilisent l'Esprit et la mécanique de canalisation.",
+  'Boucliers': 'Rempart : armure passive indépendante de la Force, parade personnalisée ; Bastion fait parer automatiquement ; parade parfaite = renversement ; 10 en Force requis.',
+  'Armures': '',
+  'Armes uniques': '',
+};
+
 export function findEquipmentTemplate(nom) {
   if (!nom) return null;
   for (const group of EQUIPMENT_CATALOG) {

@@ -14,6 +14,7 @@
     sanitizeHtml,
     handSlots,
     equipWeapon,
+    FAMILY_SUMMARIES,
     unequipHand,
     isTwoHanded,
     fetchCharacterSheet,
@@ -1568,7 +1569,9 @@
                             type: tpl ? (tpl.kind === 'armure' ? 'Armure' : 'Arme') : 'Divers',
                             name: tpl?.nom ?? '',
                             degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
-                            family: tpl?.group ?? '',
+                            slot: '',
+                            family: tpl?.family ?? '',
+                            familySummary: tpl?.family ? FAMILY_SUMMARIES[tpl.family] ?? '' : '',
                             attributs: tpl?.proprietes ?? '',
                             description: ''
                           }];
@@ -1616,11 +1619,31 @@
                       </div>
                       <!-- fields -->
                       <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2.5 px-3 pb-3">
-                        {#each Object.entries(item ?? {}).filter(([field]) => field !== 'equipmentData' && field !== 'type' && field !== 'name') as [field, value]}
-                          <div class={field === 'description' || field === 'attributs' ? 'col-span-full' : ''}>
-                            <label class="block text-[9px] font-bold text-[#9ca3af] mb-1 capitalize">{field}</label>
+                        {#each Object.entries({ slot: '', family: '', familySummary: '', ...item }).filter(([field]) => field !== 'equipmentData' && field !== 'type' && field !== 'name') as [field, value]}
+                          <div class={field === 'description' || field === 'attributs' || field === 'familySummary' ? 'col-span-full' : ''}>
+                            <label class="block text-[9px] font-bold text-[#9ca3af] mb-1 capitalize">{field === 'familySummary' ? 'Résumé de famille (auto)' : field}</label>
                             {#if field === 'description' || field === 'attributs'}
                               <textarea bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
+                            {:else if field === 'slot'}
+                              <select bind:value={item.slot} class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500">
+                                <option value="">— Aucun emplacement —</option>
+                                {#each EQUIP_SLOTS as [sl, slLabel]}
+                                  <option value={sl}>{slLabel}</option>
+                                {/each}
+                              </select>
+                            {:else if field === 'family'}
+                              <select
+                                bind:value={item.family}
+                                onchange={(e) => (item.familySummary = FAMILY_SUMMARIES[e.currentTarget.value] ?? '')}
+                                class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500"
+                              >
+                                <option value="">— Aucune famille —</option>
+                                {#each Object.keys(FAMILY_SUMMARIES) as fam}
+                                  <option value={fam}>{fam}</option>
+                                {/each}
+                              </select>
+                            {:else if field === 'familySummary'}
+                              <div class="rich-html px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] text-[#9ca3af]">{@html sanitizeHtml(item.familySummary) || '—'}</div>
                             {:else}
                               <input type="text" bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" />
                             {/if}
