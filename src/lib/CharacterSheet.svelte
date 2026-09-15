@@ -445,21 +445,6 @@
     return (map[key] ?? []).map(masteryLabel).filter(Boolean);
   }
 
-  function inventoryGroups(items) {
-    const groups = new Map();
-    for (const item of items ?? []) {
-      const type = (item?.type || 'Divers').toString();
-      if (!groups.has(type)) groups.set(type, []);
-      groups.get(type).push(item);
-    }
-    return [...groups.entries()];
-  }
-
-  function itemFamilies(items) {
-    const families = [...new Set((items ?? []).map((it) => it?.family).filter(Boolean))];
-    return families.join(' · ') || '—';
-  }
-
   function itemCenterValue(item) {
     if (item?.degats) return item.degats;
     const quantity = item?.quantite ?? item?.quantity;
@@ -1151,29 +1136,33 @@
           </div>
           {/if}
 
-          <!-- Sac: non-equipment, non-weapon items only (potions, scrolls…) -->
-          {#if view.inventoryItems?.length}
-            {#each inventoryGroups(view.inventoryItems).filter(([type]) => !['Arme', 'Armure', 'Équipement'].includes(type)) as [type, items], groupIndex}
-              <div
-                class="item-row bg-[#111827] rounded-md px-3 py-2.5 flex items-center gap-2.5 border-l-4 {groupIndex > 0 ? 'mt-2.5' : ''}"
-                style="border-left-color: {itemTypeColor(type)}"
-              >
-                <span class="text-[9px] font-bold w-20 uppercase" style="color: {itemTypeColor(type)}">{type}</span>
-                <span class="text-[9px] font-medium text-[#9ca3af] truncate">{itemFamilies(items)}</span>
-              </div>
-              {#each items as item}
-                <div class="item-row bg-[#111827] rounded-md px-3 py-2.5 flex items-center gap-2">
-                  <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: {itemTypeColor(type)}"></span>
-                  <span class="text-xs font-semibold flex-1 truncate">{item?.name || '—'}</span>
-                  <span class="text-xs font-bold w-12 text-center">{itemCenterValue(item)}</span>
-                  <span class="text-[9px] text-[#9ca3af] w-24 @2xl:w-52 text-right truncate">{itemNotes(item)}</span>
-                </div>
+          <!-- Sac: non-equipment, non-weapon items as compact chips (potions, scrolls…) -->
+          {#if view.inventoryItems?.some((item) => !['Arme', 'Armure', 'Équipement'].includes(item?.type))}
+            <div class="flex flex-wrap gap-1.5">
+              {#each view.inventoryItems ?? [] as item}
+                {#if item?.name && !['Arme', 'Armure', 'Équipement'].includes(item?.type)}
+                  <div
+                    use:tooltip={itemNotes(item) !== '—' ? itemNotes(item) : item?.name}
+                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 cursor-help hover:bg-[#374151] transition-colors"
+                    style="border-left-color: {itemTypeColor(item?.type)}"
+                  >
+                    {#if item?.icon && isImageUrl(item.icon)}
+                      <img src={item.icon} alt="" class="w-4 h-4 rounded object-cover shrink-0" />
+                    {:else if item?.icon}
+                      <span class="text-[11px] leading-none shrink-0">{item.icon}</span>
+                    {:else}
+                      <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: {itemTypeColor(item?.type)}"></span>
+                    {/if}
+                    <span class="text-[11px] font-semibold truncate max-w-40">{item.name}</span>
+                    {#if itemCenterValue(item)}
+                      <span class="text-[10px] font-bold text-[#9ca3af] shrink-0">{itemCenterValue(item)}</span>
+                    {/if}
+                  </div>
+                {/if}
               {/each}
-            {:else}
-              <div class="text-[10px] text-[#9ca3af]">Le sac est vide — armures et armes vivent dans les emplacements ci-dessus.</div>
-            {/each}
+            </div>
           {:else}
-            <div class="text-[10px] text-[#9ca3af]">Le sac est vide.</div>
+            <div class="text-[10px] text-[#9ca3af]">Le sac est vide — armures et armes vivent dans les emplacements ci-dessus.</div>
           {/if}
         </div>
       {:else if activeTab === 'narratif'}

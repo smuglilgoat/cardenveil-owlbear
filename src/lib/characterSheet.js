@@ -340,11 +340,11 @@ export const FAMILY_SUMMARIES = {
  * a blanket field dump (weaponName, parade, …) that mismatches most types.
  */
 export const ITEM_FIELDS = {
-  Arme: ['slot', 'family', 'familySummary', 'catalystColor', 'raretePrix', 'degats', 'attributs', 'description'],
-  Armure: ['slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
-  Équipement: ['slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
-  Consommable: ['quantite', 'raretePrix', 'attributs', 'description'],
-  Divers: ['quantite', 'raretePrix', 'attributs', 'description'],
+  Arme: ['icon', 'slot', 'family', 'familySummary', 'catalystColor', 'raretePrix', 'degats', 'attributs', 'description'],
+  Armure: ['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
+  Équipement: ['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
+  Consommable: ['icon', 'quantite', 'raretePrix', 'attributs', 'description'],
+  Divers: ['icon', 'quantite', 'raretePrix', 'attributs', 'description'],
 };
 
 /**
