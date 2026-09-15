@@ -36,6 +36,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T20:05Z]` `[USER]` Report: 'no weapon slot' — clarified via question: missing in the ÉDITION window. `[CODE]` (main `0b4586f`) ÉDITION ARMES editor: 'Équipée' checkbox replaced by a hand-slot dropdown (— Non équipée — / Main principale / Main secondaire) using equipWeapon (2H clears both hands, 1H replaces its hand, two-hander hint in tooltip); `hand` excluded from the generic field loop. NOTE: deployed player sheet already had the doll hand slots (verified in the live Netlify bundle)
+## [PROGRESS]
 - `[2026-09-14T22:05Z]` `[USER]` In the item editor, slot and family become dropdowns; familySummary = chosen family (from docs). `[CODE]` (main `517be18`) EQUIPMENT_CATALOG groups gain `family` names; new `FAMILY_SUMMARIES` (condensed one-liners from CARDENVEIL.md Famille sections, Catalyseurs summary matches the import sample); item editor: slot select (7 slots), family select (FAMILY_SUMMARIES keys) auto-fills familySummary (read-only full-width); template adds inherit family + summary
 ## [PROGRESS]
 - `[2026-09-14T21:55Z]` `[USER]` Under the paper-doll slots, drop the item list + ARMES section; add a SAC section with only non-equipment non-weapon items. `[CODE]` (main `6a1bdb0`) Sac = inventoryGroups filtered (excludes Arme/Armure/Équipement), same group+row rendering, empty-state hint; ARMES list deleted (weapons live in the hand slots via the popup switcher)
