@@ -37,6 +37,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T21:00Z]` `[USER]` Report: hovering items/equipment shows no tooltip. `[CODE]` (main `17e6c5d`) ROOT CAUSE: CharacterSheet.svelte used use:tooltip 4× (doll slots, hand slots, Sac chips) WITHOUT importing the tooltip action — unbound identifier invisible to Rollup (3rd occurrence of the RACES bug class). Fixed with `import { tooltip } from './tooltip.js'`; action body confirmed bundled in the shared api chunk
+## [PROGRESS]
 - `[2026-09-15T20:45Z]` `[USER]` Sac UI disliked — chose chip wrap (B) via question + note: icon editable in edition. `[CODE]` (main `ef728f6`) Sac = flat flex-wrap of chips (type-colored left border, icon/name/xN, notes tooltip, no group headers); `icon` field added to every ITEM_FIELDS list (emoji or URL via isImageUrl, like portrait/totem); inventoryGroups/itemFamilies orphaned + deleted
 ## [PROGRESS]
 - `[2026-09-15T20:35Z]` `[USER]` Item editor showed field mismatches per item type. `[CODE]` (main `e97de32`) Root cause: imports dump the same fields on every item regardless of type. FIX: `ITEM_FIELDS` in characterSheet.js — Arme: slot/family/familySummary/catalystColor/raretePrix/degats/attributs/description; Armure+Équipement: slot/family/familySummary/raretePrix/attributs/description; Consommable+Divers: quantite/raretePrix/attributs/description; `itemFields(type)` fallback = Divers. Unknown fields preserved in data, hidden from the form; type switch swaps field sets. 151 tests
