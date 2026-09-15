@@ -37,6 +37,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T21:30Z]` `[USER]` Scale all character-sheet fonts +10% (except tabs and the compact/import/delete/edit buttons). `[CODE]` (main `a5943db`) Mechanical ×1.1 (rounded to nearest px; named Tailwind sizes → arbitrary: xs 13 / sm 15 / base 18 / lg 20 / xl 22 / 2xl 26), 259 lines in CharacterSheet.svelte only; excluded: bottom-nav tabs, modal tab bar, top-bar buttons
+## [PROGRESS]
 - `[2026-09-15T21:20Z]` `[USER]` Notes tab should be freely editable with its own save option. `[CODE]` (main `f01d3a6`) NOTES tab: free textarea + single 💾 Sauvegarder button (dirty-gated) saving the whole sheet (broadcast → instant popover sync); draft follows external updates until typed; orphaned renderNotes removed. Rich rendering still in ÉDITION view
 ## [PROGRESS]
 - `[2026-09-15T21:10Z]` `[USER]` ÉDITION dropdowns: race, alignement, capacité couleur, usage, incantation, sauvegarde. `[CODE]` (main `6d1149f`) Race = RACES ids (unknown kept as extra option); Alignement = classic 9 grid; COULEUR = 4 suits (SUIT_LABELS/SYMBOLS); USAGE = Action/Bonus/Réaction/Concentration + combos; INCANTATION = 4 stats; SAUVEGARDE = 'X' + each skill × (Aucun effet | Moitié dégâts) — matches imported values; all selects preserve unknown current values as an extra option
