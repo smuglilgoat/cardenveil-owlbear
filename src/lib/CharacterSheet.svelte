@@ -498,7 +498,7 @@
   // Follow external sheet updates until the user types; after a save the
   // broadcast/realtime update re-syncs the draft to the stored value.
   $effect(() => {
-    if (!notesDraftDirty) notesDraft = view.notes ?? '';
+    if (view && !notesDraftDirty) notesDraft = view.notes ?? '';
   });
 
   function saveNotes() {
