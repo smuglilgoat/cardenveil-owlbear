@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -177,6 +177,70 @@ describe('Character Sheet dice helpers', () => {
       expect(statModifier(14)).toBe(2);
       expect(statModifier(10)).toBe(0);
       expect(statModifier(6)).toBe(-2);
+    });
+  });
+
+  describe('weapon hand slots', () => {
+    const sword = { nom: 'Épée longue', de: '1d8', equipped: true, hand: 'main' };
+    const dagger = { nom: 'Dague', de: '1d4', equipped: true, hand: 'off' };
+    const greatsword = { nom: 'Espadon', de: '1d12', proprietes: 'Deux mains, Garde' };
+    const bow = { nom: 'Arbalète', de: '1d10', proprietes: 'À distance' };
+
+    it('isTwoHanded should detect two-handed weapons from free text', () => {
+      expect(isTwoHanded(greatsword)).toBe(true);
+      expect(isTwoHanded({ nom: 'Katana', proprietes: 'Finesse, Deux mains' })).toBe(true);
+      expect(isTwoHanded(sword)).toBe(false);
+      expect(isTwoHanded({ nom: 'Bâton', notes: 'Arme à deux mains' })).toBe(true);
+    });
+
+    it('handSlots should derive main/off from hand fields', () => {
+      const { main, off, twoHanded } = handSlots({ weapons: [sword, dagger] });
+      expect(main).toBe(sword);
+      expect(off).toBe(dagger);
+      expect(twoHanded).toBe(false);
+    });
+
+    it('handSlots should treat legacy equipped-only weapons as main hand', () => {
+      const { main, off } = handSlots({ weapons: [{ nom: 'Bâton', de: '1d8', equipped: true }] });
+      expect(main.nom).toBe('Bâton');
+      expect(off).toBeNull();
+    });
+
+    it('handSlots should mark a two-handed main weapon and block the off hand', () => {
+      const { main, off, twoHanded } = handSlots({ weapons: [{ ...greatsword, equipped: true, hand: 'main' }] });
+      expect(twoHanded).toBe(true);
+      expect(main.nom).toBe('Espadon');
+      expect(off).toBeNull();
+    });
+
+    it('equipWeapon should replace the target hand only', () => {
+      const next = equipWeapon({ weapons: [sword, dagger, bow] }, bow, 'main');
+      expect(next.weapons[0].equipped).toBe(false); // sword unequipped
+      expect(next.weapons[1].equipped).toBe(true); // dagger stays off-hand
+      expect(next.weapons[2].equipped).toBe(true);
+      expect(next.weapons[2].hand).toBe('main');
+    });
+
+    it('equipWeapon with a two-hander should clear both hands', () => {
+      const next = equipWeapon({ weapons: [sword, dagger, greatsword] }, greatsword, 'off');
+      expect(next.weapons[2].equipped).toBe(true);
+      expect(next.weapons[2].hand).toBe('main');
+      expect(next.weapons[0].equipped).toBe(false);
+      expect(next.weapons[1].equipped).toBe(false);
+    });
+
+    it('unequipHand should clear only the target hand', () => {
+      const next = unequipHand({ weapons: [sword, dagger] }, 'off');
+      expect(next.weapons[0].equipped).toBe(true);
+      expect(next.weapons[1].equipped).toBe(false);
+    });
+
+    it('computeDerived should use the main-hand weapon for bonusAttaque', () => {
+      const calc = computeDerived({
+        stats: { force: 14, agilite: 10, esprit: 10, social: 10 },
+        weapons: [{ ...dagger }, { ...sword, forceAgi: 'force' }],
+      });
+      expect(calc.bonusAttaque).toBe(2); // main-hand sword: force mod +2
     });
   });
 

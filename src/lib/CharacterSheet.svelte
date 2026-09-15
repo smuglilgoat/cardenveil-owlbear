@@ -12,6 +12,10 @@
     colorLabel,
     capacityType,
     sanitizeHtml,
+    handSlots,
+    equipWeapon,
+    unequipHand,
+    isTwoHanded,
     fetchCharacterSheet,
     saveCharacterSheet,
     deleteCharacterSheet,
@@ -54,7 +58,8 @@
   let expandedCapacity = $state(null); // capacity object shown in the expand modal
   let freeFormula = $state('');
   let importError = $state('');
-  let openSlot = $state(null);
+  let expandedSlot = $state(null); // { kind: 'slot', slot } | { kind: 'hand', hand }
+  let slotPickerOpen = $state(false);
   let expandedNarrative = $state({});
   let masteryText = $state({});
   let editTab = $state('identite'); // active tab inside the ÉDITION modal
@@ -436,15 +441,6 @@
     return (map[key] ?? []).map(masteryLabel).filter(Boolean);
   }
 
-  function equipSummary(slot, data) {
-    const deflexion = toNumber(data?.deflexion);
-    if (slot === 'casque') return `Défl. ${deflexion} · Vol. ${toNumber(data?.volonte)}`;
-    if (slot === 'plastron') return `Défl. ${deflexion} · Arm. ${toNumber(data?.armure)}`;
-    if (slot === 'gantelets') return `Défl. ${deflexion} · Init. ${toNumber(data?.initiative)}`;
-    if (slot === 'bottes') return `Défl. ${deflexion} · Vit. ${toNumber(data?.vitesse)}`;
-    return '—';
-  }
-
   function inventoryGroups(items) {
     const groups = new Map();
     for (const item of items ?? []) {
@@ -464,6 +460,52 @@
     if (item?.degats) return item.degats;
     const quantity = item?.quantite ?? item?.quantity;
     return quantity != null && quantity !== '' ? `x${quantity}` : '';
+  }
+
+  // ─── Paper-doll equipment slots ───
+  function slotStatChip(data) {
+    for (const [field, label] of [['deflexion', 'DEF'], ['armure', 'ARM'], ['volonte', 'VOL'], ['initiative', 'INIT'], ['vitesse', 'VIT']]) {
+      const v = toNumber(data?.[field]);
+      if (v) return `+${v} ${label}`;
+    }
+    return '';
+  }
+
+  function slotGlance(label, data) {
+    if (!data?.nom) return `${label} — vide`;
+    const chip = slotStatChip(data);
+    return `${data.nom}${chip ? ` · ${chip}` : ''}`;
+  }
+
+  function handGlance(hand, weapon, two) {
+    if (!weapon) return hand === 'main' ? 'Main principale — vide' : 'Main secondaire — vide';
+    const bonus = formatModifier(attackBonus(weapon, view?.stats ?? {}));
+    return `${weapon.nom} · ${weapon.de || '—'} · ${bonus}${two ? ' · à deux mains' : ''}`;
+  }
+
+  function saveSheet(next) {
+    sheet = next;
+    saveCharacterSheet(playerId, roomId, next).catch(console.error);
+  }
+
+  function applySlotItem(slot, item) {
+    const data = item?.equipmentData ?? {
+      nom: item?.weaponName || item?.name || '',
+      description: item?.notes || item?.attributs || item?.description || '',
+    };
+    saveSheet({ ...sheet, equipment: { ...(sheet?.equipment ?? {}), [slot]: data } });
+  }
+
+  function clearEquipmentSlot(slot) {
+    saveSheet({ ...sheet, equipment: { ...(sheet?.equipment ?? {}), [slot]: {} } });
+  }
+
+  // Possessed items eligible for a slot: import-mapped items first, then Armure/Équipement types
+  function slotCandidates(slot) {
+    const items = view.inventoryItems ?? [];
+    const mapped = items.filter((i) => i?.slot === slot && (i?.equipmentData || i?.name));
+    if (mapped.length) return mapped;
+    return items.filter((i) => ['Armure', 'Équipement'].includes(i?.type));
   }
 
   function itemNotes(item) {
@@ -1003,45 +1045,93 @@
         <div>
           <h2 class="text-sm font-bold mb-3">ÉQUIPEMENT</h2>
 
-          <div class="grid grid-cols-2 @2xl:grid-cols-3 gap-2.5 mb-5">
+          <!-- Paper-doll: 7 armor slots + 2 hand slots -->
+          {#if view}
+            {@const hands = handSlots(view)}
+          <div
+            class="grid gap-1.5 mx-auto max-w-sm mb-1"
+            style="grid-template-columns: repeat(3, 1fr); grid-template-areas: '. casque .' 'main plastron off' 'anneau cape amulette' '. gantelets .' '. bottes .';"
+          >
             {#each EQUIP_SLOTS as [slot, slotLabel, icon]}
-              {@const slotData = view.equipment?.[slot] ?? {}}
-              <div class="equip-slot bg-[#111827] rounded-lg p-2.5 cursor-pointer hover:bg-[#374151] transition-colors">
-                <div
-                  onclick={() => (openSlot = openSlot === slot ? null : slot)}
-                  role="button"
-                  tabindex="0"
-                  onkeydown={(e) => e.key === 'Enter' && (openSlot = openSlot === slot ? null : slot)}
-                >
-                  <div class="flex items-center gap-2.5">
-                    <span class="text-lg text-[#9ca3af]">{icon}</span>
-                    <div class="min-w-0">
-                      <div class="text-xs font-bold truncate">{slotData?.nom || slotLabel}</div>
-                      <div class="text-[9px] font-semibold text-[#9ca3af]">{equipSummary(slot, slotData)}</div>
-                    </div>
-                    <div class="ml-auto text-xs font-bold">›</div>
-                  </div>
-                  {#if openSlot !== slot}
-                    <div class="rich-html text-[9px] text-[#9ca3af] mt-1.5 line-clamp-2">
-                      {@html sanitizeHtml(slotData?.description) || '—'}
-                    </div>
+              {@const data = view.equipment?.[slot] ?? {}}
+              {@const occupied = !!data?.nom}
+              <div
+                style="grid-area: {slot}"
+                onclick={() => { expandedSlot = { kind: 'slot', slot }; slotPickerOpen = false; }}
+                onkeydown={(e) => e.key === 'Enter' && (expandedSlot = { kind: 'slot', slot })}
+                role="button"
+                tabindex="0"
+                use:tooltip={slotGlance(slotLabel, data)}
+                class="rounded-lg p-2 text-center cursor-pointer transition-colors {occupied
+                  ? 'bg-[#111827] hover:bg-[#374151]'
+                  : 'border border-dashed border-[#374151] hover:border-[#6b7280]'}"
+              >
+                <div class="text-base leading-none {occupied ? '' : 'opacity-40'}">{icon}</div>
+                <div class="text-[7px] font-bold text-[#9ca3af] leading-none mt-1">{slotLabel.toUpperCase()}</div>
+                {#if occupied}
+                  <div class="text-[10px] font-bold leading-tight mt-0.5 truncate">{data.nom}</div>
+                  {#if slotStatChip(data)}
+                    <div class="text-[9px] font-bold text-indigo-300 leading-none mt-0.5">{slotStatChip(data)}</div>
                   {/if}
-                </div>
-                {#if openSlot === slot}
-                  <div class="mt-2 space-y-1.5 border-t border-[#374151] pt-2">
-                    {#each Object.entries(slotData) as [field, value]}
-                      {#if value !== '' && value != null}
-                        <div>
-                          <div class="text-[8px] font-bold text-[#9ca3af] capitalize">{field}</div>
-                          <div class="text-[10px] whitespace-pre-wrap">{value}</div>
-                        </div>
-                      {/if}
-                    {/each}
-                  </div>
+                {:else}
+                  <div class="text-[9px] text-[#6b7280] leading-tight mt-0.5">vide</div>
                 {/if}
               </div>
             {/each}
+
+            <!-- Main hand -->
+            <div
+              style="grid-area: main"
+              onclick={() => { expandedSlot = { kind: 'hand', hand: 'main' }; slotPickerOpen = false; }}
+              onkeydown={(e) => e.key === 'Enter' && (expandedSlot = { kind: 'hand', hand: 'main' })}
+              role="button"
+              tabindex="0"
+              use:tooltip={handGlance('main', hands.main, hands.twoHanded)}
+              class="rounded-lg p-2 text-center cursor-pointer transition-colors {hands.main
+                ? 'bg-[#111827] hover:bg-[#374151] border-l-4 border-[#f87171]'
+                : 'border border-dashed border-[#374151] hover:border-[#6b7280]'}"
+            >
+              <div class="text-base leading-none {hands.main ? '' : 'opacity-40'}">🗡</div>
+              <div class="text-[7px] font-bold text-[#9ca3af] leading-none mt-1">PRINCIPALE</div>
+              {#if hands.main}
+                <div class="text-[10px] font-bold leading-tight mt-0.5 truncate">{hands.main.nom}</div>
+                <div class="text-[9px] font-bold text-slate-300 leading-none mt-0.5">{hands.main.de || '—'}</div>
+              {:else}
+                <div class="text-[9px] text-[#6b7280] leading-tight mt-0.5">vide</div>
+              {/if}
+            </div>
+
+            <!-- Off hand -->
+            <div
+              style="grid-area: off"
+              onclick={() => { expandedSlot = { kind: 'hand', hand: hands.twoHanded ? 'main' : 'off' }; slotPickerOpen = false; }}
+              onkeydown={(e) => e.key === 'Enter' && (expandedSlot = { kind: 'hand', hand: hands.twoHanded ? 'main' : 'off' })}
+              role="button"
+              tabindex="0"
+              use:tooltip={hands.twoHanded
+                ? `${hands.main.nom} — à deux mains (occupe les deux mains)`
+                : handGlance('off', hands.off, false)}
+              class="rounded-lg p-2 text-center transition-colors {hands.twoHanded || hands.off
+                ? 'bg-[#111827] cursor-pointer hover:bg-[#374151] border-l-4 border-[#f87171]'
+                : 'border border-dashed border-[#374151] hover:border-[#6b7280] cursor-pointer'}"
+            >
+              <div class="text-base leading-none {hands.main ? '' : 'opacity-40'}">🗡</div>
+              <div class="text-[7px] font-bold text-[#9ca3af] leading-none mt-1">SECONDAIRE</div>
+              {#if hands.twoHanded}
+                <div class="text-[10px] font-bold leading-tight mt-0.5 truncate">{hands.main.nom}</div>
+                <div class="text-[8px] font-bold text-amber-400 leading-none mt-0.5">à 2 mains</div>
+              {:else if hands.off}
+                <div class="text-[10px] font-bold leading-tight mt-0.5 truncate">{hands.off.nom}</div>
+                <div class="text-[9px] font-bold text-slate-300 leading-none mt-0.5">{hands.off.de || '—'}</div>
+              {:else}
+                <div class="text-[9px] text-[#6b7280] leading-tight mt-0.5">vide</div>
+              {/if}
+            </div>
           </div>
+          <div class="text-[9px] text-[#6b7280] text-center mb-4">
+            Survoler un emplacement : aperçu · Cliquer : détails et changement d'équipement
+          </div>
+          {/if}
 
           {#if view.inventoryItems?.length}
             {#each inventoryGroups(view.inventoryItems) as [type, items], groupIndex}
@@ -1750,6 +1840,149 @@
             Annuler
           </button>
         </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Equipment Slot Detail Popup (paper-doll) -->
+  {#if expandedSlot}
+    {@const hands = handSlots(view)}
+    {@const slotDef = expandedSlot.kind === 'slot' ? EQUIP_SLOTS.find(([sl]) => sl === expandedSlot.slot) : null}
+    {@const slotData = expandedSlot.kind === 'slot' ? (view.equipment?.[expandedSlot.slot] ?? {}) : null}
+    {@const weapon = expandedSlot.kind === 'hand' ? (expandedSlot.hand === 'main' ? hands.main : hands.off) : null}
+    {@const candidates = expandedSlot.kind === 'slot' ? slotCandidates(expandedSlot.slot) : (view.weapons ?? []).filter((w) => w?.nom)}
+    <div
+      class="fixed inset-0 bg-black/75 flex items-center justify-center z-[70] p-4"
+      onclick={() => { expandedSlot = null; slotPickerOpen = false; }}
+      onkeydown={(e) => e.key === 'Escape' && (expandedSlot = null)}
+      role="button"
+      tabindex="0"
+    >
+      <div
+        class="bg-[#1f2937] border border-[#374151] rounded-lg p-5 w-[92%] max-w-lg max-h-[85vh] overflow-y-auto scrollbar-thin"
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+        role="presentation"
+      >
+        <div class="flex items-start gap-3">
+          <span class="text-3xl leading-none shrink-0">{expandedSlot.kind === 'hand' ? '🗡' : slotDef?.[2]}</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-base font-bold">
+              {#if expandedSlot.kind === 'hand'}
+                {expandedSlot.hand === 'main' ? 'Main principale' : 'Main secondaire'}
+                {#if hands.twoHanded}<span class="text-[10px] font-bold text-amber-400 ml-1">à deux mains</span>{/if}
+              {:else}
+                {slotDef?.[1]}
+              {/if}
+            </div>
+            <div class="text-[11px] text-[#9ca3af] mt-0.5">
+              {#if expandedSlot.kind === 'hand'}
+                {weapon ? weapon.nom : 'Vide'}
+              {:else}
+                {slotData?.nom || 'Vide'}
+              {/if}
+            </div>
+          </div>
+          <button
+            onclick={() => { expandedSlot = null; slotPickerOpen = false; }}
+            title="Fermer"
+            class="w-7 h-7 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[11px] font-bold flex items-center justify-center shrink-0 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+
+        {#if !slotPickerOpen}
+          <!-- Details -->
+          <div class="mt-3 space-y-1.5">
+            {#if expandedSlot.kind === 'hand' && weapon}
+              <div class="flex gap-2 text-[11px]">
+                <span class="text-[#9ca3af] w-24 shrink-0">Dégâts</span>
+                <span class="font-bold">{weapon.de || '—'}</span>
+              </div>
+              <div class="flex gap-2 text-[11px]">
+                <span class="text-[#9ca3af] w-24 shrink-0">Bonus attaque</span>
+                <span class="font-bold" style="color: {STAT_COLORS.force}">{formatModifier(attackBonus(weapon, view?.stats ?? {}))}</span>
+              </div>
+              {#if weapon.notes}
+                <div class="flex gap-2 text-[11px]">
+                  <span class="text-[#9ca3af] w-24 shrink-0">Propriétés</span>
+                  <div class="rich-html flex-1">{@html sanitizeHtml(weapon.notes)}</div>
+                </div>
+              {/if}
+            {:else if expandedSlot.kind === 'slot' && slotData?.nom}
+              {#each Object.entries(slotData) as [field, value]}
+                {#if value !== '' && value != null}
+                  <div class="flex gap-2 text-[11px]">
+                    <span class="text-[#9ca3af] w-24 shrink-0 capitalize">{field}</span>
+                    <div class="rich-html flex-1 whitespace-pre-wrap">{@html sanitizeHtml(value)}</div>
+                  </div>
+                {/if}
+              {/each}
+            {:else}
+              <div class="text-[10px] text-[#9ca3af]">Emplacement vide.</div>
+            {/if}
+          </div>
+
+          <div class="flex gap-2 mt-4">
+            <button
+              onclick={() => (slotPickerOpen = true)}
+              class="flex-1 px-3 h-10 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-bold transition-colors"
+            >
+              ⇄ Changer d'équipement
+            </button>
+            {#if (expandedSlot.kind === 'hand' && weapon) || (expandedSlot.kind === 'slot' && slotData?.nom)}
+              <button
+                onclick={() => {
+                  if (expandedSlot.kind === 'hand') saveSheet(unequipHand(sheet, expandedSlot.hand));
+                  else clearEquipmentSlot(expandedSlot.slot);
+                }}
+                title="Vider l'emplacement"
+                class="px-3 h-10 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-lg text-xs font-bold text-[#9ca3af] hover:text-white transition-colors"
+              >
+                Vider
+              </button>
+            {/if}
+          </div>
+        {:else}
+          <!-- Switcher: possessed items of this category -->
+          <div class="mt-3">
+            <div class="text-[9px] font-bold text-[#9ca3af] mb-1.5">
+              {expandedSlot.kind === 'hand' ? 'ARMES POSSÉDÉES — cliquer pour équiper' : 'OBJETS POSSÉDÉS — cliquer pour équiper'}
+            </div>
+            <div class="space-y-1.5 max-h-72 overflow-y-auto scrollbar-thin pr-1">
+              {#each candidates as candidate}
+                {@const candName = expandedSlot.kind === 'hand' ? candidate.nom : (candidate?.equipmentData?.nom || candidate?.weaponName || candidate?.name)}
+                <button
+                  class="w-full flex items-center gap-2 bg-[#111827] hover:bg-[#374151] rounded-md px-2.5 py-2 text-left transition-colors"
+                  onclick={() => {
+                    if (expandedSlot.kind === 'hand') saveSheet(equipWeapon(sheet, candidate, expandedSlot.hand));
+                    else applySlotItem(expandedSlot.slot, candidate);
+                    slotPickerOpen = false;
+                  }}
+                >
+                  <div class="w-1 h-5 rounded-full {expandedSlot.kind === 'hand' ? 'bg-[#f87171]' : 'bg-indigo-500'}"></div>
+                  <span class="text-[11px] font-semibold truncate flex-1">{candName || '—'}</span>
+                  {#if expandedSlot.kind === 'hand'}
+                    <span class="text-[10px] text-[#9ca3af] shrink-0">{candidate.de || '—'}{isTwoHanded(candidate) ? ' · 2M' : ''}{candidate.equipped ? ' · équipée' : ''}</span>
+                  {:else if candidate?.family}
+                    <span class="text-[9px] text-[#9ca3af] shrink-0">{candidate.family}</span>
+                  {/if}
+                </button>
+              {:else}
+                <div class="text-[10px] text-[#9ca3af] bg-[#111827] rounded-md p-2.5">
+                  Aucun objet de cette catégorie dans le sac.
+                </div>
+              {/each}
+            </div>
+            <button
+              onclick={() => (slotPickerOpen = false)}
+              class="w-full mt-2 px-3 py-1.5 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-lg text-[10px] font-bold text-[#9ca3af] hover:text-white transition-colors"
+            >
+              ← Retour aux détails
+            </button>
+          </div>
+        {/if}
       </div>
     </div>
   {/if}

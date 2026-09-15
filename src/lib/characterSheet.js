@@ -824,7 +824,7 @@ export function attackBonus(weapon, stats = {}) {
  * - volonte     = modificateur de Résilience + volonté du casque
  * - seuilMiss   = max(1, 1 - mod Agilité)
  * - canalisation = modificateur d'Esprit
- * - bonusAttaque = attack bonus of the first equipped weapon
+ * - bonusAttaque = attack bonus of the main-hand weapon
  * @param {Object} [sheet] - Character sheet data
  * @returns {Object} Computed values
  */
@@ -837,7 +837,10 @@ export function computeDerived(sheet = {}) {
   const gantelets = toNumber(equipment.gantelets?.initiative);
   const bottes = toNumber(equipment.bottes?.vitesse);
   const casque = toNumber(equipment.casque?.volonte);
-  const firstEquipped = (weapons ?? []).find((w) => w?.equipped);
+  // legacy sheets: equipped without hand = main-hand occupant
+  const firstEquipped =
+    (weapons ?? []).find((w) => w?.equipped && (w?.hand ?? 'main') === 'main') ??
+    (weapons ?? []).find((w) => w?.equipped);
   const paradeBonus = paradeModifier(weapons, stats);
   return {
     ...eq,
@@ -968,7 +971,76 @@ export function skillRollModifier(stats, skill, skillData = {}) {
 }
 
 /**
- * Rewrite stored skill bonuses from governing stat modifiers.
+ * True when a weapon is two-handed (free-text keyword match, same approach
+ * as paradeModifier's shield/distance detection).
+ * @param {Object} weapon - Weapon entry (nom/de/propriétés/notes)
+ * @returns {boolean}
+ */
+export function isTwoHanded(weapon) {
+  const text = [weapon?.nom, weapon?.propriétés, weapon?.proprietes, weapon?.notes]
+    .map((v) => String(v ?? ''))
+    .join(' ');
+  return /deux\s*mains|2\s*mains|two[-\s]?handed/i.test(text);
+}
+
+/**
+ * Derive the two hand slots from the weapons array. Legacy sheets have
+ * `equipped` without `hand` — the first equipped weapon then counts as main.
+ * @param {Object} sheet - Character sheet
+ * @returns {{main: Object|null, off: Object|null, twoHanded: boolean}}
+ */
+export function handSlots(sheet = {}) {
+  const eq = (sheet?.weapons ?? []).filter((w) => w?.nom && w?.equipped);
+  const main = eq.find((w) => w?.hand === 'main') ?? eq[0] ?? null;
+  const two = main ? isTwoHanded(main) : false;
+  const off = two || !main ? null : eq.find((w) => w !== main && w?.hand === 'off') ?? (eq.length > 1 ? eq[1] : null);
+  return { main, off, twoHanded: two };
+}
+
+/**
+ * Equip a weapon into a hand slot (pure). A two-handed weapon clears both
+ * hands; a one-handed weapon replaces whatever occupied the target hand
+ * (including a two-hander) and leaves the other hand untouched.
+ * @param {Object} sheet - Character sheet
+ * @param {Object} weapon - Weapon entry from sheet.weapons (by reference)
+ * @param {'main'|'off'} hand - Target hand slot
+ * @returns {Object} New sheet with updated weapons
+ */
+export function equipWeapon(sheet, weapon, hand = 'main') {
+  if (!weapon?.nom) return sheet;
+  const two = isTwoHanded(weapon);
+  return {
+    ...sheet,
+    weapons: (sheet?.weapons ?? []).map((w) => {
+      if (w === weapon) return { ...w, equipped: true, hand: 'main' };
+      if (!w?.equipped && !w?.hand) return w;
+      // legacy sheets: equipped without hand = main-hand occupant
+      const wHand = w?.hand ?? 'main';
+      if (two || wHand === hand || isTwoHanded(w)) return { ...w, equipped: false, hand: null };
+      return { ...w, hand: wHand };
+    }),
+  };
+}
+
+/**
+ * Unequip whatever occupies a hand slot (pure).
+ * @param {Object} sheet - Character sheet
+ * @param {'main'|'off'} hand - Hand slot to clear
+ * @returns {Object} New sheet
+ */
+export function unequipHand(sheet, hand) {
+  return {
+    ...sheet,
+    weapons: (sheet?.weapons ?? []).map((w) =>
+      w?.equipped && ((w?.hand ?? 'main') === hand || isTwoHanded(w))
+        ? { ...w, equipped: false, hand: null }
+        : w
+    ),
+  };
+}
+
+/**
+ * Overwrite stored skill bonuses from governing stat modifiers.
  * Skills without a governing stat keep their stored bonus.
  * @param {Object} sheet - Character sheet data
  * @returns {Object} New sheet object with synced bonuses
