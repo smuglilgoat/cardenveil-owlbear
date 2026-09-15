@@ -37,6 +37,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T21:50Z]` `[USER]` Bump version by 0.1 + patch notes. `[CODE]` (main `c8faa02`) manifest 2.1.0 → 2.2.0 (verified in dist); docs/patch-notes-2.2.md — inventaire rework (doll/hand slots/Sac chips/icons/typed fields), mastered skills, inline notes, editor dropdowns, instant popover sync, tooltips, +10% fonts, mouvement 5
+## [PROGRESS]
 - `[2026-09-15T21:40Z]` `[USER]` Report: inline notes not persisted on reload; ÉDITION notes save not shown in the notes view. `[CODE]` (main `103500c`) Root cause: the notesDraft-sync \$effect ran at mount while sheet/view were still null → view.notes threw → effect dead for the whole session → textarea never synced (data WAS saved, just never displayed). Fix: `if (view && !notesDraftDirty)`. LESSON: guard \$effects against the pre-load null sheet
 ## [PROGRESS]
 - `[2026-09-15T21:30Z]` `[USER]` Scale all character-sheet fonts +10% (except tabs and the compact/import/delete/edit buttons). `[CODE]` (main `a5943db`) Mechanical ×1.1 (rounded to nearest px; named Tailwind sizes → arbitrary: xs 13 / sm 15 / base 18 / lg 20 / xl 22 / 2xl 26), 259 lines in CharacterSheet.svelte only; excluded: bottom-nav tabs, modal tab bar, top-bar buttons
