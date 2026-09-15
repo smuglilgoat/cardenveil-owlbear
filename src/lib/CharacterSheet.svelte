@@ -82,6 +82,21 @@
   // Edit-modal tab bar: identity and stats get their own tabs (not always visible)
   const EDIT_TABS = [{ id: 'identite', label: 'IDENTITÉ' }, { id: 'stats', label: 'STATS' }, ...TABS];
 
+  const ALIGNEMENTS = [
+    'Loyal Bon', 'Loyal Neutre', 'Loyal Mauvais',
+    'Neutre Bon', 'Neutre Absolu', 'Neutre Mauvais',
+    'Chaotique Bon', 'Chaotique Neutre', 'Chaotique Mauvais'
+  ];
+  const USAGE_OPTIONS = [
+    'Action', 'Bonus action', 'Réaction', 'Concentration',
+    'Action / Concentration', 'Bonus action / Concentration', 'Réaction / Concentration'
+  ];
+  const SAVE_OPTIONS = [
+    'X',
+    ...SKILL_LABELS ? Object.entries(SKILL_LABELS).flatMap(([, label]) => [`${label} (Aucun effet)`, `${label} (Moitié dégâts)`]) : []
+  ];
+  const INCANTATION_OPTIONS = ['', 'Force', 'Agilité', 'Esprit', 'Social'];
+
   const NARRATIVE_FIELDS = [
     ['background', 'BACKGROUND'],
     ['objectif', 'OBJECTIF'],
@@ -1295,11 +1310,27 @@
               </div>
               <div>
                 <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Race</label>
-                <input type="text" bind:value={editSheet.identity.race} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <select bind:value={editSheet.identity.race} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1 py-1 focus:outline-none focus:border-indigo-500">
+                  <option value="">— Aucune —</option>
+                  {#each RACES as race}
+                    <option value={race.id}>{race.label}</option>
+                  {/each}
+                  {#if editSheet.identity.race && !RACES.some((r) => r.id === editSheet.identity.race)}
+                    <option value={editSheet.identity.race}>{editSheet.identity.race}</option>
+                  {/if}
+                </select>
               </div>
               <div>
                 <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Alignement</label>
-                <input type="text" bind:value={editSheet.identity.alignement} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+                <select bind:value={editSheet.identity.alignement} class="w-full text-[11px] bg-[#242424] border border-[#374151] rounded px-1 py-1 focus:outline-none focus:border-indigo-500">
+                  <option value="">— Aucun —</option>
+                  {#each ALIGNEMENTS as alignement}
+                    <option value={alignement}>{alignement}</option>
+                  {/each}
+                  {#if editSheet.identity.alignement && !ALIGNEMENTS.includes(editSheet.identity.alignement)}
+                    <option value={editSheet.identity.alignement}>{editSheet.identity.alignement}</option>
+                  {/if}
+                </select>
               </div>
               <div>
                 <label class="block text-[8px] font-bold text-[#9ca3af] mb-0.5">Niveau</label>
@@ -1489,11 +1520,24 @@
                       </div>
                       <div>
                         <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">COULEUR</label>
-                        <input type="text" bind:value={editSheet.capacities[i].cost.color} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
+                        <select bind:value={editSheet.capacities[i].cost.color} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500">
+                          <option value="">— Aucune —</option>
+                          {#each Object.keys(SUIT_LABELS) as suit}
+                            <option value={suit}>{SUIT_LABELS[suit]} {SUIT_SYMBOLS[suit]}</option>
+                          {/each}
+                        </select>
                       </div>
                       <div>
-                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">USAGE (Action / Bonus action / Réaction)</label>
-                        <input type="text" bind:value={editSheet.capacities[i].usage} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
+                        <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">USAGE</label>
+                        <select bind:value={editSheet.capacities[i].usage} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500">
+                          <option value="">— Aucun —</option>
+                          {#each USAGE_OPTIONS as usageOption}
+                            <option value={usageOption}>{usageOption}</option>
+                          {/each}
+                          {#if editSheet.capacities[i].usage && !USAGE_OPTIONS.includes(editSheet.capacities[i].usage)}
+                            <option value={editSheet.capacities[i].usage}>{editSheet.capacities[i].usage}</option>
+                          {/if}
+                        </select>
                       </div>
                     </div>
                     <div class="grid grid-cols-2 @2xl:grid-cols-3 gap-2">
@@ -1503,11 +1547,26 @@
                       </div>
                       <div>
                         <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">INCANTATION</label>
-                        <input type="text" bind:value={editSheet.capacities[i].incantation} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
+                        <select bind:value={editSheet.capacities[i].incantation} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500">
+                          <option value="">— Aucune —</option>
+                          {#each INCANTATION_OPTIONS.filter(Boolean) as stat}
+                            <option value={stat}>{stat}</option>
+                          {/each}
+                          {#if editSheet.capacities[i].incantation && !INCANTATION_OPTIONS.includes(editSheet.capacities[i].incantation)}
+                            <option value={editSheet.capacities[i].incantation}>{editSheet.capacities[i].incantation}</option>
+                          {/if}
+                        </select>
                       </div>
                       <div>
                         <label class="block text-[8px] font-bold text-[#9ca3af] mb-1">SAUVEGARDE</label>
-                        <input type="text" bind:value={editSheet.capacities[i].save} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500" />
+                        <select bind:value={editSheet.capacities[i].save} class="w-full px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500">
+                          {#each SAVE_OPTIONS as saveOption}
+                            <option value={saveOption}>{saveOption === 'X' ? 'X — Aucune' : saveOption}</option>
+                          {/each}
+                          {#if editSheet.capacities[i].save && !SAVE_OPTIONS.includes(editSheet.capacities[i].save)}
+                            <option value={editSheet.capacities[i].save}>{editSheet.capacities[i].save}</option>
+                          {/if}
+                        </select>
                       </div>
                     </div>
                     <label class="flex items-center gap-2 text-[10px] text-[#9ca3af]">
