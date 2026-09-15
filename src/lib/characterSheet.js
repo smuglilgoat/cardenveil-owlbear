@@ -1042,7 +1042,7 @@ export function equipWeapon(sheet, weapon, hand = 'main') {
   return {
     ...sheet,
     weapons: (sheet?.weapons ?? []).map((w) => {
-      if (w === weapon) return { ...w, equipped: true, hand: 'main' };
+      if (w === weapon) return { ...w, equipped: true, hand: two ? 'main' : hand };
       if (!w?.equipped && !w?.hand) return w;
       // legacy sheets: equipped without hand = main-hand occupant
       const wHand = w?.hand ?? 'main';

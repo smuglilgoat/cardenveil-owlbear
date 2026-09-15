@@ -14,6 +14,8 @@
     sanitizeHtml,
     handSlots,
     equipWeapon,
+    SUIT_LABELS,
+    SUIT_SYMBOLS,
     FAMILY_SUMMARIES,
     unequipHand,
     isTwoHanded,
@@ -495,6 +497,20 @@
       description: item?.notes || item?.attributs || item?.description || '',
     };
     saveSheet({ ...sheet, equipment: { ...(sheet?.equipment ?? {}), [slot]: data } });
+  }
+
+  // Weapon items: slot = main/off equips the matching weapon; any other value unequips it
+  function syncItemSlot(item, slot) {
+    if (item?.type !== 'Arme') return;
+    const name = item?.weaponName || item?.name;
+    const weapons = editSheet.weapons ?? [];
+    const weapon = weapons.find((w) => w?.nom === name);
+    if (!weapon) return;
+    if (slot === 'main' || slot === 'off') {
+      editSheet.weapons = equipWeapon({ ...editSheet, weapons: [...weapons] }, weapon, slot).weapons;
+    } else {
+      editSheet.weapons = weapons.map((w) => (w?.nom === name && w?.equipped ? { ...w, equipped: false, hand: null } : w));
+    }
   }
 
   function clearEquipmentSlot(slot) {
@@ -1554,7 +1570,7 @@
                         class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[10px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
                       >
                         <option value="">— Modèle —</option>
-                        {#each EQUIPMENT_CATALOG as grp}
+                        {#each EQUIPMENT_CATALOG.filter((grp) => grp.kind !== 'arme') as grp}
                           <optgroup label={grp.group}>
                             {#each grp.items as item}
                               <option value={item.nom} title={item.proprietes}>{item.nom}{item.de ? ` — ${item.de}` : ''}</option>
@@ -1565,13 +1581,15 @@
                       <button
                         onclick={() => {
                           const tpl = findEquipmentTemplate(itemTemplate);
+                          const fam = tpl?.family ?? '';
                           editSheet.inventoryItems = [...(editSheet.inventoryItems || []), {
-                            type: tpl ? (tpl.kind === 'armure' ? 'Armure' : 'Arme') : 'Divers',
+                            type: tpl ? 'Armure' : 'Divers',
                             name: tpl?.nom ?? '',
                             degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
                             slot: '',
-                            family: tpl?.family ?? '',
-                            familySummary: tpl?.family ? FAMILY_SUMMARIES[tpl.family] ?? '' : '',
+                            family: fam,
+                            familySummary: fam ? FAMILY_SUMMARIES[fam] ?? '' : '',
+                            ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),
                             attributs: tpl?.proprietes ?? '',
                             description: ''
                           }];
@@ -1625,16 +1643,35 @@
                             {#if field === 'description' || field === 'attributs'}
                               <textarea bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
                             {:else if field === 'slot'}
-                              <select bind:value={item.slot} class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500">
+                              <select
+                                bind:value={item.slot}
+                                onchange={(e) => syncItemSlot(item, e.currentTarget.value)}
+                                class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500"
+                              >
                                 <option value="">— Aucun emplacement —</option>
                                 {#each EQUIP_SLOTS as [sl, slLabel]}
                                   <option value={sl}>{slLabel}</option>
+                                {/each}
+                                {#if item?.type === 'Arme'}
+                                  <option value="main">Main principale</option>
+                                  <option value="off">Main secondaire</option>
+                                {/if}
+                              </select>
+                            {:else if field === 'catalystColor'}
+                              <select bind:value={item.catalystColor} class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500">
+                                <option value="">— Aucune couleur —</option>
+                                {#each Object.keys(SUIT_LABELS) as suit}
+                                  <option value={suit}>{SUIT_LABELS[suit]} {SUIT_SYMBOLS[suit]}</option>
                                 {/each}
                               </select>
                             {:else if field === 'family'}
                               <select
                                 bind:value={item.family}
-                                onchange={(e) => (item.familySummary = FAMILY_SUMMARIES[e.currentTarget.value] ?? '')}
+                                onchange={(e) => {
+                                  const fam = e.currentTarget.value;
+                                  item.familySummary = FAMILY_SUMMARIES[fam] ?? '';
+                                  if (fam === 'Catalyseurs') item.catalystColor = item.catalystColor ?? '';
+                                }}
                                 class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] focus:outline-none focus:border-indigo-500"
                               >
                                 <option value="">— Aucune famille —</option>

@@ -229,6 +229,12 @@ describe('Character Sheet dice helpers', () => {
       expect(next.weapons[1].equipped).toBe(false);
     });
 
+    it('equipWeapon should honor the target hand for one-handed weapons', () => {
+      const next = equipWeapon({ weapons: [{ ...sword, equipped: false, hand: null }, dagger] }, dagger, 'off');
+      expect(next.weapons[1].equipped).toBe(true);
+      expect(next.weapons[1].hand).toBe('off');
+    });
+
     it('unequipHand should clear only the target hand', () => {
       const next = unequipHand({ weapons: [sword, dagger] }, 'off');
       expect(next.weapons[0].equipped).toBe(true);
