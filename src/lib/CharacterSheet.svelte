@@ -1133,8 +1133,9 @@
           </div>
           {/if}
 
+          <!-- Sac: non-equipment, non-weapon items only (potions, scrolls…) -->
           {#if view.inventoryItems?.length}
-            {#each inventoryGroups(view.inventoryItems) as [type, items], groupIndex}
+            {#each inventoryGroups(view.inventoryItems).filter(([type]) => !['Arme', 'Armure', 'Équipement'].includes(type)) as [type, items], groupIndex}
               <div
                 class="item-row bg-[#111827] rounded-md px-3 py-2.5 flex items-center gap-2.5 border-l-4 {groupIndex > 0 ? 'mt-2.5' : ''}"
                 style="border-left-color: {itemTypeColor(type)}"
@@ -1150,38 +1151,12 @@
                   <span class="text-[9px] text-[#9ca3af] w-24 @2xl:w-52 text-right truncate">{itemNotes(item)}</span>
                 </div>
               {/each}
+            {:else}
+              <div class="text-[10px] text-[#9ca3af]">Le sac est vide — armures et armes vivent dans les emplacements ci-dessus.</div>
             {/each}
           {:else}
-            <div class="text-[10px] text-[#9ca3af]">Aucun objet dans l'inventaire.</div>
+            <div class="text-[10px] text-[#9ca3af]">Le sac est vide.</div>
           {/if}
-
-          <!-- Weapons -->
-          <h2 class="text-xs font-bold mt-5 mb-2.5">ARMES</h2>
-          {#each view.weapons || [] as weapon}
-            {#if weapon?.nom}
-              {@const weaponFields = Object.entries(weapon ?? {}).filter(([field]) => field !== 'nom' && field !== 'equipped')}
-              <div class="item-row bg-[#111827] rounded-lg px-3 py-2.5 mb-2.5 border-l-4 border-[#f87171]">
-                <div class="flex items-center gap-2.5">
-                  {#if weapon?.equipped}
-                    <span class="px-2 py-0.5 bg-indigo-600 text-[9px] font-semibold rounded">Équipée</span>
-                  {/if}
-                  <span class="text-xs font-bold truncate">{weapon?.nom || 'Sans nom'}</span>
-                  {#if weapon?.de}
-                    <span class="ml-auto text-xs font-bold">
-                      {weapon.de}
-                      <span class="text-[#9ca3af]">{formatModifier(attackBonus(weapon, view?.stats ?? {}))}</span>
-                    </span>
-                  {/if}
-                </div>
-                <div class="text-[9px] text-[#9ca3af] mt-1.5 truncate">
-                  {weaponFields
-                    .filter(([, value]) => value !== '' && value != null)
-                    .map(([field, value]) => `${field}: ${stripHtml(value)}`)
-                    .join(' · ') || '—'}
-                </div>
-              </div>
-            {/if}
-          {/each}
         </div>
       {:else if activeTab === 'narratif'}
         <!-- TAB: NARRATIF -->
