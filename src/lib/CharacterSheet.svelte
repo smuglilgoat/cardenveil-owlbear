@@ -1741,11 +1741,11 @@
                           value={weapon?.equipped ? (weapon.hand ?? 'main') : ''}
                           onchange={(e) => {
                             const hand = e.currentTarget.value;
-                            const weapons = editSheet.weapons.map((w, j) => (j === i ? { ...weapon, equipped: false, hand: null } : w));
                             if (hand) {
-                              editSheet.weapons = equipWeapon({ ...editSheet, weapons }, weapon, hand).weapons;
+                              // pass the original array — equipWeapon matches the weapon by reference
+                              editSheet.weapons = equipWeapon({ ...editSheet, weapons: [...editSheet.weapons] }, weapon, hand).weapons;
                             } else {
-                              editSheet.weapons = weapons;
+                              editSheet.weapons = editSheet.weapons.map((w, j) => (j === i ? { ...weapon, equipped: false, hand: null } : w));
                             }
                           }}
                           title="Emplacement d'équipement{isTwoHanded(weapon) ? ' — à deux mains : occupe les deux mains' : ''}"
