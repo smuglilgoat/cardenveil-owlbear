@@ -36,6 +36,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T20:25Z]` `[USER]` Report: setting Main secondaire from ÉDITION doesn't equip in the doll. `[CODE]` (main `86b8752`) ROOT CAUSE: the ARMES hand-dropdown onchange pre-replaced the weapon with a cleared copy, breaking equipWeapon's by-reference match. FIX: pass the original array to equipWeapon; only the unequip path replaces the entry. LESSON: equipWeapon matches weapons by object reference — always hand it the live array
+## [PROGRESS]
 - `[2026-09-15T20:15Z]` `[USER]` catalystColor dropdown; weapons only addable to ARMES; item slot dropdown needs weapon options; BUG: doll off-hand equip set hand 'main'. `[CODE]` (main `5d835c0`) FIXED equipWeapon (hand was hardcoded 'main' — now honors target hand, 2H→main) + regression test; catalystColor select (4 suits) shown for items with the field, auto-added when family=Catalyseurs or catalyst template; inventory template dropdown filtered to kind!=='arme' (armures only); slot select gains Main principale/secondaire for Arme items — syncItemSlot equips/unequips the matching weapon by name. 149 tests
 ## [PROGRESS]
 - `[2026-09-15T20:05Z]` `[USER]` Report: 'no weapon slot' — clarified via question: missing in the ÉDITION window. `[CODE]` (main `0b4586f`) ÉDITION ARMES editor: 'Équipée' checkbox replaced by a hand-slot dropdown (— Non équipée — / Main principale / Main secondaire) using equipWeapon (2H clears both hands, 1H replaces its hand, two-hander hint in tooltip); `hand` excluded from the generic field loop. NOTE: deployed player sheet already had the doll hand slots (verified in the live Netlify bundle)
