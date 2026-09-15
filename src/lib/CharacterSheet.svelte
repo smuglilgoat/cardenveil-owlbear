@@ -444,15 +444,6 @@
     return (text || '').replace(/<[^>]*>/g, '').trim();
   }
 
-  // Notes toolbar markup (**bold**, __underline__) + imported HTML → sanitized HTML
-  function renderNotes(text) {
-    return sanitizeHtml(
-      String(text ?? '')
-        .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
-        .replace(/__([^_\n]+)__/g, '<u>$1</u>')
-    );
-  }
-
   function masteryLabel(mastery) {
     if (typeof mastery === 'string') return mastery;
     return mastery?.nom || mastery?.name || '';
@@ -498,6 +489,21 @@
   function saveSheet(next) {
     sheet = next;
     saveCharacterSheet(playerId, roomId, next).catch(console.error);
+  }
+
+  // ─── Inline notes editing (NOTES tab, no ÉDITION needed) ───
+  let notesDraft = $state('');
+  let notesDraftDirty = $state(false);
+
+  // Follow external sheet updates until the user types; after a save the
+  // broadcast/realtime update re-syncs the draft to the stored value.
+  $effect(() => {
+    if (!notesDraftDirty) notesDraft = view.notes ?? '';
+  });
+
+  function saveNotes() {
+    notesDraftDirty = false;
+    saveSheet({ ...sheet, notes: notesDraft });
   }
 
   function applySlotItem(slot, item) {
@@ -1239,16 +1245,29 @@
           {/each}
         </div>
       {:else if activeTab === 'notes'}
-        <!-- TAB: NOTES -->
+        <!-- TAB: NOTES (free inline editing + single save) -->
         <div>
           <h2 class="text-sm font-bold mb-3">NOTES</h2>
           <div class="bg-[#111827] rounded-lg p-3.5 min-h-[240px]">
-            <div class="text-lg font-bold mb-2.5">Notes de session</div>
-            <div class="rich-html text-xs leading-relaxed whitespace-pre-wrap">
-              {@html renderNotes(view.notes) || 'Aucune note pour le moment.'}
+            <div class="flex items-center justify-between mb-2.5">
+              <div class="text-lg font-bold">Notes de session</div>
+              <button
+                onclick={saveNotes}
+                disabled={!notesDraftDirty}
+                title="Sauvegarder les notes"
+                class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-default rounded-lg text-[10px] font-bold transition-colors"
+              >
+                💾 Sauvegarder
+              </button>
             </div>
-            <div class="text-[9px] font-medium text-[#9ca3af] mt-6 pt-2.5 border-t border-[#374151]">
-              Écriture libre — modifiable en mode ÉDITION
+            <textarea
+              bind:value={notesDraft}
+              oninput={() => (notesDraftDirty = true)}
+              placeholder="Écriture libre — notes de session"
+              class="w-full min-h-[240px] px-3 py-2 bg-[#242424] border border-[#374151] rounded text-xs leading-relaxed focus:outline-none focus:border-indigo-500"
+            ></textarea>
+            <div class="text-[9px] font-medium text-[#9ca3af] mt-2.5">
+              Écriture libre — rendu enrichi (**gras**, __souligné__, HTML) à l'affichage ; le bouton sauvegarde la fiche entière.
             </div>
           </div>
         </div>
