@@ -1173,9 +1173,13 @@ export function isTwoHanded(weapon) {
  */
 export function handSlots(sheet = {}) {
   const eq = (sheet?.weapons ?? []).filter((w) => w?.nom && w?.equipped);
-  const main = eq.find((w) => w?.hand === 'main') ?? eq[0] ?? null;
+  // respect the hand tag strictly; legacy equipped-without-hand counts as main
+  const main = eq.find((w) => w?.hand === 'main') ?? eq.find((w) => !w?.hand) ?? null;
   const two = main ? isTwoHanded(main) : false;
-  const off = two || !main ? null : eq.find((w) => w !== main && w?.hand === 'off') ?? (eq.length > 1 ? eq[1] : null);
+  const off =
+    two || !main
+      ? null
+      : eq.find((w) => w !== main && w?.hand === 'off') ?? eq.find((w) => w !== main && !w?.hand) ?? null;
   return { main, off, twoHanded: two };
 }
 

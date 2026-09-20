@@ -1172,8 +1172,8 @@
               <div class="text-[18px] leading-none {hands.main ? '' : 'opacity-40'}">🗡</div>
               <div class="text-[8px] font-bold text-[#9ca3af] leading-none mt-1">SECONDAIRE</div>
               {#if hands.twoHanded}
-                <div class="text-[11px] font-bold leading-tight mt-0.5 truncate">{hands.main.nom}</div>
-                <div class="text-[9px] font-bold text-amber-400 leading-none mt-0.5">à 2 mains</div>
+                <div class="text-[11px] font-bold leading-tight mt-0.5 truncate opacity-60">{hands.main.nom}</div>
+                <div class="text-[9px] font-bold text-[#6b7280] leading-none mt-0.5">occupée — 2M</div>
               {:else if hands.off}
                 <div class="text-[11px] font-bold leading-tight mt-0.5 truncate">{hands.off.nom}</div>
                 <div class="text-[10px] font-bold text-slate-300 leading-none mt-0.5">{hands.off.de || '—'}</div>
