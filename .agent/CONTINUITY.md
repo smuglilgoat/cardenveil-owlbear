@@ -37,6 +37,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T22:10Z]` `[USER]` Disable the compact inline roll panel; make the compact notes button editable/savable. `[CODE]` (main `1d5a7e1`) lastRoll/inline panel/crit-fail CSS removed — animated dice popup is the only roll feedback in the compact window; 📝 notes panel is now an editable textarea + 💾 Sauvegarder (draft/dirty pattern, saves whole sheet, saveInFlight-guarded, instant broadcast sync); renderNotes export removed (unused)
+## [PROGRESS]
 - `[2026-09-15T22:00Z]` `[USER]` 7-item feedback batch. `[CODE]` (main `634bb2b`) ① compact doRoll opens the animated dice popup (async doRoll, inline fallback) ② narratif expand button → small round '+/−' ③ capacity roll button always shown when value exists (disabled + tooltip without a valid formula) ④ expand modal shows Valeur/Incantation/Sauvegarde/Préparée ⑤ stat hover tooltip lists related skills (SKILL_GROUPS) ⑥ Sac includes unequipped weapons (from weapons array) + unequipped Armure/Équipement items (nom not mapped to a slot) ⑦ compact 📝 button toggles a rich notes panel (renderNotes shared helper)
 ## [PROGRESS]
 - `[2026-09-15T21:50Z]` `[USER]` Bump version by 0.1 + patch notes. `[CODE]` (main `c8faa02`) manifest 2.1.0 → 2.2.0 (verified in dist); docs/patch-notes-2.2.md — inventaire rework (doll/hand slots/Sac chips/icons/typed fields), mastered skills, inline notes, editor dropdowns, instant popover sync, tooltips, +10% fonts, mouvement 5
