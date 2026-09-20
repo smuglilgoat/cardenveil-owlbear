@@ -1199,7 +1199,7 @@
             {#if unequippedWeapons.length || unequippedGear.length || bagItems.length}
               <div class="flex flex-wrap gap-1.5">
                 {#each unequippedWeapons as weapon}
-                  {@const wIcon = (view.inventoryItems ?? []).find(
+                  {@const wIcon = weapon?.icon || (view.inventoryItems ?? []).find(
                     (i) => i?.type === 'Arme' && (i?.weaponName || i?.name) === weapon.nom
                   )?.icon}
                   <div
