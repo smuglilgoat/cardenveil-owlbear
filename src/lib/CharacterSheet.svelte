@@ -21,6 +21,7 @@
     ITEM_ICONS,
     normalizeItemType,
     syncSlotsFromItems,
+    slotDataFromItem,
     SUIT_LABELS,
     SUIT_SYMBOLS,
     FAMILY_SUMMARIES,
@@ -515,11 +516,16 @@
   }
 
   function applySlotItem(slot, item) {
-    const data = item?.equipmentData ?? {
-      nom: item?.weaponName || item?.name || '',
-      description: item?.notes || item?.attributs || item?.description || '',
-    };
-    saveSheet({ ...sheet, equipment: { ...(sheet?.equipment ?? {}), [slot]: data } });
+    // slot object built from the item's own stat fields; mark the item as
+    // occupying the slot so ÉDITION shows (and edits) its stat fields
+    const items = (sheet?.inventoryItems ?? []).map((i) =>
+      i === item || (item?.name && i?.name === item.name) ? { ...i, slot } : i
+    );
+    saveSheet({
+      ...sheet,
+      inventoryItems: items,
+      equipment: { ...(sheet?.equipment ?? {}), [slot]: slotDataFromItem(item) },
+    });
   }
 
   // Weapon items: slot = main/off equips the matching weapon; any other value unequips it
@@ -537,7 +543,15 @@
   }
 
   function clearEquipmentSlot(slot) {
-    saveSheet({ ...sheet, equipment: { ...(sheet?.equipment ?? {}), [slot]: {} } });
+    const occupant = (view?.equipment?.[slot] ?? {}).nom;
+    const items = (sheet?.inventoryItems ?? []).map((i) =>
+      i?.slot === slot && i?.name === occupant ? { ...i, slot: '' } : i
+    );
+    saveSheet({
+      ...sheet,
+      inventoryItems: items,
+      equipment: { ...(sheet?.equipment ?? {}), [slot]: {} },
+    });
   }
 
   // Possessed items eligible for a slot: import-mapped items first, then Armure/Équipement types

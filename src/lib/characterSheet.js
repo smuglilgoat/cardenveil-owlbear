@@ -770,10 +770,23 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
       equipment: { ...empty.equipment, ...parsed.equipment }
     };
 
-    // Legacy 'Armure' item type merges into 'Équipement'
-    merged.inventoryItems = (merged.inventoryItems ?? []).map((item) =>
-      item?.type === 'Armure' ? { ...item, type: 'Équipement' } : item
-    );
+    // Legacy 'Armure' item type merges into 'Équipement'; gear items flatten
+    // their equipmentData onto the item itself (item = single source of truth)
+    merged.inventoryItems = (merged.inventoryItems ?? []).map((raw) => {
+      const item = raw?.type === 'Armure' ? { ...raw, type: 'Équipement' } : raw;
+      if (
+        normalizeItemType(item?.type) === 'Équipement' &&
+        SLOT_FIELDS[item?.slot] &&
+        item?.equipmentData &&
+        item.equipmentData.nom === (item.nom || item.name)
+      ) {
+        const { nom, ...rest } = item.equipmentData;
+        const flat = { ...item, ...rest };
+        delete flat.equipmentData;
+        return flat;
+      }
+      return item;
+    });
 
     // Exports often carry free-text race names ("Haut Elfe") — canonize to
     // the race id so game-side race lookups keep working.
@@ -996,15 +1009,37 @@ export function computeDerived(sheet = {}) {
  * @param {Object} [sheet] - Character sheet
  * @returns {Object} New sheet with synced equipment slots
  */
+/**
+ * Build an equipment-slot object from an item's flattened stat fields
+ * (deflexion, armure, volonte, initiative, vitesse, enchantement, …).
+ * @param {Object} [item] - Inventory item
+ * @returns {Object} Slot-shaped data ({nom, raretePrix, deflexion, …})
+ */
+export function slotDataFromItem(item = {}) {
+  const nom = item?.nom || item?.name || '';
+  const data = {
+    nom,
+    raretePrix: item?.raretePrix ?? '',
+    deflexion: item?.deflexion ?? '',
+    armure: item?.armure ?? '',
+    volonte: item?.volonte ?? '',
+    initiative: item?.initiative ?? '',
+    vitesse: item?.vitesse ?? '',
+    enchantement: item?.enchantement ?? '',
+    description: item?.description ?? '',
+  };
+  return data.nom ? data : { ...data, nom: item?.equipmentData?.nom || '' };
+}
+
 export function syncSlotsFromItems(sheet = {}) {
   if (!sheet) return sheet;
   const equipment = { ...(sheet.equipment ?? {}) };
   for (const item of sheet.inventoryItems ?? []) {
     const slot = item?.slot;
-    const data = item?.equipmentData;
-    if (!slot || !data?.nom || !SLOT_FIELDS[slot]) continue;
+    const nom = item?.nom || item?.name;
+    if (!slot || !nom || !SLOT_FIELDS[slot]) continue;
     const current = equipment[slot];
-    if (current?.nom === data.nom) equipment[slot] = { ...data };
+    if (current?.nom === nom) equipment[slot] = slotDataFromItem(item);
   }
   return { ...sheet, equipment };
 }

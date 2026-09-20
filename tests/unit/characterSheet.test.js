@@ -261,17 +261,17 @@ describe('Character Sheet dice helpers', () => {
     });
   });
 
-    it('syncSlotsFromItems should push item stats into the matching slot', () => {
-      const data = { nom: 'Casque', deflexion: '1', volonte: '3' };
+    it('syncSlotsFromItems should rebuild the slot from the occupying item', () => {
       const next = syncSlotsFromItems({
-        equipment: { casque: { nom: 'Casque' } },
-        inventoryItems: [{ type: 'Équipement', slot: 'casque', equipmentData: data }],
+        equipment: { casque: { nom: 'Casque', volonte: '9' } },
+        inventoryItems: [{ type: 'Équipement', slot: 'casque', name: 'Casque', deflexion: '1', volonte: '3' }],
       });
-      expect(next.equipment.casque.volonte).toBe('3');
+      expect(next.equipment.casque.volonte).toBe('3'); // item stats win
+      expect(next.equipment.casque.deflexion).toBe('1');
       // a slot holding a different item is left alone
       const untouched = syncSlotsFromItems({
         equipment: { casque: { nom: 'Autre' } },
-        inventoryItems: [{ slot: 'casque', equipmentData: data }],
+        inventoryItems: [{ slot: 'casque', name: 'Casque', volonte: '3' }],
       });
       expect(untouched.equipment.casque.nom).toBe('Autre');
     });
@@ -445,6 +445,26 @@ describe('Character Sheet dice helpers', () => {
       const saved = upsert.mock.calls[0][0];
       expect(saved.data.portrait).toBe('');
       expect(JSON.stringify(saved.data).length).toBeLessThan(MAX_SHEET_BYTES);
+    });
+
+    it('should flatten gear equipmentData on import', async () => {
+      const { upsert } = mockUpsertChain({ data: { id: '1' }, error: null });
+      await importCharacterSheet('player-1', 'room-1', validSheetJson({
+        inventoryItems: [
+          {
+            type: 'Équipement', slot: 'casque', name: 'Casque',
+            equipmentData: { nom: 'Casque', deflexion: '1', volonte: '3', enchantement: '<p>x</p>' },
+          },
+          { type: 'Arme', slot: 'casque', name: 'Bâton', equipmentData: { nom: 'Casque', volonte: '3' } },
+        ],
+      }));
+      const savedData = upsert.mock.calls[0][0].data;
+      const casque = savedData.inventoryItems.find((i) => i.name === 'Casque');
+      expect(casque.deflexion).toBe('1');
+      expect(casque.volonte).toBe('3');
+      expect(casque.equipmentData).toBeUndefined();
+      const baton = savedData.inventoryItems.find((i) => i.name === 'Bâton');
+      expect(baton.volonte).toBeUndefined(); // weapon mirrors are not flattened
     });
 
     it('should reject payloads that remain oversized after stripping', async () => {
