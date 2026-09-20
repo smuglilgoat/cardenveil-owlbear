@@ -37,6 +37,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T22:30Z]` `[USER]` Compact: skill tooltip on stat roll buttons + two small roll buttons between name and PV. `[CODE]` (main `a5a3dde`) ⚔️ rolls d20+bonusAttaque, 🪄 rolls 1d6+mod Esprit (canalisation), both via doRoll/dice popup with glance tooltips; compact stat chips show the skill-list tooltip like the full sheet
+## [PROGRESS]
 - `[2026-09-15T22:20Z]` `[USER]` Bump version by 0.1 + patch notes. `[CODE]` (main `987db95`) manifest 2.2.0 → 2.3.0 (verified in dist); docs/patch-notes-2.3.md — animated compact dice, editable compact notes, Sac unequipped gear, capacity detail stats + disabled roll buttons, stat skill tooltips, narratif +/− button
 ## [PROGRESS]
 - `[2026-09-15T22:10Z]` `[USER]` Disable the compact inline roll panel; make the compact notes button editable/savable. `[CODE]` (main `1d5a7e1`) lastRoll/inline panel/crit-fail CSS removed — animated dice popup is the only roll feedback in the compact window; 📝 notes panel is now an editable textarea + 💾 Sauvegarder (draft/dirty pattern, saves whole sheet, saveInFlight-guarded, instant broadcast sync); renderNotes export removed (unused)
