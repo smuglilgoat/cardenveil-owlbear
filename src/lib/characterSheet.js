@@ -1182,6 +1182,20 @@ export function onSheetBroadcast(callback) {
   };
 }
 
+/**
+ * Render notes for display: notes-toolbar markup (**bold**, __underline__)
+ * plus imported HTML, sanitized.
+ * @param {unknown} text - Raw notes
+ * @returns {string} Safe HTML
+ */
+export function renderNotes(text) {
+  return sanitizeHtml(
+    String(text ?? '')
+      .replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>')
+      .replace(/__([^_\n]+)__/g, '<u>$1</u>')
+  );
+}
+
 export function subscribeToCharacterSheet(playerId, roomId, callback) {
   const channel = supabase
     .channel(`character_sheet:${playerId}:${roomId}`)

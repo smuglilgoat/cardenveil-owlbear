@@ -19,6 +19,7 @@
     computeDerived,
     subscribeToCharacterSheet,
     onSheetBroadcast,
+    renderNotes,
     suitColor,
     suitSymbol,
     toNumber,
@@ -33,6 +34,9 @@
   let sheet = $state(null);
   let lastRoll = $state(null);
   let folded = $state(false);
+  let showNotes = $state(false);
+  const DICE_POPOVER_ID = 'cardenveil-dice';
+  let dicePopoverTimer;
   let expandedHeight = 540;
   const FOLDED_HEIGHT = 40;
 
@@ -153,7 +157,7 @@
     return rolls.some((r) => Number(r) === sides);
   }
 
-  function doRoll(label, formula) {
+  async function doRoll(label, formula) {
     try {
       const result = rollDice(formula, sheet?.stats ?? {});
       lastRoll = {
@@ -163,6 +167,26 @@
         crit: critRoll(result.formula, result.rolls),
         fail: result.rolls.some((r) => Number(r) === 1)
       };
+      // Animated dice popup (same as the main sheet); inline panel as fallback
+      try {
+        const params = new URLSearchParams({
+          label: label || '',
+          formula: result.formula || '',
+          total: result.total != null ? String(result.total) : '',
+          rolls: (result.rolls ?? []).join(','),
+          error: ''
+        });
+        await OBR.popover.open({
+          id: DICE_POPOVER_ID,
+          url: `${window.location.origin}/dice.html?${params.toString()}`,
+          width: 340,
+          height: 280
+        });
+        clearTimeout(dicePopoverTimer);
+        dicePopoverTimer = setTimeout(() => OBR.popover.close(DICE_POPOVER_ID).catch(() => {}), 6000);
+      } catch (err) {
+        console.warn('Dice popover unavailable, keeping inline result:', err);
+      }
       dispatch(roomId, {
         type: 'USE_CAPACITY',
         playerId,
@@ -221,6 +245,13 @@
             <span class="text-[7px] font-bold text-[#9ca3af]">PORTRAIT</span>
           {/if}
         </div>
+        <button
+          onclick={() => (showNotes = !showNotes)}
+          title={showNotes ? 'Masquer les notes' : 'Voir les notes'}
+          class="w-6 h-8 rounded-md bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[11px] flex items-center justify-center shrink-0 transition-colors"
+        >
+          📝
+        </button>
         <div class="flex-1 min-w-0">
           <div class="text-sm font-bold truncate">{sheet.identity?.nom || 'Sans nom'}</div>
           <div class="text-[10px] text-[#9ca3af] truncate">
@@ -294,6 +325,14 @@
         class="flex items-center justify-center gap-4 mt-2 pt-2 border-t border-[#374151]"
       />
     </div>
+
+    {#if showNotes}
+      <div class="shrink-0 max-h-40 overflow-y-auto scrollbar-thin px-3 py-2 border-b border-[#374151]">
+        <div class="rich-html text-[11px] leading-relaxed whitespace-pre-wrap">
+          {@html renderNotes(sheet.notes) || 'Aucune note.'}
+        </div>
+      </div>
+    {/if}
 
     <!-- Favoris -->
     <div class="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-2.5 space-y-2">

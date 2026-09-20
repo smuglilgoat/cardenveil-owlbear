@@ -764,7 +764,7 @@
             onkeydown={(e) => e.key === 'Enter' && handleStatRoll(stat)}
             role="button"
             tabindex="0"
-            title={`Jet de ${statLabel} (d20)`}
+            use:tooltip={`Jet de ${statLabel} (d20) · Compétences : ${SKILL_GROUPS.find((g) => g.stat === stat)?.skills.map((sk) => SKILL_LABELS[sk] || sk).join(', ') || '—'}`}
             class="bg-[#111827] rounded-md px-1.5 py-1 cursor-pointer hover:bg-[#1f2937] transition-colors text-center"
           >
             <div class="text-[8px] font-bold text-[#9ca3af] leading-none">{statLabel.toUpperCase()}</div>
@@ -1022,11 +1022,12 @@
                 </div>
                 <!-- Actions row: full width, bottom -->
                 <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-[#242424]">
-                  {#if capacity.value?.main && isDiceFormula(capacity.value.main, view?.stats ?? {})}
+                  {#if capacity.value?.main}
                     <button
-                      onclick={() => handleDiceRoll(capacity.name || 'Capacité', capacity.value.main)}
-                      title="Lancer {capacity.value.main}"
-                      class="flex-1 min-w-0 px-2 h-8 @2xl:h-9 bg-slate-500 rounded-lg text-[15px] font-bold hover:bg-slate-400 transition-colors truncate"
+                      onclick={() => isDiceFormula(capacity.value.main, view?.stats ?? {}) && handleDiceRoll(capacity.name || 'Capacité', capacity.value.main)}
+                      disabled={!isDiceFormula(capacity.value.main, view?.stats ?? {})}
+                      title={isDiceFormula(capacity.value.main, view?.stats ?? {}) ? `Lancer ${capacity.value.main}` : `Pas une formule de dés — valeur : ${capacity.value.main}`}
+                      class="flex-1 min-w-0 px-2 h-8 @2xl:h-9 bg-slate-500 rounded-lg text-[15px] font-bold hover:bg-slate-400 transition-colors truncate disabled:opacity-50 disabled:cursor-default"
                     >
                       🎲 {capacity.value.main}
                     </button>
@@ -1165,11 +1166,27 @@
           </div>
           {/if}
 
-          <!-- Sac: non-equipment, non-weapon items as compact chips (potions, scrolls…) -->
-          {#if view.inventoryItems?.some((item) => !['Arme', 'Armure', 'Équipement'].includes(item?.type))}
-            <div class="flex flex-wrap gap-1.5">
-              {#each view.inventoryItems ?? [] as item}
-                {#if item?.name && !['Arme', 'Armure', 'Équipement'].includes(item?.type)}
+          {#if view}
+            <!-- Sac: free items + unequipped weapons + unequipped armor/equipment -->
+            {@const unequippedWeapons = (view.weapons ?? []).filter((w) => w?.nom && !w?.equipped)}
+            {@const unequippedGear = (view.inventoryItems ?? []).filter((i) =>
+              ['Armure', 'Équipement'].includes(i?.type) && i?.name &&
+              !Object.values(view.equipment ?? {}).some((d) => d?.nom === (i?.equipmentData?.nom || i?.weaponName || i?.name))
+            )}
+            {@const bagItems = (view.inventoryItems ?? []).filter((item) => item?.name && !['Arme', 'Armure', 'Équipement'].includes(item?.type))}
+            {#if unequippedWeapons.length || unequippedGear.length || bagItems.length}
+              <div class="flex flex-wrap gap-1.5">
+                {#each unequippedWeapons as weapon}
+                  <div
+                    use:tooltip={stripHtml(weapon.notes) || weapon.nom}
+                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 cursor-help hover:bg-[#374151] transition-colors"
+                    style="border-left-color: {itemTypeColor('Arme')}"
+                  >
+                    <span class="text-[12px] font-semibold truncate max-w-40">{weapon.nom}</span>
+                    {#if weapon.de}<span class="text-[11px] font-bold text-[#9ca3af] shrink-0">{weapon.de}</span>{/if}
+                  </div>
+                {/each}
+                {#each [...unequippedGear, ...bagItems] as item}
                   <div
                     use:tooltip={itemNotes(item) !== '—' ? itemNotes(item) : item?.name}
                     class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 cursor-help hover:bg-[#374151] transition-colors"
@@ -1187,11 +1204,11 @@
                       <span class="text-[11px] font-bold text-[#9ca3af] shrink-0">{itemCenterValue(item)}</span>
                     {/if}
                   </div>
-                {/if}
-              {/each}
-            </div>
-          {:else}
-            <div class="text-[11px] text-[#9ca3af]">Le sac est vide — armures et armes vivent dans les emplacements ci-dessus.</div>
+                {/each}
+              </div>
+            {:else}
+              <div class="text-[11px] text-[#9ca3af]">Le sac est vide — armures et armes vivent dans les emplacements ci-dessus.</div>
+            {/if}
           {/if}
         </div>
       {:else if activeTab === 'narratif'}
@@ -1208,9 +1225,10 @@
                 <div class="text-right mt-1.5">
                   <button
                     onclick={() => (expandedNarrative[field] = !expandedNarrative[field])}
-                    class="text-[10px] font-semibold text-[#9ca3af] hover:text-white transition-colors"
+                    title={expandedNarrative[field] ? 'Réduire' : 'Développer'}
+                    class="w-5 h-5 rounded-full bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[10px] font-bold flex items-center justify-center ml-auto transition-colors"
                   >
-                    {expandedNarrative[field] ? 'Réduire ←' : 'Développer →'}
+                    {expandedNarrative[field] ? '−' : '+'}
                   </button>
                 </div>
               </div>
@@ -2163,11 +2181,39 @@
         {#if stripHtml(expandedCapacity.description)}
           <div class="rich-html text-[13px] text-[#d1d5db] leading-relaxed mt-3">{@html sanitizeHtml(expandedCapacity.description)}</div>
         {/if}
+        {#if expandedCapacity.value?.main || expandedCapacity.incantation || expandedCapacity.save}
+          <div class="mt-3 space-y-1.5 border-t border-[#374151] pt-3">
+            {#if expandedCapacity.value?.main}
+              <div class="flex gap-2 text-[11px]">
+                <span class="text-[#9ca3af] w-24 shrink-0">Valeur</span>
+                <span class="font-bold flex-1">{expandedCapacity.value.main}{expandedCapacity.value.bonus ? ` / ${expandedCapacity.value.bonus}` : ''}</span>
+              </div>
+            {/if}
+            {#if expandedCapacity.incantation}
+              <div class="flex gap-2 text-[11px]">
+                <span class="text-[#9ca3af] w-24 shrink-0">Incantation</span>
+                <span class="font-bold flex-1">{expandedCapacity.incantation}</span>
+              </div>
+            {/if}
+            {#if expandedCapacity.save}
+              <div class="flex gap-2 text-[11px]">
+                <span class="text-[#9ca3af] w-24 shrink-0">Sauvegarde</span>
+                <span class="font-bold flex-1">{expandedCapacity.save}</span>
+              </div>
+            {/if}
+            {#if expandedCapacity.prepared}
+              <div class="flex gap-2 text-[11px]">
+                <span class="text-[#9ca3af] w-24 shrink-0">Statut</span>
+                <span class="px-1.5 py-0.5 bg-indigo-600 text-white text-[9px] font-bold rounded">Préparée</span>
+              </div>
+            {/if}
+          </div>
+        {/if}
         {#if expandedCapacity.value?.main && isDiceFormula(expandedCapacity.value.main, view?.stats ?? {})}
           <button
             onclick={() => handleDiceRoll(expandedCapacity.name || 'Capacité', expandedCapacity.value.main)}
             title="Lancer {expandedCapacity.value.main}"
-            class="mt-4 px-4 h-10 bg-slate-500 rounded-lg text-[15px] font-bold hover:bg-slate-400 transition-colors"
+            class="mt-3 px-4 h-10 bg-slate-500 rounded-lg text-[15px] font-bold hover:bg-slate-400 transition-colors"
           >
             🎲 Lancer {expandedCapacity.value.main}
           </button>
