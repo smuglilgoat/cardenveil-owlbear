@@ -36,7 +36,7 @@ function buildManifest(mode) {
   const isDev = mode === 'development';
   return {
     name: isDev ? 'Cardenveil (Dev)' : 'Cardenveil',
-    version: '2.3.0',
+    version: '2.3.1',
     manifest_version: 1,
     author: "Ahmed MOUSSAOUI",
     homepage_url: "https://github.com/smuglilgoat/cardenveil-owlbear",
