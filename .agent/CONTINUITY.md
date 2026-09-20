@@ -38,6 +38,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T23:20Z]` `[USER]` Gear feedback round 2: template slot not pre-filled; Cape/Amulette/Anneau models missing; equipped items' stat fields hidden; doll stats missing. `[CODE]` (main `71f0a2e`) ROOT CAUSE 1: duplicate `slot:` key in the add object ('' winning) — removed. itemFieldsFor now driven by SLOT_FIELDS[slot] regardless of type (imports type gear as 'Arme'/'Consommable') → equipped pieces show their stat fields. NEW: syncSlotsFromItems pushes each slotted item's equipmentData into the matching slot (same nom) on saveEdit + import — item is the editable source, slot copy feeds computeDerived + doll chips. New models Cape/Amulette/Anneau (+icons). 154 tests
+## [PROGRESS]
 - `[2026-09-15T23:05Z]` `[USER]` Gear feedback round: compact ⚔️/🪄 formulas wrong; slot fields vanish on slot select; can't edit stats on equipped pieces; Armures family rename; template slot pre-fill. `[CODE]` (main `a2ca6c6`) ⚔️ = 1d6+bonus (the d20 survived an aborted script — re-applied); 🪄 = Nd6 (N=mod Esprit, min 1); itemFieldsFor slotted list keeps 'slot' (field no longer disappears); FAMILY_SUMMARIES 'Armures'→'Équipement'; catalog Équipement pieces carry slot, Modèle pre-fills slot; type→Équipement defaults family. LESSON: verify aborted multi-edit scripts fully re-apply
 ## [PROGRESS]
 - `[2026-09-15T22:55Z]` `[USER]` Template items get default icons; SAC section title; compact ⚔️ rolls d6. `[CODE]` (main `8c9de03`) `FAMILY_ICONS` (per weapon family) + `ITEM_ICONS` (Plastron 🛡️/Casque ⛑️/Bottes 🥾/Gantelets 🧤); template add pre-fills icon (item + weapon); findEquipmentTemplate returns family; SAC h2 separates it from the doll; compact ⚔️ = 1d6+bonusAttaque (was d20)
