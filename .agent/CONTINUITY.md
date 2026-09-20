@@ -38,6 +38,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T23:05Z]` `[USER]` Gear feedback round: compact ⚔️/🪄 formulas wrong; slot fields vanish on slot select; can't edit stats on equipped pieces; Armures family rename; template slot pre-fill. `[CODE]` (main `a2ca6c6`) ⚔️ = 1d6+bonus (the d20 survived an aborted script — re-applied); 🪄 = Nd6 (N=mod Esprit, min 1); itemFieldsFor slotted list keeps 'slot' (field no longer disappears); FAMILY_SUMMARIES 'Armures'→'Équipement'; catalog Équipement pieces carry slot, Modèle pre-fills slot; type→Équipement defaults family. LESSON: verify aborted multi-edit scripts fully re-apply
+## [PROGRESS]
 - `[2026-09-15T22:55Z]` `[USER]` Template items get default icons; SAC section title; compact ⚔️ rolls d6. `[CODE]` (main `8c9de03`) `FAMILY_ICONS` (per weapon family) + `ITEM_ICONS` (Plastron 🛡️/Casque ⛑️/Bottes 🥾/Gantelets 🧤); template add pre-fills icon (item + weapon); findEquipmentTemplate returns family; SAC h2 separates it from the doll; compact ⚔️ = 1d6+bonusAttaque (was d20)
 ## [PROGRESS]
 - `[2026-09-15T22:30Z]` `[USER]` Compact: skill tooltip on stat roll buttons + two small roll buttons between name and PV. `[CODE]` (main `a5a3dde`) ⚔️ rolls d20+bonusAttaque, 🪄 rolls 1d6+mod Esprit (canalisation), both via doRoll/dice popup with glance tooltips; compact stat chips show the skill-list tooltip like the full sheet
