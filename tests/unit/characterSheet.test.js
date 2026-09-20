@@ -241,6 +241,16 @@ describe('Character Sheet dice helpers', () => {
       expect(next.weapons[1].equipped).toBe(false);
     });
 
+    it('unequipHand should not evict legacy untagged off-hand weapon when clearing main', () => {
+      const legacySword = { nom: 'Épée longue', de: '1d8', equipped: true, hand: null };
+      const legacyDagger = { nom: 'Dague', de: '1d4', equipped: true, hand: null };
+      const next = unequipHand({ weapons: [legacySword, legacyDagger] }, 'main');
+      expect(next.weapons[0].equipped).toBe(false);
+      expect(next.weapons[1].equipped).toBe(true);
+      expect(next.weapons[1].hand).toBe('off');
+      expect(handSlots(next).off?.nom).toBe('Dague');
+    });
+
     it('handSlots should keep the off-hand weapon in place when main is unequipped (mixed tags)', () => {
       const sheet = { weapons: [sword, { ...dagger, equipped: true }] }; // main tagged, off tagged
       const { main, off } = handSlots(sheet);

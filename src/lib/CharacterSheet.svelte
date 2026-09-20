@@ -1199,11 +1199,21 @@
             {#if unequippedWeapons.length || unequippedGear.length || bagItems.length}
               <div class="flex flex-wrap gap-1.5">
                 {#each unequippedWeapons as weapon}
+                  {@const wIcon = (view.inventoryItems ?? []).find(
+                    (i) => i?.type === 'Arme' && (i?.weaponName || i?.name) === weapon.nom
+                  )?.icon}
                   <div
                     use:tooltip={stripHtml(weapon.notes) || weapon.nom}
                     class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 cursor-help hover:bg-[#374151] transition-colors"
                     style="border-left-color: {itemTypeColor('Arme')}"
                   >
+                    {#if wIcon && isImageUrl(wIcon)}
+                      <img src={wIcon} alt="" class="w-4 h-4 rounded object-cover shrink-0" />
+                    {:else if wIcon}
+                      <span class="text-[12px] leading-none shrink-0">{wIcon}</span>
+                    {:else}
+                      <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background: {itemTypeColor('Arme')}"></span>
+                    {/if}
                     <span class="text-[12px] font-semibold truncate max-w-40">{weapon.nom}</span>
                     {#if weapon.de}<span class="text-[11px] font-bold text-[#9ca3af] shrink-0">{weapon.de}</span>{/if}
                   </div>

@@ -1224,13 +1224,23 @@ export function equipWeapon(sheet, weapon, hand = 'main') {
  * @returns {Object} New sheet
  */
 export function unequipHand(sheet, hand) {
+  // resolve the actual occupant of the hand slot; legacy untagged equipped
+  // weapons default to 'main', so a name/hand fallback would evict the
+  // off-hand weapon too (Vider bug) — match the occupant by reference
+  const slots = handSlots(sheet);
+  const occupant = slots[hand];
+  const other = slots[hand === 'main' ? 'off' : 'main'];
   return {
     ...sheet,
-    weapons: (sheet?.weapons ?? []).map((w) =>
-      w?.equipped && ((w?.hand ?? 'main') === hand || isTwoHanded(w))
-        ? { ...w, equipped: false, hand: null }
-        : w
-    ),
+    weapons: (sheet?.weapons ?? []).map((w) => {
+      if (!w?.equipped) return w;
+      if (occupant && w === occupant) return { ...w, equipped: false, hand: null };
+      // pin the other hand's (untagged) occupant so it keeps its slot after the clear
+      if (other && w === other && !w?.hand) return { ...w, hand: hand === 'main' ? 'off' : 'main' };
+      // no distinct off occupant: an equipped two-hander occupies both hands
+      if (!occupant && isTwoHanded(w) && w?.hand !== 'off') return { ...w, equipped: false, hand: null };
+      return w;
+    }),
   };
 }
 
