@@ -316,11 +316,6 @@ export const EQUIPMENT_CATALOG = [
 ];
 
 /**
- * Find a catalog entry by name (returns it with its group + kind).
- * @param {string} [nom] - Catalog item name
- * @returns {Object|null} { nom, de, degats, proprietes, group, kind }
- */
-/**
  * Condensed family property summaries (source: CARDENVEIL.md "Famille" sections).
  * Keyed by family name; used by the item editor to auto-fill `familySummary`
  * when a family is chosen, and as the family dropdown list.
@@ -393,11 +388,42 @@ export function itemFieldsFor(type, slot) {
   return itemFields(type);
 }
 
+/**
+ * Default emoji icon per catalog family, used when a template creates an
+ * item/weapon without one.
+ */
+export const FAMILY_ICONS = {
+  'Épées droites': '🗡️',
+  'Épées courbes': '🗡️',
+  'Haches': '🪓',
+  'Massues': '🔨',
+  'Armes à allonge': '🔱',
+  'Arcs': '🏹',
+  'Arbalètes': '🔫',
+  'Catalyseurs': '🪄',
+  'Boucliers': '🛡️',
+  'Armes uniques': '⚔️',
+  'Équipement': '🛡️',
+};
+
+// Default icons for the Équipement slot pieces (more specific than the family icon)
+export const ITEM_ICONS = {
+  Plastron: '🛡️',
+  Casque: '⛑️',
+  Bottes: '🥾',
+  Gantelets: '🧤',
+};
+
+/**
+ * Find a catalog entry by name (returns it with its group + kind + family).
+ * @param {string} [nom] - Catalog item name
+ * @returns {Object|null} { nom, de, degats, proprietes, group, family, kind }
+ */
 export function findEquipmentTemplate(nom) {
   if (!nom) return null;
   for (const group of EQUIPMENT_CATALOG) {
     const hit = group.items.find((item) => item.nom === nom);
-    if (hit) return { ...hit, group: group.group, kind: group.kind };
+    if (hit) return { ...hit, group: group.group, family: group.family, kind: group.kind };
   }
   return null;
 }

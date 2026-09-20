@@ -17,6 +17,8 @@
     equipWeapon,
     itemFields,
     itemFieldsFor,
+    FAMILY_ICONS,
+    ITEM_ICONS,
     normalizeItemType,
     SUIT_LABELS,
     SUIT_SYMBOLS,
@@ -1170,6 +1172,7 @@
           </div>
           {/if}
 
+          <h2 class="text-[15px] font-bold mt-4 mb-2">SAC</h2>
           {#if view}
             <!-- Sac: free items + unequipped weapons + unequipped armor/equipment -->
             {@const unequippedWeapons = (view.weapons ?? []).filter((w) => w?.nom && !w?.equipped)}
@@ -1682,6 +1685,7 @@
                           const fam = tpl?.family ?? '';
                           editSheet.inventoryItems = [...(editSheet.inventoryItems || []), {
                             type: tpl ? 'Équipement' : 'Divers',
+                            icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
                             name: tpl?.nom ?? '',
                             degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
                             slot: '',
@@ -1821,6 +1825,7 @@
                         onclick={() => {
                           const tpl = findEquipmentTemplate(weaponTemplate);
                           editSheet.weapons = [...(editSheet.weapons || []), {
+                            icon: tpl ? FAMILY_ICONS[tpl.family] ?? '' : '',
                             nom: tpl?.nom ?? '',
                             de: tpl?.de ?? '',
                             degats: tpl?.degats ?? '',
