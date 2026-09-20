@@ -20,6 +20,7 @@
     FAMILY_ICONS,
     ITEM_ICONS,
     normalizeItemType,
+    syncSlotsFromItems,
     SUIT_LABELS,
     SUIT_SYMBOLS,
     FAMILY_SUMMARIES,
@@ -281,7 +282,7 @@
     isSaving = true;
     try {
       applyMasteryText(editSheet);
-      editSheet = syncStatsFromEquipment(syncSkillBonuses(editSheet));
+      editSheet = syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(editSheet)));
       await saveCharacterSheet(playerId, roomId, editSheet);
       sheet = editSheet;
       editSheet = null;
@@ -1689,7 +1690,6 @@
                             slot: tpl?.slot ?? '',
                             name: tpl?.nom ?? '',
                             degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
-                            slot: '',
                             family: fam,
                             familySummary: fam ? FAMILY_SUMMARIES[fam] ?? '' : '',
                             ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),

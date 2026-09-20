@@ -310,7 +310,10 @@ export const EQUIPMENT_CATALOG = [
       { nom: 'Plastron', de: '', degats: '', slot: 'plastron', proprietes: 'Déflexion + Armure (plastron)' },
       { nom: 'Casque', de: '', degats: '', slot: 'casque', proprietes: 'Déflexion + Volonté (casque)' },
       { nom: 'Bottes', de: '', degats: '', slot: 'bottes', proprietes: 'Déflexion + Vitesse (bottes)' },
-      { nom: 'Gantelets', de: '', degats: '', slot: 'gantelets', proprietes: 'Déflexion + Initiative (gantelets)' }
+      { nom: 'Gantelets', de: '', degats: '', slot: 'gantelets', proprietes: 'Déflexion + Initiative (gantelets)' },
+      { nom: 'Cape', de: '', degats: '', slot: 'cape', proprietes: 'Déflexion (cape)' },
+      { nom: 'Amulette', de: '', degats: '', slot: 'amulette', proprietes: 'Enchantement (amulette)' },
+      { nom: 'Anneau', de: '', degats: '', slot: 'anneau', proprietes: 'Enchantement (anneau)' }
     ]
   }
 ];
@@ -382,7 +385,7 @@ export const SLOT_FIELDS = {
  * @returns {string[]}
  */
 export function itemFieldsFor(type, slot) {
-  if (normalizeItemType(type) === 'Équipement' && SLOT_FIELDS[slot]) {
+  if (SLOT_FIELDS[slot]) {
     return ['icon', 'slot', 'family', 'familySummary', 'raretePrix', ...SLOT_FIELDS[slot], 'description'];
   }
   return itemFields(type);
@@ -412,6 +415,9 @@ export const ITEM_ICONS = {
   Casque: '⛑️',
   Bottes: '🥾',
   Gantelets: '🧤',
+  Cape: '🧥',
+  Amulette: '◈',
+  Anneau: '💍',
 };
 
 /**
@@ -773,7 +779,7 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
     // the race id so game-side race lookups keep working.
     merged.identity.race = normalizeRaceName(merged.identity.race);
 
-    const synced = syncStatsFromEquipment(syncSkillBonuses(merged));
+    const synced = syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(merged)));
 
     const payloadBytes = JSON.stringify(synced).length;
     if (payloadBytes > MAX_SHEET_BYTES) {
@@ -984,6 +990,25 @@ export function computeDerived(sheet = {}) {
  * @param {Object} sheet - Character sheet data
  * @returns {Object} New sheet object with synced fields
  */
+/**
+ * Push each slotted item's equipmentData into the matching equipment slot,
+ * keeping the two copies in sync (the item is the editable source).
+ * @param {Object} [sheet] - Character sheet
+ * @returns {Object} New sheet with synced equipment slots
+ */
+export function syncSlotsFromItems(sheet = {}) {
+  if (!sheet) return sheet;
+  const equipment = { ...(sheet.equipment ?? {}) };
+  for (const item of sheet.inventoryItems ?? []) {
+    const slot = item?.slot;
+    const data = item?.equipmentData;
+    if (!slot || !data?.nom || !SLOT_FIELDS[slot]) continue;
+    const current = equipment[slot];
+    if (current?.nom === data.nom) equipment[slot] = { ...data };
+  }
+  return { ...sheet, equipment };
+}
+
 export function syncStatsFromEquipment(sheet) {
   if (!sheet) return sheet;
   const c = computeDerived(sheet);

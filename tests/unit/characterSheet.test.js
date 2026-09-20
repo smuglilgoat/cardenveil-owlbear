@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -261,6 +261,21 @@ describe('Character Sheet dice helpers', () => {
     });
   });
 
+    it('syncSlotsFromItems should push item stats into the matching slot', () => {
+      const data = { nom: 'Casque', deflexion: '1', volonte: '3' };
+      const next = syncSlotsFromItems({
+        equipment: { casque: { nom: 'Casque' } },
+        inventoryItems: [{ type: 'Équipement', slot: 'casque', equipmentData: data }],
+      });
+      expect(next.equipment.casque.volonte).toBe('3');
+      // a slot holding a different item is left alone
+      const untouched = syncSlotsFromItems({
+        equipment: { casque: { nom: 'Autre' } },
+        inventoryItems: [{ slot: 'casque', equipmentData: data }],
+      });
+      expect(untouched.equipment.casque.nom).toBe('Autre');
+    });
+
   describe('gear type rework', () => {
     it('normalizeItemType should merge Armure into Équipement', () => {
       expect(normalizeItemType('Armure')).toBe('Équipement');
@@ -272,7 +287,8 @@ describe('Character Sheet dice helpers', () => {
       expect(itemFieldsFor('Équipement', 'casque')).toEqual(['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'deflexion', 'volonte', 'description']);
       expect(itemFieldsFor('Équipement', 'anneau')).toEqual(['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'enchantement', 'description']);
       expect(itemFieldsFor('Équipement', '')).toBe(ITEM_FIELDS['Équipement']); // no slot yet
-      expect(itemFieldsFor('Consommable', 'casque')).toBe(ITEM_FIELDS.Consommable); // non-gear ignores slot
+      // the slot drives the fields — imports type gear items as 'Arme'/'Consommable'
+      expect(itemFieldsFor('Consommable', 'casque')).toContain('deflexion');
     });
   });
 
