@@ -37,6 +37,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T22:00Z]` `[USER]` 7-item feedback batch. `[CODE]` (main `634bb2b`) ① compact doRoll opens the animated dice popup (async doRoll, inline fallback) ② narratif expand button → small round '+/−' ③ capacity roll button always shown when value exists (disabled + tooltip without a valid formula) ④ expand modal shows Valeur/Incantation/Sauvegarde/Préparée ⑤ stat hover tooltip lists related skills (SKILL_GROUPS) ⑥ Sac includes unequipped weapons (from weapons array) + unequipped Armure/Équipement items (nom not mapped to a slot) ⑦ compact 📝 button toggles a rich notes panel (renderNotes shared helper)
+## [PROGRESS]
 - `[2026-09-15T21:50Z]` `[USER]` Bump version by 0.1 + patch notes. `[CODE]` (main `c8faa02`) manifest 2.1.0 → 2.2.0 (verified in dist); docs/patch-notes-2.2.md — inventaire rework (doll/hand slots/Sac chips/icons/typed fields), mastered skills, inline notes, editor dropdowns, instant popover sync, tooltips, +10% fonts, mouvement 5
 ## [PROGRESS]
 - `[2026-09-15T21:40Z]` `[USER]` Report: inline notes not persisted on reload; ÉDITION notes save not shown in the notes view. `[CODE]` (main `103500c`) Root cause: the notesDraft-sync \$effect ran at mount while sheet/view were still null → view.notes threw → effect dead for the whole session → textarea never synced (data WAS saved, just never displayed). Fix: `if (view && !notesDraftDirty)`. LESSON: guard \$effects against the pre-load null sheet
