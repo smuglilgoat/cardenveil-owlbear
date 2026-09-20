@@ -261,6 +261,22 @@
             {raceLabel(sheet.identity?.race) || '—'} · Niv. {sheet.identity?.niveau ?? 1}
           </div>
         </div>
+        <div class="flex flex-col gap-1 shrink-0">
+          <button
+            onclick={() => doRoll('Bonus Attaque', `d20${fmt(calc.bonusAttaque)}`)}
+            use:tooltip={`Bonus d'attaque (d20 ${fmt(calc.bonusAttaque)})`}
+            class="w-6 h-6 rounded-md bg-[#111827] border border-[#374151] hover:bg-[#374151] text-[11px] flex items-center justify-center transition-colors"
+          >
+            ⚔️
+          </button>
+          <button
+            onclick={() => doRoll('Mod Esprit D6', `1d6${fmt(calc.canalisation)}`)}
+            use:tooltip={`Mod Esprit D6 (1d6 ${fmt(calc.canalisation)})`}
+            class="w-6 h-6 rounded-md bg-[#111827] border border-[#374151] hover:bg-[#374151] text-[11px] flex items-center justify-center transition-colors"
+          >
+            🪄
+          </button>
+        </div>
         <div class="text-right shrink-0">
           <div class="text-[8px] font-bold text-[#9ca3af]">PV</div>
           <div class="text-lg font-bold leading-none">
@@ -276,7 +292,7 @@
             role="button"
             tabindex="0"
             onkeydown={(e) => e.key === 'Enter' && doRoll(STAT_LABELS[stat] || stat, `d20${statMod(stat) >= 0 ? '+' + statMod(stat) : statMod(stat)}`)}
-            title={`Jet de ${STAT_LABELS[stat] || stat} (d20)`}
+            use:tooltip={`Jet de ${STAT_LABELS[stat] || stat} (d20) · Compétences : ${SKILL_GROUPS.find((g) => g.stat === stat)?.skills.map((sk) => SKILL_LABELS[sk] || sk).join(', ') || '—'}`}
             class="bg-[#111827] rounded-md px-1.5 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
           >
             <div class="text-[7px] font-bold text-[#9ca3af]">{(STAT_LABELS[stat] || stat).toUpperCase()}</div>
