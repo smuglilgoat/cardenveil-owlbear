@@ -2135,7 +2135,19 @@
                     slotPickerOpen = false;
                   }}
                 >
-                  <div class="w-1 h-5 rounded-full {expandedSlot.kind === 'hand' ? 'bg-[#f87171]' : 'bg-indigo-500'}"></div>
+                  <div
+                    class="w-6 h-6 rounded-md bg-[#242424] border border-[#374151] flex items-center justify-center text-[10px] shrink-0"
+                  >
+                    {#if candidate?.icon && isImageUrl(candidate.icon)}
+                      <img src={candidate.icon} alt="" class="w-full h-full object-cover rounded" />
+                    {:else if candidate?.icon}
+                      <span>{candidate.icon}</span>
+                    {:else if expandedSlot.kind === 'slot' && candidate?.equipmentData?.nom}
+                      <span class="text-[10px]">{candidate.equipmentData.nom === 'Casque' ? '⛑' : candidate.equipmentData.nom === 'Plastron' ? '🛡' : '◈'}</span>
+                    {:else}
+                      ›
+                    {/if}
+                  </div>
                   <span class="text-[12px] font-semibold truncate flex-1">{candName || '—'}</span>
                   {#if expandedSlot.kind === 'hand'}
                     <span class="text-[11px] text-[#9ca3af] shrink-0">{candidate.de || '—'}{isTwoHanded(candidate) ? ' · 2M' : ''}{candidate.equipped ? ' · équipée' : ''}</span>
