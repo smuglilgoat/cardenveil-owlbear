@@ -167,3 +167,8 @@
 - `[2026-06-17T18:55Z]` `[CODE]` GM initiative URL: 5 files changed, 100 insertions, 31 deletions
 - `[2026-06-17T19:12Z]` `[CODE]` Supabase reducer sync: 1 file changed, 223 insertions, 36 deletions
 - `[2026-06-17T19:28Z]` `[CODE]` Aasimar exchange fix: 4 files changed, 33 insertions, 7 deletions
+
+## [2026-02-13T00:00Z] fix/hand-vider-icons → main @ 7820dbe
+- [CODE] `unequipHand` now resolves the slot occupant via `handSlots` (reference match) — the old `(w?.hand ?? 'main') === hand` fallback evicted legacy untagged off-hand weapons when Vider was clicked on main. Surviving untagged weapon is pinned with an explicit `hand` tag so it keeps its slot.
+- [CODE] Sac weapon chips render icons (looked up from the matching `Arme` inventory item; image/emoji/dot fallback identical to item chips).
+- [CODE] Tests 157/157 (`unequipHand should not evict legacy untagged off-hand weapon when clearing main` added); build OK.
