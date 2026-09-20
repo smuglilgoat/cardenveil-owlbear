@@ -1173,14 +1173,23 @@ export function isTwoHanded(weapon) {
  */
 export function handSlots(sheet = {}) {
   const eq = (sheet?.weapons ?? []).filter((w) => w?.nom && w?.equipped);
-  // respect the hand tag strictly; legacy equipped-without-hand counts as main
-  const main = eq.find((w) => w?.hand === 'main') ?? eq.find((w) => !w?.hand) ?? null;
-  const two = main ? isTwoHanded(main) : false;
-  const off =
-    two || !main
-      ? null
-      : eq.find((w) => w !== main && w?.hand === 'off') ?? eq.find((w) => w !== main && !w?.hand) ?? null;
-  return { main, off, twoHanded: two };
+  const taggedMain = eq.find((w) => w?.hand === 'main');
+  const taggedOff = eq.find((w) => w?.hand === 'off');
+  const untagged = eq.filter((w) => !w?.hand);
+  let main = null;
+  let off = null;
+  if (taggedMain) {
+    main = taggedMain;
+    off = taggedOff ?? untagged[0] ?? null;
+  } else if (taggedOff) {
+    off = taggedOff;
+    main = untagged[0] ?? null;
+  } else {
+    // no tags at all: legacy equipped weapons keep their array order
+    main = untagged[0] ?? null;
+    off = untagged[1] ?? null;
+  }
+  return { main, off, twoHanded: main ? isTwoHanded(main) : false };
 }
 
 /**

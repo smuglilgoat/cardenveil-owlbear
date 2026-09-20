@@ -241,6 +241,17 @@ describe('Character Sheet dice helpers', () => {
       expect(next.weapons[1].equipped).toBe(false);
     });
 
+    it('handSlots should keep the off-hand weapon in place when main is unequipped (mixed tags)', () => {
+      const sheet = { weapons: [sword, { ...dagger, equipped: true }] }; // main tagged, off tagged
+      const { main, off } = handSlots(sheet);
+      expect(main).toBe(sword);
+      expect(off).toBeDefined();
+      // legacy off-hand (no tag) with a tagged main: stays off-hand in the display
+      const legacyOff = { ...dagger, hand: null };
+      const mixed = handSlots({ weapons: [sword, legacyOff] });
+      expect(mixed.off).toBe(legacyOff);
+    });
+
     it('computeDerived should use the main-hand weapon for bonusAttaque', () => {
       const calc = computeDerived({
         stats: { force: 14, agilite: 10, esprit: 10, social: 10 },
