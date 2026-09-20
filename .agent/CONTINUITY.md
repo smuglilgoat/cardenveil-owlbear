@@ -172,3 +172,4 @@
 - [CODE] `unequipHand` now resolves the slot occupant via `handSlots` (reference match) — the old `(w?.hand ?? 'main') === hand` fallback evicted legacy untagged off-hand weapons when Vider was clicked on main. Surviving untagged weapon is pinned with an explicit `hand` tag so it keeps its slot.
 - [CODE] Sac weapon chips render icons (looked up from the matching `Arme` inventory item; image/emoji/dot fallback identical to item chips).
 - [CODE] Tests 157/157 (`unequipHand should not evict legacy untagged off-hand weapon when clearing main` added); build OK.
+- [CODE] follow-up @ 37b6558: Sac weapon chips prefer the weapon's own `icon` field, falling back to the matching `Arme` inventory item's icon (weapons edited in ARMES can carry their own icon).
