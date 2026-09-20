@@ -173,3 +173,4 @@
 - [CODE] Sac weapon chips render icons (looked up from the matching `Arme` inventory item; image/emoji/dot fallback identical to item chips).
 - [CODE] Tests 157/157 (`unequipHand should not evict legacy untagged off-hand weapon when clearing main` added); build OK.
 - [CODE] follow-up @ 37b6558: Sac weapon chips prefer the weapon's own `icon` field, falling back to the matching `Arme` inventory item's icon (weapons edited in ARMES can carry their own icon).
+- [CODE] release @ c3e2469: plugin version 2.3.0 → 2.3.1 (vite.config.js manifest); patch notes in docs/patch-notes-2.3.1.md (Vider fix + Sac weapon icons).
