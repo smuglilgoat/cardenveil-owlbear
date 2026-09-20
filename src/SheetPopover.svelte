@@ -19,7 +19,6 @@
     computeDerived,
     subscribeToCharacterSheet,
     onSheetBroadcast,
-    renderNotes,
     suitColor,
     suitSymbol,
     toNumber,
@@ -32,9 +31,27 @@
   const popoverId = params.get('popoverId') || 'cardenveil-sheet';
 
   let sheet = $state(null);
-  let lastRoll = $state(null);
   let folded = $state(false);
   let showNotes = $state(false);
+  let notesDraft = $state('');
+  let notesDraftDirty = $state(false);
+
+  // Follow external sheet updates until the user types
+  $effect(() => {
+    if (showNotes && !notesDraftDirty) notesDraft = sheet?.notes ?? '';
+  });
+
+  function saveNotes() {
+    if (!sheet) return;
+    notesDraftDirty = false;
+    sheet = { ...sheet, notes: notesDraft };
+    saveInFlight = true;
+    saveCharacterSheet(playerId, roomId, sheet)
+      .catch(console.error)
+      .finally(() => {
+        saveInFlight = false;
+      });
+  }
   const DICE_POPOVER_ID = 'cardenveil-dice';
   let dicePopoverTimer;
   let expandedHeight = 540;
@@ -149,24 +166,10 @@
       });
   }
 
-  // Max-value roll ("crit"): a die equal to its formula's die size (d20 → 20, d6 → 6, …)
-  function critRoll(formula, rolls = []) {
-    const match = String(formula || '').match(/d\s*(\d+)/i);
-    if (!match) return false;
-    const sides = parseInt(match[1], 10);
-    return rolls.some((r) => Number(r) === sides);
-  }
 
   async function doRoll(label, formula) {
     try {
       const result = rollDice(formula, sheet?.stats ?? {});
-      lastRoll = {
-        label,
-        ...result,
-        time: new Date().toLocaleTimeString(),
-        crit: critRoll(result.formula, result.rolls),
-        fail: result.rolls.some((r) => Number(r) === 1)
-      };
       // Animated dice popup (same as the main sheet); inline panel as fallback
       try {
         const params = new URLSearchParams({
@@ -196,7 +199,7 @@
         rolls: result.rolls
       }).catch((err) => console.error('Failed to dispatch roll:', err));
     } catch (err) {
-      lastRoll = { label, error: err.message };
+      console.warn('Roll failed:', err);
     }
   }
 
@@ -327,10 +330,23 @@
     </div>
 
     {#if showNotes}
-      <div class="shrink-0 max-h-40 overflow-y-auto scrollbar-thin px-3 py-2 border-b border-[#374151]">
-        <div class="rich-html text-[11px] leading-relaxed whitespace-pre-wrap">
-          {@html renderNotes(sheet.notes) || 'Aucune note.'}
+      <div class="shrink-0 px-3 py-2 border-b border-[#374151]">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[9px] font-bold text-[#9ca3af]">NOTES</span>
+          <button
+            onclick={saveNotes}
+            disabled={!notesDraftDirty}
+            class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-default rounded-lg text-[9px] font-bold transition-colors"
+          >
+            💾 Sauvegarder
+          </button>
         </div>
+        <textarea
+          bind:value={notesDraft}
+          oninput={() => (notesDraftDirty = true)}
+          placeholder="Aucune note."
+          class="w-full h-28 px-2 py-1.5 bg-[#242424] border border-[#374151] rounded text-[11px] leading-relaxed focus:outline-none focus:border-indigo-500 resize-y"
+        ></textarea>
       </div>
     {/if}
 
@@ -407,44 +423,11 @@
       {/if}
     </div>
 
-    <!-- Roll result -->
-    {#if lastRoll}
-      <div class="shrink-0 border-t border-[#374151] bg-[#111827] px-3 py-2">
-        {#if lastRoll.error}
-          <div class="text-[10px] text-red-300">Formule invalide : {lastRoll.error}</div>
-        {:else}
-          <div class="flex items-center gap-2.5">
-            <div class="text-2xl font-bold leading-none {lastRoll.crit ? 'crit-flash' : lastRoll.fail ? 'fail-flash' : 'text-indigo-300'}">{lastRoll.total}</div>
-            <div class="min-w-0">
-              <div class="text-[10px] font-semibold truncate">{lastRoll.label}</div>
-              <div class="text-[9px] truncate {lastRoll.crit ? 'text-amber-400' : lastRoll.fail ? 'text-red-400' : 'text-[#9ca3af]'}">
-                {lastRoll.formula}: {(lastRoll.rolls ?? []).join(', ')}{lastRoll.modifier ? ` ${lastRoll.modifier > 0 ? '+' : ''}${lastRoll.modifier}` : ''} · {lastRoll.time}
-              </div>
-            </div>
-          </div>
-        {/if}
-      </div>
-    {/if}
+    <!-- Roll result (animated dice popup only; inline panel removed) -->
   {/if}
 </div>
 
 <style>
-  .crit-flash {
-    color: #fbbf24;
-    animation: crit-flash 0.8s ease-in-out 3;
-  }
-  @keyframes crit-flash {
-    0%, 100% { text-shadow: 0 0 0 rgba(251, 191, 36, 0); }
-    50% { text-shadow: 0 0 14px rgba(251, 191, 36, 0.9); }
-  }
-  .fail-flash {
-    color: #f87171;
-    animation: fail-flash 0.8s ease-in-out 3;
-  }
-  @keyframes fail-flash {
-    0%, 100% { text-shadow: 0 0 0 rgba(248, 113, 113, 0); }
-    50% { text-shadow: 0 0 14px rgba(248, 113, 113, 0.9); }
-  }
   .scrollbar-thin::-webkit-scrollbar {
     width: 4px;
   }
