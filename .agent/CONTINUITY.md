@@ -38,6 +38,8 @@
 
 ## [PROGRESS]
 ## [PROGRESS]
+- `[2026-09-15T22:55Z]` `[USER]` Template items get default icons; SAC section title; compact ⚔️ rolls d6. `[CODE]` (main `8c9de03`) `FAMILY_ICONS` (per weapon family) + `ITEM_ICONS` (Plastron 🛡️/Casque ⛑️/Bottes 🥾/Gantelets 🧤); template add pre-fills icon (item + weapon); findEquipmentTemplate returns family; SAC h2 separates it from the doll; compact ⚔️ = 1d6+bonusAttaque (was d20)
+## [PROGRESS]
 - `[2026-09-15T22:30Z]` `[USER]` Compact: skill tooltip on stat roll buttons + two small roll buttons between name and PV. `[CODE]` (main `a5a3dde`) ⚔️ rolls d20+bonusAttaque, 🪄 rolls 1d6+mod Esprit (canalisation), both via doRoll/dice popup with glance tooltips; compact stat chips show the skill-list tooltip like the full sheet
 ## [PROGRESS]
 - `[2026-09-15T22:20Z]` `[USER]` Bump version by 0.1 + patch notes. `[CODE]` (main `987db95`) manifest 2.2.0 → 2.3.0 (verified in dist); docs/patch-notes-2.3.md — animated compact dice, editable compact notes, Sac unequipped gear, capacity detail stats + disabled roll buttons, stat skill tooltips, narratif +/− button
