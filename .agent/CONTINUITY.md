@@ -38,6 +38,7 @@
 - `[2026-06-17T19:28Z]` `[CODE]` Moved `maybeAasimarHeart` call from PROPOSE_EXCHANGE to ACCEPT_EXCHANGE for sender. Updated optimistic UI to look up exchange sender.
 
 ## [PROGRESS]
+- `[2026-09-16T00:10Z]` `[USER]` Report: the equipment switcher list should show item icons. `[CODE]` (main `3f52bf4`) Each candidate button now renders its item's icon (own icon field when set; slot-glyph for import-mapped gear); no logic change
 - `[2026-09-16T00:00Z]` `[USER]` Bug: Vider while wearing 2 weapons cleared the off-hand paper-doll slot while the weapon was still equipped. `[CODE]` (main `25e7290`) Root cause: mixed tagged/legacy equipped weapons — the previous strict handSlots left a tagged main un-promoted but handSlots' legacy handling mis-resolved occupants, so Vider on main unequipped/cleared the off-hand display. FIX: explicit inference in handSlots (tagged weapons win their slot, untagged takes the remaining slot, no tags keeps array order). Both the doll and the ÉDITION hand dropdown inherit the fix
 ## [PROGRESS]
 - `[2026-09-15T23:40Z]` `[USER]` Bug: unequipping main hand promoted the off-hand weapon to main; want 1M/2M tags + grayed two-handed off slot. `[CODE]` (main `94d9e65`) handSlots no longer falls back to eq[0] when no tagged main exists — the hand tag is respected strictly (legacy equipped-no-hand still = main); main doll slot shows a 1M/2M tag; two-handed off-hand slot shows the main weapon grayed ('occupée — 2M'); Sac weapon chips carry the tag. ÉDITION hand dropdown already compatible
