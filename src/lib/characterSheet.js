@@ -138,11 +138,16 @@ export const ITEM_TYPE_COLORS = {
   arme: '#f87171',
   armure: '#60a5fa',
   consommable: '#4ade80',
-  'équipement': '#fbbf24',
+  'équipement': '#60a5fa',
   divers: '#9ca3af'
 };
 
-export const ITEM_TYPE_OPTIONS = ['Arme', 'Armure', 'Équipement', 'Consommable', 'Divers'];
+export const ITEM_TYPE_OPTIONS = ['Arme', 'Équipement', 'Consommable', 'Divers'];
+
+// Legacy type key from imports ('Armure') maps onto the merged Équipement type
+export function normalizeItemType(type) {
+  return String(type ?? '').trim() === 'Armure' ? 'Équipement' : type;
+}
 
 export function itemTypeColor(type) {
   return ITEM_TYPE_COLORS[String(type ?? '').trim().toLowerCase()] || '#9ca3af';
@@ -298,8 +303,8 @@ export const EQUIPMENT_CATALOG = [
     ]
   },
   {
-    group: '🛡️ Armures',
-    family: 'Armures',
+    group: '🛡️ Équipement',
+    family: 'Équipement',
     kind: 'armure',
     items: [
       { nom: 'Plastron', de: '', degats: '', proprietes: 'Déflexion + Armure (plastron)' },
@@ -341,19 +346,51 @@ export const FAMILY_SUMMARIES = {
  */
 export const ITEM_FIELDS = {
   Arme: ['icon', 'slot', 'family', 'familySummary', 'catalystColor', 'raretePrix', 'degats', 'attributs', 'description'],
-  Armure: ['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
+  Équipement: ['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
   Équipement: ['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
   Consommable: ['icon', 'quantite', 'raretePrix', 'attributs', 'description'],
   Divers: ['icon', 'quantite', 'raretePrix', 'attributs', 'description'],
 };
 
 /**
- * Fields for an item type, falling back to the Divers set.
+ * Fields for an item type, falling back to the Divers set. The legacy
+ * 'Armure' type maps onto the merged Équipement type.
  * @param {unknown} type - Item type
  * @returns {string[]}
  */
 export function itemFields(type) {
-  return ITEM_FIELDS[String(type ?? '').trim()] ?? ITEM_FIELDS.Divers;
+  const t = normalizeItemType(String(type ?? '').trim());
+  return ITEM_FIELDS[t] ?? ITEM_FIELDS.Divers;
+}
+
+/**
+ * Stat fields an item must expose to fill its equipment slot.
+ * Anneau/amulette carry an enchantement, the worn pieces their stat fields
+ * (deflexion/armure/volonte/initiative/vitesse) — these are what
+ * equipmentStats()/computeDerived() sum.
+ */
+export const SLOT_FIELDS = {
+  anneau: ['enchantement'],
+  amulette: ['enchantement'],
+  casque: ['deflexion', 'volonte'],
+  plastron: ['deflexion', 'armure'],
+  gantelets: ['deflexion', 'initiative'],
+  bottes: ['deflexion', 'vitesse'],
+  cape: ['deflexion'],
+};
+
+/**
+ * Fields for an item of the given type; when it is a slotted Équipement
+ * piece the generic attributs field is replaced by the slot's stat fields.
+ * @param {unknown} type - Item type
+ * @param {unknown} slot - Equipment slot key ('' when unassigned)
+ * @returns {string[]}
+ */
+export function itemFieldsFor(type, slot) {
+  if (normalizeItemType(type) === 'Équipement' && SLOT_FIELDS[slot]) {
+    return ['icon', 'family', 'familySummary', 'raretePrix', ...SLOT_FIELDS[slot], 'description'];
+  }
+  return itemFields(type);
 }
 
 export function findEquipmentTemplate(nom) {
@@ -700,6 +737,11 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
       narrative: { ...empty.narrative, ...parsed.narrative },
       equipment: { ...empty.equipment, ...parsed.equipment }
     };
+
+    // Legacy 'Armure' item type merges into 'Équipement'
+    merged.inventoryItems = (merged.inventoryItems ?? []).map((item) =>
+      item?.type === 'Armure' ? { ...item, type: 'Équipement' } : item
+    );
 
     // Exports often carry free-text race names ("Haut Elfe") — canonize to
     // the race id so game-side race lookups keep working.

@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -256,15 +256,31 @@ describe('Character Sheet dice helpers', () => {
       expect(ITEM_FIELDS.Arme).not.toContain('quantite');
       expect(ITEM_FIELDS.Consommable).toContain('quantite');
       expect(ITEM_FIELDS.Consommable).not.toContain('degats');
-      expect(ITEM_FIELDS.Armure).toContain('slot');
+      expect(ITEM_FIELDS['Équipement']).toContain('slot');
+      expect(itemFields('Armure')).toBe(ITEM_FIELDS['Équipement']); // legacy maps to merged type
     });
+  });
+
+  describe('gear type rework', () => {
+    it('normalizeItemType should merge Armure into Équipement', () => {
+      expect(normalizeItemType('Armure')).toBe('Équipement');
+      expect(normalizeItemType('Arme')).toBe('Arme');
+      expect(normalizeItemType(null)).toBeNull(); // pass-through for null
+    });
+
+    it('itemFieldsFor should return slot fields for slotted gear', () => {
+      expect(itemFieldsFor('Équipement', 'casque')).toEqual(['icon', 'family', 'familySummary', 'raretePrix', 'deflexion', 'volonte', 'description']);
+      expect(itemFieldsFor('Équipement', 'anneau')).toEqual(['icon', 'family', 'familySummary', 'raretePrix', 'enchantement', 'description']);
+      expect(itemFieldsFor('Équipement', '')).toBe(ITEM_FIELDS['Équipement']); // no slot yet
+      expect(itemFieldsFor('Consommable', 'casque')).toBe(ITEM_FIELDS.Consommable); // non-gear ignores slot
+    });
+  });
 
     it('itemFields should fall back to the Divers set', () => {
       expect(itemFields('Inconnu')).toBe(ITEM_FIELDS.Divers);
       expect(itemFields(null)).toBe(ITEM_FIELDS.Divers);
       expect(itemFields('armure').length).toBeGreaterThan(0); // case-sensitive, falls back
     });
-  });
 
   describe('skillRollModifier', () => {
     const stats = { force: 8, agilite: 14, esprit: 18, social: 10 };
@@ -716,10 +732,10 @@ describe('Character Sheet dice helpers', () => {
   describe('itemTypeColor', () => {
     it('should color-code item types (accent-insensitive)', () => {
       expect(itemTypeColor('Arme')).toBe('#f87171');
-      expect(itemTypeColor('Armure')).toBe('#60a5fa');
+      expect(itemTypeColor('Armure')).toBe('#60a5fa'); // legacy type still maps to the gear blue
       expect(itemTypeColor('Consommable')).toBe('#4ade80');
-      expect(itemTypeColor('Équipement')).toBe('#fbbf24');
-      expect(itemTypeColor('équipement')).toBe('#fbbf24');
+      expect(itemTypeColor('Équipement')).toBe('#60a5fa');
+      expect(itemTypeColor('équipement')).toBe('#60a5fa');
       expect(itemTypeColor('Divers')).toBe('#9ca3af');
     });
 
@@ -730,7 +746,7 @@ describe('Character Sheet dice helpers', () => {
     });
 
     it('should expose the editable type options', () => {
-      expect(ITEM_TYPE_OPTIONS).toEqual(['Arme', 'Armure', 'Équipement', 'Consommable', 'Divers']);
+      expect(ITEM_TYPE_OPTIONS).toEqual(['Arme', 'Équipement', 'Consommable', 'Divers']);
     });
   });
 
