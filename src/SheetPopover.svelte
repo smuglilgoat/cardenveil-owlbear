@@ -263,15 +263,15 @@
         </div>
         <div class="flex flex-col gap-1 shrink-0">
           <button
-            onclick={() => doRoll('Bonus Attaque', `d20${fmt(calc.bonusAttaque)}`)}
-            use:tooltip={`Bonus d'attaque (d20 ${fmt(calc.bonusAttaque)})`}
+            onclick={() => doRoll('Bonus Attaque', `1d6${fmt(calc.bonusAttaque)}`)}
+            use:tooltip={`Bonus d'attaque (1d6 ${fmt(calc.bonusAttaque)})`}
             class="w-6 h-6 rounded-md bg-[#111827] border border-[#374151] hover:bg-[#374151] text-[11px] flex items-center justify-center transition-colors"
           >
             ⚔️
           </button>
           <button
-            onclick={() => doRoll('Mod Esprit D6', `1d6${fmt(calc.canalisation)}`)}
-            use:tooltip={`Mod Esprit D6 (1d6 ${fmt(calc.canalisation)})`}
+            onclick={() => doRoll('Mod Esprit D6', `${Math.max(1, calc.canalisation)}d6`)}
+            use:tooltip={`Mod Esprit × d6 (${Math.max(1, calc.canalisation)}d6)`}
             class="w-6 h-6 rounded-md bg-[#111827] border border-[#374151] hover:bg-[#374151] text-[11px] flex items-center justify-center transition-colors"
           >
             🪄

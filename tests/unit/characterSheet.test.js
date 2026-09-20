@@ -269,8 +269,8 @@ describe('Character Sheet dice helpers', () => {
     });
 
     it('itemFieldsFor should return slot fields for slotted gear', () => {
-      expect(itemFieldsFor('Équipement', 'casque')).toEqual(['icon', 'family', 'familySummary', 'raretePrix', 'deflexion', 'volonte', 'description']);
-      expect(itemFieldsFor('Équipement', 'anneau')).toEqual(['icon', 'family', 'familySummary', 'raretePrix', 'enchantement', 'description']);
+      expect(itemFieldsFor('Équipement', 'casque')).toEqual(['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'deflexion', 'volonte', 'description']);
+      expect(itemFieldsFor('Équipement', 'anneau')).toEqual(['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'enchantement', 'description']);
       expect(itemFieldsFor('Équipement', '')).toBe(ITEM_FIELDS['Équipement']); // no slot yet
       expect(itemFieldsFor('Consommable', 'casque')).toBe(ITEM_FIELDS.Consommable); // non-gear ignores slot
     });

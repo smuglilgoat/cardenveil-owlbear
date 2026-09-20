@@ -307,10 +307,10 @@ export const EQUIPMENT_CATALOG = [
     family: 'Équipement',
     kind: 'armure',
     items: [
-      { nom: 'Plastron', de: '', degats: '', proprietes: 'Déflexion + Armure (plastron)' },
-      { nom: 'Casque', de: '', degats: '', proprietes: 'Déflexion + Volonté (casque)' },
-      { nom: 'Bottes', de: '', degats: '', proprietes: 'Déflexion + Vitesse (bottes)' },
-      { nom: 'Gantelets', de: '', degats: '', proprietes: 'Déflexion + Initiative (gantelets)' }
+      { nom: 'Plastron', de: '', degats: '', slot: 'plastron', proprietes: 'Déflexion + Armure (plastron)' },
+      { nom: 'Casque', de: '', degats: '', slot: 'casque', proprietes: 'Déflexion + Volonté (casque)' },
+      { nom: 'Bottes', de: '', degats: '', slot: 'bottes', proprietes: 'Déflexion + Vitesse (bottes)' },
+      { nom: 'Gantelets', de: '', degats: '', slot: 'gantelets', proprietes: 'Déflexion + Initiative (gantelets)' }
     ]
   }
 ];
@@ -330,7 +330,7 @@ export const FAMILY_SUMMARIES = {
   'Arbalètes': 'Perforante : ignore l\'armure passive, divise la Parade ; commence le combat rechargée.',
   'Catalyseurs': "Utilisent l'Esprit et la mécanique de canalisation.",
   'Boucliers': 'Rempart : armure passive indépendante de la Force, parade personnalisée ; Bastion fait parer automatiquement ; parade parfaite = renversement ; 10 en Force requis.',
-  'Armures': '',
+  'Équipement': '',
   'Armes uniques': '',
 };
 
@@ -383,7 +383,7 @@ export const SLOT_FIELDS = {
  */
 export function itemFieldsFor(type, slot) {
   if (normalizeItemType(type) === 'Équipement' && SLOT_FIELDS[slot]) {
-    return ['icon', 'family', 'familySummary', 'raretePrix', ...SLOT_FIELDS[slot], 'description'];
+    return ['icon', 'slot', 'family', 'familySummary', 'raretePrix', ...SLOT_FIELDS[slot], 'description'];
   }
   return itemFields(type);
 }

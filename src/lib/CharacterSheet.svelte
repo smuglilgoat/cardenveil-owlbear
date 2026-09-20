@@ -1686,6 +1686,7 @@
                           editSheet.inventoryItems = [...(editSheet.inventoryItems || []), {
                             type: tpl ? 'Équipement' : 'Divers',
                             icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
+                            slot: tpl?.slot ?? '',
                             name: tpl?.nom ?? '',
                             degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
                             slot: '',
@@ -1712,7 +1713,10 @@
                       <div class="flex items-center gap-2 px-3 pt-3 pb-2">
                         <select
                           value={item?.type || 'Divers'}
-                          onchange={(e) => (item.type = e.currentTarget.value)}
+                          onchange={(e) => {
+                          item.type = e.currentTarget.value;
+                          if (item.type === 'Équipement' && !item.family) item.family = 'Équipement';
+                        }}
                           class="px-2 py-1.5 rounded-md text-[11px] font-bold border bg-[#242424] focus:outline-none shrink-0"
                           style="color: {itemTypeColor(item?.type)}; border-color: {itemTypeColor(item?.type)}"
                         >
