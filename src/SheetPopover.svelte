@@ -24,7 +24,7 @@
     toNumber,
     isImageUrl
   } from './lib/characterSheet.js';
-  import { openDicePopup, broadcastRoll, onRemoteRoll } from './lib/rollBroadcast.js';
+  import { broadcastRoll } from './lib/rollBroadcast.js';
 
   const params = new URLSearchParams(location.search);
   let playerId = params.get('playerId');
@@ -53,8 +53,6 @@
         saveInFlight = false;
       });
   }
-  const DICE_POPOVER_ID = 'cardenveil-dice';
-  let dicePopoverTimer;
   let expandedHeight = 540;
   const FOLDED_HEIGHT = 40;
 
@@ -114,16 +112,6 @@
     window.addEventListener('focus', reconcile);
     document.addEventListener('visibilitychange', reconcile);
 
-    // Rolls from other players/GM (OBR broadcast): show the popup bottom-left
-    const offRoll = onRemoteRoll((data) => {
-      openDicePopup(data)
-        .then(() => {
-          clearTimeout(dicePopoverTimer);
-          dicePopoverTimer = setTimeout(() => OBR.popover.close(DICE_POPOVER_ID).catch(() => {}), 6000);
-        })
-        .catch((err) => console.warn('Remote dice popup unavailable:', err));
-    });
-
     OBR.onReady(async () => {
       try {
         expandedHeight = (await OBR.popover.getHeight(popoverId)) || expandedHeight;
@@ -134,7 +122,6 @@
     return () => {
       unsubscribe();
       offBroadcast();
-      offRoll();
       clearInterval(pollTimer);
       window.removeEventListener('focus', reconcile);
       document.removeEventListener('visibilitychange', reconcile);
@@ -182,15 +169,8 @@
   async function doRoll(label, formula) {
     try {
       const result = rollDice(formula, sheet?.stats ?? {});
-      // Animated dice popup (same as the main sheet), broadcast to the room
+      // Dice popup is shown by the background page (top-center / bottom-right)
       broadcastRoll({ label, ...result });
-      try {
-        await openDicePopup({ label, ...result });
-        clearTimeout(dicePopoverTimer);
-        dicePopoverTimer = setTimeout(() => OBR.popover.close(DICE_POPOVER_ID).catch(() => {}), 6000);
-      } catch (err) {
-        console.warn('Dice popover unavailable, keeping inline result:', err);
-      }
       dispatch(roomId, {
         type: 'USE_CAPACITY',
         playerId,

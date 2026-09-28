@@ -53,7 +53,7 @@
     syncStatsFromEquipment,
     toNumber
   } from './characterSheet.js';
-  import { openDicePopup, broadcastRoll, onRemoteRoll } from './rollBroadcast.js';
+  import { broadcastRoll } from './rollBroadcast.js';
 
   let { playerId, roomId, gameState = null, onAction = () => {} } = $props();
 
@@ -155,9 +155,7 @@
   let weaponTemplate = $state('');
   let itemTemplate = $state('');
 
-  const DICE_POPOVER_ID = 'cardenveil-dice';
   const SHEET_POPOVER_ID = 'cardenveil-sheet';
-  let dicePopoverTimer;
   let sheetPopoverOpen = $state(false);
 
   onMount(async () => {
@@ -180,13 +178,9 @@
           sheet = msg.data;
         }
       });
-      // Rolls from other players/GM (OBR broadcast): show the popup bottom-left
-      const offRoll = onRemoteRoll((data) => showDicePopup(data));
-
       return () => {
         unsubscribe();
         offBroadcast();
-        offRoll();
       };
     } catch (err) {
       console.error('Failed to load character sheet:', err);
@@ -350,21 +344,14 @@
     }
   }
 
-  // ─── Dice popup (OBR popover over the tabletop, inline fallback) ───
-  async function showDicePopup(data) {
-    try {
-      await openDicePopup(data);
-      clearTimeout(dicePopoverTimer);
-      dicePopoverTimer = setTimeout(() => {
-        OBR.popover.close(DICE_POPOVER_ID).catch(() => {});
-      }, 6000);
-      diceResult = null;
-    } catch (err) {
-      console.warn('Dice popover unavailable, falling back to inline result:', err);
-      diceResult = data.error
-        ? { error: data.error }
-        : { ...data, timestamp: new Date().toLocaleTimeString() };
-    }
+  // ─── Dice display: the background page opens the popup for everyone inside
+  // OBR (top-center for the roller, bottom-right for others); inline fallback
+  // when running outside OBR ───
+  function showDicePopup(data) {
+    if (OBR.isAvailable) return;
+    diceResult = data.error
+      ? { error: data.error }
+      : { ...data, timestamp: new Date().toLocaleTimeString() };
   }
 
   function handleDiceRoll(capacityName, formula) {

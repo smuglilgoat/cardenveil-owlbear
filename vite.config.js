@@ -49,6 +49,8 @@ function buildManifest(mode) {
       height: 800,
       width: 800,
     },
+    // Persistent per-client page that opens the dice popup for everyone
+    background_url: '/background.html',
   };
 }
 
@@ -61,6 +63,7 @@ export default defineConfig({
         main: path.resolve('index.html'),
         hand: path.resolve('hand.html'),
         dice: path.resolve('dice.html'),
+        background: path.resolve('background.html'),
         sheet: path.resolve('sheet.html'),
       },
     },
