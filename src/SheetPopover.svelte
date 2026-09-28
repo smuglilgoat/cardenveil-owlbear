@@ -432,34 +432,11 @@
             <span class="text-[7px] font-bold text-[#9ca3af]">PORTRAIT</span>
           {/if}
         </div>
-        <button
-          onclick={() => (showNotes = !showNotes)}
-          title={showNotes ? 'Masquer les notes' : 'Voir les notes'}
-          class="w-6 h-8 rounded-md bg-[#111827] border border-[#374151] text-[#9ca3af] hover:text-white text-[11px] flex items-center justify-center shrink-0 transition-colors"
-        >
-          📝
-        </button>
         <div class="flex-1 min-w-0">
           <div class="text-sm font-bold truncate">{sheet.identity?.nom || 'Sans nom'}</div>
           <div class="text-[10px] text-[#9ca3af] truncate">
             {raceLabel(sheet.identity?.race) || '—'} · Niv. {sheet.identity?.niveau ?? 1}
           </div>
-        </div>
-        <div class="flex flex-col gap-1 shrink-0">
-          <button
-            onclick={toggleAttack}
-            title="Attaque (avantage / engagement)"
-            class={`w-6 h-6 rounded-md border text-[11px] flex items-center justify-center transition-colors ${showAttack ? 'bg-indigo-600 border-indigo-400' : 'bg-[#111827] border-[#374151] hover:bg-[#374151]'}`}
-          >
-            ⚔️
-          </button>
-          <button
-            onclick={() => doRoll('Mod Esprit D6', `${Math.max(1, calc.canalisation)}d6`)}
-            use:tooltip={`Mod Esprit × d6 (${Math.max(1, calc.canalisation)}d6)`}
-            class="w-6 h-6 rounded-md bg-[#111827] border border-[#374151] hover:bg-[#374151] text-[11px] flex items-center justify-center transition-colors"
-          >
-            🪄
-          </button>
         </div>
         <div class="text-right shrink-0">
           <div class="text-[8px] font-bold text-[#9ca3af]">PV</div>
@@ -635,13 +612,38 @@
           🎲 Lancer
         </button>
       </div>
-      <!-- Per-turn action diamonds (centered; long hover shows the combat actions reference) -->
-      <ActionDiamonds
-        checks={sheet.actionChecks}
-        onToggle={toggleActionCheck}
-        compact
-        class="flex items-center justify-center gap-4 mt-2 pt-2 border-t border-[#374151]"
-      />
+      <!-- Per-turn action diamonds (long hover shows the combat actions reference) + Attaque/Magique/Notes on the right -->
+      <div class="flex items-center mt-2 pt-2 border-t border-[#374151]">
+        <ActionDiamonds
+          checks={sheet.actionChecks}
+          onToggle={toggleActionCheck}
+          compact
+          class="flex items-center gap-4 flex-1 justify-center"
+        />
+        <div class="flex items-center gap-1 shrink-0 pl-2 border-l border-[#4b5563]">
+          <button
+            onclick={toggleAttack}
+            title="Attaque (avantage / engagement)"
+            class={`w-6 h-6 rounded-md border text-[11px] flex items-center justify-center transition-colors ${showAttack ? 'bg-indigo-600 border-indigo-400' : 'bg-[#111827] border-[#374151] hover:bg-[#374151]'}`}
+          >
+            ⚔️
+          </button>
+          <button
+            onclick={() => doRoll('Mod Esprit D6', `${Math.max(1, calc.canalisation)}d6`)}
+            use:tooltip={`Mod Esprit × d6 (${Math.max(1, calc.canalisation)}d6)`}
+            class="w-6 h-6 rounded-md bg-[#111827] border border-[#374151] hover:bg-[#374151] text-[11px] flex items-center justify-center transition-colors"
+          >
+            🪄
+          </button>
+          <button
+            onclick={() => (showNotes = !showNotes)}
+            title={showNotes ? 'Masquer les notes' : 'Voir les notes'}
+            class={`w-6 h-6 rounded-md border text-[11px] flex items-center justify-center transition-colors ${showNotes ? 'bg-indigo-600 border-indigo-400' : 'bg-[#111827] border-[#374151] hover:bg-[#374151]'}`}
+          >
+            📝
+          </button>
+        </div>
+      </div>
     </div>
 
     {#if showNotes}
