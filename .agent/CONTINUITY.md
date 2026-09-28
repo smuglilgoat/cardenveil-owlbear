@@ -174,3 +174,11 @@
 - [CODE] Tests 157/157 (`unequipHand should not evict legacy untagged off-hand weapon when clearing main` added); build OK.
 - [CODE] follow-up @ 37b6558: Sac weapon chips prefer the weapon's own `icon` field, falling back to the matching `Arme` inventory item's icon (weapons edited in ARMES can carry their own icon).
 - [CODE] release @ c3e2469: plugin version 2.3.0 → 2.3.1 (vite.config.js manifest); patch notes in docs/patch-notes-2.3.1.md (Vider fix + Sac weapon icons).
+
+## [2026-02-13T00:00Z] feat/inventory-derived-broadcast → main @ 3ce8032
+- [USER] Three features: (1) new items/weapons at top of list, (2) computed stats overrideable, (3) dice popup visible to everyone bottom-left.
+- [CODE] Add handlers prepend (`[new, ...list]`) for inventoryItems + weapons.
+- [CODE] `computeDerived` applies `sheet.derived.overrides` for OVERRIDABLE_DERIVED keys (parade, initiative, mouvement, seuilMiss, bonusAttaque, canalisation, volonte); ÉDITION STATS cards are number inputs — empty input = rule value; `syncStatsFromEquipment` preserves overrides.
+- [CODE] New `src/lib/rollBroadcast.js`: OBR.broadcast channel `cardenveil-roll`, rollId dedupe, `openDicePopup` anchors bottom-left via `OBR.viewport.getHeight()` (anchorReference POSITION), remote label prefixed with roller's name. Both CharacterSheet + SheetPopover broadcast on roll and open popups on receive.
+- [USER-CAVEAT] Popup shows only for players who have a Cardenveil window open (plugin is an action popover — no background page). UNCONFIRMED: OBR anchorPosition behavior across clients.
+- [CODE] Tests 159/159 (override + syncStatsFromEquipment-preserves-overrides added); build OK.
