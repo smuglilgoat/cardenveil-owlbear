@@ -182,6 +182,21 @@
     return Math.floor((value - 10) / 2);
   }
 
+  // BONUS ATT.: click-to-edit in the combat row; writes derived.overrides
+  // (same mechanism as the full sheet's ÉDITION — empty = rule value), so
+  // both views share one value and the attack roll uses it directly.
+  let editingBonusAttaque = $state(false);
+  let bonusAttaqueDraft = $state('');
+
+  function setBonusAttaqueOverride(raw) {
+    if (!sheet) return;
+    const overrides = { ...(sheet.derived?.overrides ?? {}) };
+    if (raw === '' || raw == null || Number.isNaN(Number(raw))) delete overrides.bonusAttaque;
+    else overrides.bonusAttaque = Number(raw);
+    sheet = { ...sheet, derived: { ...(sheet.derived ?? {}), overrides } };
+    saveCharacterSheet(playerId, roomId, sheet).catch(console.error);
+  }
+
   function stripHtml(text) {
     return (text || '').replace(/<[^>]*>/g, '').trim();
   }
@@ -287,7 +302,7 @@
   let selectedAttackWeapon = $derived(pickAttackWeapon(sheet?.weapons ?? [], attackWeaponName).weapon);
   let attackCalc = $derived(
     selectedAttackWeapon
-      ? attackPreview(selectedAttackWeapon, sheet?.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement })
+      ? attackPreview(selectedAttackWeapon, sheet?.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque })
       : null
   );
 
@@ -337,7 +352,7 @@
     saveAttackSettings();
     let result;
     try {
-      result = rollAttack(weapon, sheet.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement });
+      result = rollAttack(weapon, sheet.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque });
     } catch (err) {
       console.warn('Attack roll failed:', err);
       return;
@@ -473,7 +488,7 @@
         {/each}
       </div>
       <!-- Combat values: Parade (static), Initiative + Vitesse (click-to-roll d20) -->
-      <div class="grid grid-cols-4 gap-1.5 mt-1.5">
+      <div class="grid grid-cols-5 gap-1.5 mt-1.5">
         <div class="bg-[#111827] rounded-md px-1.5 py-1 text-center">
           <div class="text-[7px] font-bold text-[#9ca3af]">PARADE</div>
           <div class="text-sm font-bold leading-tight text-[#e5e7eb]">{calc.parade}</div>
@@ -503,6 +518,30 @@
         >
           <div class="text-[7px] font-bold text-[#9ca3af]">VITESSE</div>
           <div class="text-sm font-bold leading-tight text-[#4ade80]">{calc.mouvement}</div>
+        </div>
+        <div
+          role="button"
+          tabindex="0"
+          title="Bonus d'attaque — cliquer pour modifier (vide = valeur de règle)"
+          onclick={() => { if (!editingBonusAttaque) { bonusAttaqueDraft = ''; editingBonusAttaque = true; } }}
+          onkeydown={(e) => e.key === 'Enter' && !editingBonusAttaque && ((bonusAttaqueDraft = ''), (editingBonusAttaque = true))}
+          class="bg-[#111827] rounded-md px-1.5 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
+        >
+          <div class="text-[7px] font-bold text-[#9ca3af]">B. ATT.</div>
+          {#if editingBonusAttaque}
+            <!-- svelte-ignore a11y_autofocus -->
+            <input
+              type="number"
+              bind:value={bonusAttaqueDraft}
+              autofocus
+              placeholder={String(calc.bonusAttaque)}
+              onblur={() => { setBonusAttaqueOverride(bonusAttaqueDraft); editingBonusAttaque = false; }}
+              onkeydown={(e) => { if (e.key === 'Enter') { setBonusAttaqueOverride(bonusAttaqueDraft); editingBonusAttaque = false; } else if (e.key === 'Escape') editingBonusAttaque = false; }}
+              class="w-full text-sm font-bold leading-tight bg-transparent border-b border-indigo-500 focus:outline-none text-center text-indigo-300"
+            />
+          {:else}
+            <div class="text-sm font-bold leading-tight text-indigo-300">{fmt(calc.bonusAttaque)}</div>
+          {/if}
         </div>
       </div>
       <!-- Attack panel: weapon dropdown + avantage slider + engagement -->

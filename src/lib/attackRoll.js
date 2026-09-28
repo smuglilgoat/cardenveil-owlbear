@@ -71,13 +71,15 @@ export function pickAttackWeapon(weapons = [], preferredName = '') {
  * engagement stat. Powers the live preview in SheetPopover.
  * @param {Object} weapon - Equipped weapon ({ de, bonus, proprietes, nom })
  * @param {Object} [stats] - Raw stats ({ force, agilite, esprit, social })
- * @param {{advantage?: number, engagement?: number, rng?: Function}} [opts]
+ * @param {{advantage?: number, engagement?: number, bonus?: number, rng?: Function}} [opts]
  *   advantage: −7…+7 (− = désavantage, + = avantage); engagement: 0…7 levels;
- *   rng: injectable die source for tests (default Math.random)
+ *   bonus: optional bonus override (the BONUS ATT. stat) — undefined/empty
+ *   falls back to the weapon's `bonus` field; rng: injectable die source
+ *   for tests (default Math.random)
  * @returns {null|{level, diceCount, keep, sides, weaponBonus, engagementMod,
  *   engagementStat, finesse, hache}}
  */
-export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 0 } = {}) {
+export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 0, bonus } = {}) {
   const match = String(weapon?.de ?? '').match(/(\d*)\s*d\s*(\d+)/i);
   if (!match) return null;
   const sides = parseInt(match[2], 10);
@@ -93,7 +95,7 @@ export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 
     diceCount: 1 + 2 * Math.abs(level),
     keep: kept,
     sides,
-    weaponBonus: toNumber(weapon?.bonus),
+    weaponBonus: bonus === undefined || bonus === null || bonus === '' ? toNumber(weapon?.bonus) : toNumber(bonus),
     engagementMod: statMod(stats, eStat),
     engagementStat: eStat,
     ...weaponFlags(weapon),
@@ -106,16 +108,17 @@ export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 
  * Resolve a full attack per the rules doc.
  * @param {Object} weapon - Equipped weapon ({ de, bonus, proprietes, nom, seuilMiss })
  * @param {Object} [stats] - Raw stats
- * @param {{advantage?: number, engagement?: number}} [opts]
+ * @param {{advantage?: number, engagement?: number, bonus?: number}} [opts]
+ *   bonus: BONUS ATT. stat override (see attackPreview)
  * @returns {Object|null} { total (0 on miss), miss, critCount, kept,
  *   stages: [{label, pool, keep, dice, kept, sides}], breakdown (§20 lines),
  *   finesse, hache, level, sides, weaponBonus, engagementMod, engagementStat,
  *   advantage, engagement }
  */
-export function rollAttack(weapon, stats = {}, { advantage = 0, engagement = 0, rng = Math.random } = {}) {
-  const p = attackPreview(weapon, stats, { advantage, engagement });
+export function rollAttack(weapon, stats = {}, { advantage = 0, engagement = 0, bonus, rng = Math.random } = {}) {
+  const p = attackPreview(weapon, stats, { advantage, engagement, bonus });
   if (!p) return null;
-  const { sides, level, finesse, hache, weaponBonus: bonus, engagementMod, engagementStat: eStat, engagement: engLevel } = p;
+  const { sides, level, finesse, hache, weaponBonus, engagementMod, engagementStat: eStat, engagement: engLevel } = p;
   const keepMode = level > 0 ? 'max' : level < 0 ? 'min' : null;
   const stages = [];
   const breakdown = [];
@@ -174,7 +177,7 @@ export function rollAttack(weapon, stats = {}, { advantage = 0, engagement = 0, 
   // Bonuses. Finesse: (weapon bonus + engagement mods) × (1 + crit count)
   // (patch §2); otherwise weapon bonus once + engagement mods flat.
   const engagementMods = engLevel * engagementMod;
-  const flatBonus = finesse ? (bonus + engagementMods) * (1 + critCount) : bonus + engagementMods;
+  const flatBonus = finesse ? (weaponBonus + engagementMods) * (1 + critCount) : weaponBonus + engagementMods;
   const diceTotal = stages.reduce((sum, s) => sum + s.kept, 0);
   const total = diceTotal + flatBonus;
 
@@ -199,7 +202,7 @@ export function rollAttack(weapon, stats = {}, { advantage = 0, engagement = 0, 
       hache,
       level,
       sides,
-      weaponBonus: bonus,
+      weaponBonus,
       engagementMod,
       engagementStat: eStat,
       advantage: level + engagement,

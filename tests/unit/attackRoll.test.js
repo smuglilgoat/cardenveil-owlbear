@@ -123,6 +123,16 @@ describe('attackPreview', () => {
   it('returns null for a weapon without a die', () => {
     expect(attackPreview({ de: '' }, stats)).toBeNull();
   });
+
+  it('accepts a BONUS ATT. override in place of the weapon bonus field', () => {
+    const w = { de: '1d6', bonus: 2, proprietes: '' };
+    expect(attackPreview(w, stats, { bonus: 7 }).weaponBonus).toBe(7);
+    expect(attackPreview(w, stats, { bonus: '' }).weaponBonus).toBe(2); // empty = weapon field
+    expect(attackPreview(w, stats).weaponBonus).toBe(2);
+    // and the roll uses it: face 4 + bonus 7 = 11
+    const r = withRolls([4], 6, (rng) => rollAttack(w, stats, { bonus: 7, rng }));
+    expect(r.total).toBe(11);
+  });
 });
 
 describe('rollAttack — basic resolution', () => {
