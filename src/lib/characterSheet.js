@@ -1330,6 +1330,44 @@ export function syncSkillBonuses(sheet) {
  * @param {Object} [stats] - Raw stat scores, required for stat-based formulas
  * @returns {{total: number, rolls: number[], modifier: number, formula: string}}
  */
+/**
+ * Resolve a formula into explicit dice terms for the physics roller:
+ * { terms: [{count, sides}...], modifier, formula }. Single terms, stat
+ * formulas ("Mod Esprit D6" — resolved with stats) and compounds
+ * ("1d6+1d4", "2d6+3") are supported. Returns null when not rollable.
+ * @param {string} formula
+ * @param {Object} [stats]
+ * @returns {{terms: {count: number, sides: number}[], modifier: number, formula: string} | null}
+ */
+export function parseDiceSpec(formula, stats = {}) {
+  if (typeof formula !== 'string') return null;
+  const text = formula.trim();
+  if (!text.includes('+')) {
+    const parsed = parseDiceFormula(text, stats);
+    if (!parsed) return null;
+    return { terms: [{ count: parsed.count, sides: parsed.sides }], modifier: parsed.modifier, formula: parsed.formula };
+  }
+  const parts = text.split('+').map((p) => p.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const terms = [];
+  let modifier = 0;
+  const parts_ = [];
+  for (const part of parts) {
+    const parsed = parseDiceFormula(part, stats);
+    if (parsed) {
+      terms.push({ count: parsed.count, sides: parsed.sides });
+      parts_.push(parsed.formula);
+      modifier += parsed.modifier;
+    } else if (/^[+-]?\s*\d+$/.test(part)) {
+      modifier += parseInt(part.replace(/\s+/g, ''), 10);
+    } else {
+      return null;
+    }
+  }
+  if (!terms.length) return null;
+  return { terms, modifier, formula: parts.join('+') };
+}
+
 export function rollDice(formula, stats = {}) {
   // compound formulas ("1d6+1d4"): roll each term, concat rolls in order
   if (typeof formula === 'string' && formula.includes('+')) {

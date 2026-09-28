@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -301,6 +301,14 @@ describe('Character Sheet dice helpers', () => {
       expect(isDiceFormula('1d6+1d4', {})).toBe(true);
       expect(isDiceFormula('1d6+abc', {})).toBe(false);
       expect(isDiceFormula('2d6+3', {})).toBe(true); // single term + modifier
+    });
+
+    it('parseDiceSpec should resolve terms, compounds and modifiers', () => {
+      expect(parseDiceSpec('d20', {})).toEqual({ terms: [{ count: 1, sides: 20 }], modifier: 0, formula: '1d20' });
+      expect(parseDiceSpec('1d6+1d4', {})).toEqual({ terms: [{ count: 1, sides: 6 }, { count: 1, sides: 4 }], modifier: 0, formula: '1d6+1d4' });
+      expect(parseDiceSpec('2d6+3', {})).toEqual({ terms: [{ count: 2, sides: 6 }], modifier: 3, formula: '2d6+3' });
+      expect(parseDiceSpec('1d6+abc', {})).toBeNull();
+      expect(parseDiceSpec('abc', {})).toBeNull();
     });
 
     it('diceGem should follow explicit > max-stat > obsidian', () => {

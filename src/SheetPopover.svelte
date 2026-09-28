@@ -25,9 +25,10 @@
     isImageUrl,
     DICE_GEMS,
     DICE_GEM_LABELS,
-    diceGemColor
+    diceGemColor,
+    parseDiceSpec
   } from './lib/characterSheet.js';
-  import { broadcastRoll } from './lib/rollBroadcast.js';
+  import { broadcastRoll, onRollResult } from './lib/rollBroadcast.js';
 
   const params = new URLSearchParams(location.search);
   let playerId = params.get('playerId');
@@ -141,6 +142,23 @@
     window.addEventListener('focus', reconcile);
     document.addEventListener('visibilitychange', reconcile);
 
+    // Physics popups (3D mode) report the roll result back — log it once
+    // per roll across all frames of this player (localStorage lock).
+    const offRollResult = onRollResult((msg) => {
+      if (msg?.playerId !== playerId || !msg?.rollId || !msg?.rolls) return;
+      const lock = `cardenveil-roll-logged-${msg.rollId}`;
+      if (localStorage.getItem(lock)) return;
+      localStorage.setItem(lock, '1');
+      dispatch(roomId, {
+        type: 'USE_CAPACITY',
+        playerId,
+        capacityName: msg.label || 'Jet',
+        formula: msg.formula || '',
+        total: msg.total,
+        rolls: msg.rolls
+      }).catch((err) => console.error('Failed to dispatch roll:', err));
+    });
+
     OBR.onReady(async () => {
       try {
         expandedHeight = (await OBR.popover.getHeight(popoverId)) || expandedHeight;
@@ -151,6 +169,7 @@
     return () => {
       unsubscribe();
       offBroadcast();
+      offRollResult();
       clearInterval(pollTimer);
       window.removeEventListener('focus', reconcile);
       document.removeEventListener('visibilitychange', reconcile);
@@ -195,11 +214,29 @@
   }
 
 
+  // Flat mode (GM Classique): pre-rolled numbers (old path). 3D mode: the
+  // rapier simulation in the popup decides the numbers — broadcast an intent
+  // and dispatch USE_CAPACITY when the result is reported back.
   async function doRoll(label, formula) {
+    if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat') {
+      const spec = parseDiceSpec(formula, sheet?.stats ?? {});
+      if (spec) {
+        broadcastRoll({
+          label,
+          color: diceGemColor(sheet),
+          playerId,
+          formula: spec.formula,
+          diceSpec: spec.terms,
+          modifier: spec.modifier,
+          seed: Math.floor(Math.random() * 0xffffffff)
+        });
+        return;
+      }
+    }
     try {
       const result = rollDice(formula, sheet?.stats ?? {});
       // Dice popup is shown by the background page (top-center / bottom-right)
-      broadcastRoll({ label, color: diceGemColor(sheet), ...result });
+      broadcastRoll({ label, color: diceGemColor(sheet), playerId, ...result });
       dispatch(roomId, {
         type: 'USE_CAPACITY',
         playerId,

@@ -61,13 +61,24 @@ OBR.onReady(() => {
     const params = new URLSearchParams({
       label,
       formula: data.formula || '',
-      total: data.total != null ? String(data.total) : '',
-      rolls: (data.rolls ?? []).join(','),
-      types: (data.diceTypes ?? []).join(','),
       color: data.color || '',
       mode: diceStyle,
+      rollId: data.rollId || '',
+      playerId: data.playerId || '',
+      plainLabel: data.label || 'Jet',
       error: ''
     });
+    if (data.rolls) {
+      // pre-rolled roll (flat mode / fallback): display as-is
+      params.set('rolls', (data.rolls ?? []).join(','));
+      params.set('types', (data.diceTypes ?? []).join(','));
+      params.set('total', data.total != null ? String(data.total) : '');
+    } else {
+      // roll intent: the rapier simulation in the popup decides the numbers
+      params.set('diceSpec', JSON.stringify(data.diceSpec ?? []));
+      params.set('seed', String(data.seed ?? 0));
+      params.set('modifier', String(data.modifier ?? 0));
+    }
     try {
       await openDicePopover(params, await anchorFor(isSelf));
       clearTimeout(closeTimer);

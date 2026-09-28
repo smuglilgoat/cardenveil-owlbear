@@ -54,9 +54,10 @@
     toNumber,
     DICE_GEMS,
     DICE_GEM_LABELS,
-    diceGemColor
+    diceGemColor,
+    parseDiceSpec
   } from './characterSheet.js';
-  import { broadcastRoll } from './rollBroadcast.js';
+  import { broadcastRoll, onRollResult } from './rollBroadcast.js';
 
   let { playerId, roomId, gameState = null, onAction = () => {} } = $props();
 
@@ -181,9 +182,27 @@
           sheet = msg.data;
         }
       });
+      // Physics popups (3D mode) report the roll result back — log it once
+      // per roll across all frames of this player (localStorage lock).
+      const offRollResult = onRollResult((msg) => {
+        if (msg?.playerId !== playerId || !msg?.rollId || !msg?.rolls) return;
+        const lock = `cardenveil-roll-logged-${msg.rollId}`;
+        if (localStorage.getItem(lock)) return;
+        localStorage.setItem(lock, '1');
+        onAction({
+          type: 'USE_CAPACITY',
+          playerId,
+          capacityName: msg.label || 'Jet',
+          formula: msg.formula || '',
+          total: msg.total,
+          rolls: msg.rolls
+        });
+      });
+
       return () => {
         unsubscribe();
         offBroadcast();
+        offRollResult();
       };
     } catch (err) {
       console.error('Failed to load character sheet:', err);
@@ -357,7 +376,28 @@
       : { ...data, timestamp: new Date().toLocaleTimeString() };
   }
 
+  // Flat mode (GM Classique): pre-rolled numbers (old path). 3D mode:
+  // the rapier simulation in the popup decides the numbers — broadcast an
+  // intent and dispatch USE_CAPACITY when the result is reported back.
   function handleDiceRoll(capacityName, formula) {
+    if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat') {
+      const spec = parseDiceSpec(formula, view?.stats ?? {});
+      if (spec) {
+        broadcastRoll({
+          label: capacityName,
+          color: diceGemColor(view),
+          playerId,
+          formula: spec.formula,
+          diceSpec: spec.terms,
+          modifier: spec.modifier,
+          seed: Math.floor(Math.random() * 0xffffffff)
+        });
+        showDicePopup({ label: capacityName }); // inline fallback only
+        return;
+      }
+      showDicePopup({ label: capacityName, error: 'Formule invalide' });
+      return;
+    }
     try {
       const result = rollDice(formula, view?.stats ?? {});
       onAction({
@@ -368,7 +408,7 @@
         total: result.total,
         rolls: result.rolls,
       });
-      broadcastRoll({ label: capacityName, color: diceGemColor(view), ...result });
+      broadcastRoll({ label: capacityName, color: diceGemColor(view), playerId, ...result });
       showDicePopup({ label: capacityName, ...result });
     } catch (err) {
       showDicePopup({ label: capacityName, error: err.message });

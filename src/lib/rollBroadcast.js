@@ -1,11 +1,15 @@
 import OBR from '@owlbear-rodeo/sdk';
 
 export const ROLL_CHANNEL = 'cardenveil-roll';
+// local (same-browser) channel the physics popup reports results on
+export const ROLL_RESULT_CHANNEL = 'cardenveil-roll-result';
 
 /**
- * Broadcast a roll result to the room. Display is handled by the persistent
- * background page (src/background.js), which opens the dice popup on every
- * client — top-center for the roller, bottom-right for everyone else.
+ * Broadcast a roll to the room. In 3D mode the payload is a roll INTENT:
+ * { diceSpec: [{count, sides}...], modifier, seed } — the rapier simulation
+ * in each client's dice popup is the source of the numbers. In flat (GM
+ * classique) mode the payload carries pre-rolled {rolls, diceTypes, total}.
+ * The persistent background page (src/background.js) opens the popup.
  */
 export async function broadcastRoll(data) {
   const rollId = typeof crypto !== 'undefined' && crypto.randomUUID
@@ -22,5 +26,32 @@ export async function broadcastRoll(data) {
     await OBR.broadcast.sendMessage(ROLL_CHANNEL, { ...data, rollId, playerName }, { destination: 'ALL' });
   } catch (err) {
     console.warn('Failed to broadcast roll:', err);
+  }
+  return rollId;
+}
+
+/**
+ * Listen for results reported by the local dice popup (same browser).
+ * Returns an unsubscribe function.
+ */
+export function onRollResult(callback) {
+  try {
+    const channel = new BroadcastChannel(ROLL_RESULT_CHANNEL);
+    channel.onmessage = (event) => callback(event.data);
+    return () => channel.close();
+  } catch (err) {
+    console.warn('Roll result channel unavailable:', err);
+    return () => {};
+  }
+}
+
+/**
+ * Report a roll result from the dice popup to the roller's frames.
+ */
+export function reportRollResult(result) {
+  try {
+    new BroadcastChannel(ROLL_RESULT_CHANNEL).postMessage(JSON.parse(JSON.stringify(result)));
+  } catch (err) {
+    console.warn('Failed to report roll result:', err);
   }
 }
