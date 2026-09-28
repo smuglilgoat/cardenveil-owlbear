@@ -61,7 +61,8 @@ OBR.onReady(() => {
       portraitImage: data.portraitIsImage ? '1' : '0',
       plainLabel: data.label || 'Jet',
       self: isSelf ? '1' : '0',
-      error: ''
+      error: '',
+      breakdown: data.breakdown ? JSON.stringify(data.breakdown) : ''
     });
     if (data.rolls) {
       params.set('rolls', (data.rolls ?? []).join(','));

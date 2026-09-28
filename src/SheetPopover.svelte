@@ -29,6 +29,7 @@
     parseDiceSpec
   } from './lib/characterSheet.js';
   import { broadcastRoll, onRollResult } from './lib/rollBroadcast.js';
+  import { rollAttack, attackPreview, engagementStat } from './lib/attackRoll.js';
 
   const params = new URLSearchParams(location.search);
   let playerId = params.get('playerId');
@@ -258,11 +259,128 @@
     }
   }
 
+  // ─── Attack panel (accordion): weapon + avantage/désavantage + engagement ───
+  let showAttack = $state(false);
+  let attackWeaponName = $state('');
+  let attackAdv = $state(0); // −7…+7 (− = désavantage, + = avantage)
+  let attackEngagement = $state(0); // 0…7
+
+  let equippedWeapons = $derived((sheet?.weapons ?? []).filter((w) => w?.equipped));
+
+  // restore last-used settings once the sheet is loaded
+  let attackSettingsLoaded = false;
+  $effect(() => {
+    if (sheet && !attackSettingsLoaded) {
+      attackSettingsLoaded = true;
+      try {
+        const saved = JSON.parse(localStorage.getItem(`cardenveil-attack-${playerId}`) || '{}');
+        if (typeof saved.adv === 'number') attackAdv = Math.max(-7, Math.min(7, saved.adv));
+        if (typeof saved.engagement === 'number') attackEngagement = Math.max(0, Math.min(7, saved.engagement));
+        if (saved.weapon && equippedWeapons.some((w) => w?.nom === saved.weapon)) attackWeaponName = saved.weapon;
+      } catch {
+        /* corrupt settings — defaults */
+      }
+    }
+    if (!attackWeaponName && equippedWeapons.length > 0) attackWeaponName = mainHandWeapon()?.nom || equippedWeapons[0]?.nom || '';
+  });
+
+  function mainHandWeapon() {
+    return equippedWeapons.find((w) => (w?.hand ?? 'main') === 'main') ?? equippedWeapons[0] ?? null;
+  }
+
+  let selectedAttackWeapon = $derived(equippedWeapons.find((w) => w?.nom === attackWeaponName) ?? null);
+  let attackCalc = $derived(
+    selectedAttackWeapon
+      ? attackPreview(selectedAttackWeapon, sheet?.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement })
+      : null
+  );
+
+  let attackLevelLabel = $derived.by(() => {
+    if (!attackCalc) return '';
+    const lvl = attackCalc.level;
+    if (lvl === 0) return 'jet simple';
+    return `${lvl > 0 ? '+' : '−'}${Math.abs(lvl)} ${Math.abs(lvl) === 1 ? 'niveau' : 'niveaux'}`;
+  });
+
+  let attackKeepLabel = $derived(
+    attackCalc?.keep === 'max' ? 'garder le max' : attackCalc?.keep === 'min' ? 'garder le min' : ''
+  );
+
+  function toggleAttack() {
+    showAttack = !showAttack;
+    resizeForAttack();
+  }
+
+  async function resizeForAttack() {
+    if (folded) return;
+    const delta = showAttack ? 190 : -190;
+    const target = Math.max(FOLDED_HEIGHT, expandedHeight + delta);
+    try {
+      await OBR.popover.setHeight(popoverId, target);
+      const actual = await OBR.popover.getHeight(popoverId);
+      if (actual != null && Math.abs(actual - target) <= 4) expandedHeight = target;
+    } catch {
+      /* popover resize not available — panel still opens */
+    }
+  }
+
+  function saveAttackSettings() {
+    try {
+      localStorage.setItem(
+        `cardenveil-attack-${playerId}`,
+        JSON.stringify({ weapon: attackWeaponName, adv: attackAdv, engagement: attackEngagement })
+      );
+    } catch {
+      /* storage unavailable */
+    }
+  }
+
+  async function doAttackRoll() {
+    const weapon = selectedAttackWeapon;
+    if (!weapon || !sheet) return;
+    saveAttackSettings();
+    let result;
+    try {
+      result = rollAttack(weapon, sheet.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement });
+    } catch (err) {
+      console.warn('Attack roll failed:', err);
+      return;
+    }
+    if (!result) return;
+    const label = `Attaque · ${weapon.nom || 'Sans nom'}`;
+    // ponytail: attacks are pre-rolled (flat pipeline) — the 3D intent flow can't
+    // replay reactive crit explosions; switch to a seeded server replay if needed.
+    broadcastRoll({
+      label,
+      color: diceGemColor(sheet),
+      playerId,
+      portrait: sheet?.portrait || '',
+      portraitIsImage: isImageUrl(sheet?.portrait),
+      formula: `${result.stages[0]?.pool ?? 1}d${result.sides}${result.weaponBonus ? (result.weaponBonus > 0 ? '+' : '') + result.weaponBonus : ''}${attackEngagement > 0 ? `${fmt(result.engagementMod)}×${attackEngagement}` : ''}`,
+      rolls: result.stages.flatMap((s) => s.dice),
+      diceTypes: result.stages.flatMap((s) => s.dice.map(() => result.sides)),
+      total: result.total,
+      breakdown: result.breakdown,
+      critCount: result.critCount,
+      miss: result.miss
+    });
+    // Action log: same USE_CAPACITY channel, breakdown folded into the formula string (32 chars max).
+    dispatch(roomId, {
+      type: 'USE_CAPACITY',
+      playerId,
+      capacityName: label.slice(0, 120),
+      formula: `${result.stages[0]?.pool ?? 1}d${result.sides}${result.miss ? ' MISS' : result.critCount > 0 ? ` CRIT×${result.critCount}` : ''}`.slice(0, 32),
+      total: result.total,
+      rolls: result.stages.map((s) => s.kept)
+    }).catch((err) => console.error('Failed to dispatch attack roll:', err));
+  }
+  // Rule-derived combat values (parade, initiative, armure, vitesse)
+  let calc = $derived(computeDerived(sheet ?? {}));
+
   let pinnedSkills = $derived(
     (sheet?.pinnedSkills ?? []).filter((key) => sheet?.skills?.[key])
   );
-  // Rule-derived combat values (parade, initiative, armure, vitesse)
-  let calc = $derived(computeDerived(sheet ?? {}));
+
   let pinnedCapacities = $derived(
     (sheet?.capacities ?? []).filter((capacity, i) =>
       (sheet?.pinnedCapacities ?? []).includes(capacity?.name || `#${i}`)
@@ -318,9 +436,9 @@
         </div>
         <div class="flex flex-col gap-1 shrink-0">
           <button
-            onclick={() => doRoll('Bonus Attaque', `1d6${fmt(calc.bonusAttaque)}`)}
-            use:tooltip={`Bonus d'attaque (1d6 ${fmt(calc.bonusAttaque)})`}
-            class="w-6 h-6 rounded-md bg-[#111827] border border-[#374151] hover:bg-[#374151] text-[11px] flex items-center justify-center transition-colors"
+            onclick={toggleAttack}
+            title="Attaque (avantage / engagement)"
+            class={`w-6 h-6 rounded-md border text-[11px] flex items-center justify-center transition-colors ${showAttack ? 'bg-indigo-600 border-indigo-400' : 'bg-[#111827] border-[#374151] hover:bg-[#374151]'}`}
           >
             ⚔️
           </button>
@@ -391,6 +509,68 @@
           <div class="text-sm font-bold leading-tight text-[#4ade80]">{calc.mouvement}</div>
         </div>
       </div>
+      <!-- Attack panel: weapon dropdown + avantage slider + engagement -->
+      {#if showAttack}
+        <div class="mt-2 pt-2 border-t border-[#374151] space-y-2">
+          {#if equippedWeapons.length === 0}
+            <div class="text-[10px] text-[#9ca3af] text-center py-2">Aucune arme équipée</div>
+          {:else if selectedAttackWeapon && attackCalc}
+            <div class="flex items-center gap-1.5">
+              <span class="text-[8px] font-bold text-[#9ca3af] shrink-0">ARME</span>
+              <select
+                bind:value={attackWeaponName}
+                onchange={saveAttackSettings}
+                class="flex-1 min-w-0 px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
+              >
+                {#each equippedWeapons as w}
+                  <option value={w?.nom}>{w?.nom || 'Sans nom'} — {w?.de}{w?.proprietes ? ` · ${w.proprietes.split(',')[0]}` : ''}</option>
+                {/each}
+              </select>
+            </div>
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[8px] font-bold text-[#9ca3af]">AVANTAGE / DÉSAVANTAGE</span>
+                <span
+                  class={`text-[10px] font-bold ${attackAdv > 0 ? 'text-[#4ade80]' : attackAdv < 0 ? 'text-[#f87171]' : 'text-[#9ca3af]'}`}
+                >
+                  {attackAdv === 0 ? 'NEUTRE' : `${attackAdv > 0 ? '+' : ''}${attackAdv}`}
+                </span>
+              </div>
+              <input
+                type="range" min="-7" max="7" step="1" bind:value={attackAdv}
+                oninput={saveAttackSettings}
+                class="w-full accent-indigo-500 h-1.5"
+              />
+              <div class="text-[9px] text-[#9ca3af]">
+                {attackCalc.diceCount} dés · {attackKeepLabel || "garder l'unique"} · {attackLevelLabel}{attackEngagement > 0 ? ' (après engagement)' : ''}
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[8px] font-bold text-[#9ca3af]">ENGAGEMENT</span>
+                <span class="text-[10px] font-bold text-indigo-300">
+                  {attackEngagement === 0 ? 'AUCUN' : `${attackEngagement} · ${fmt(attackCalc.engagementMod)} ${STAT_LABELS[attackCalc.engagementStat] || ''}${attackCalc.finesse ? ' ×(1+crits)' : ''}`}
+                </span>
+              </div>
+              <input
+                type="range" min="0" max="7" step="1" bind:value={attackEngagement}
+                oninput={saveAttackSettings}
+                class="w-full accent-indigo-500 h-1.5"
+              />
+            </div>
+            <div class="text-[9px] text-[#9ca3af] leading-snug">
+              <div>Jet : {attackCalc.diceCount}d{attackCalc.sides}{attackKeepLabel ? ` · ${attackKeepLabel}` : ''}</div>
+              <div>Dégâts : {attackCalc.keep ? `${attackCalc.keep} + ` : 'dé + '}{attackCalc.weaponBonus ? `${fmt(attackCalc.weaponBonus)} arme` : ''}{attackEngagement > 0 ? `${attackCalc.weaponBonus ? ' ' : ''}${fmt(attackCalc.engagementMod * attackEngagement)} ${STAT_LABELS[attackCalc.engagementStat]}` : ''}{attackCalc.finesse ? ' (répété ×crits)' : ''}{attackCalc.hache ? ' (Brutalité : explosion 2d, doubles)' : ''}</div>
+            </div>
+            <button
+              onclick={doAttackRoll}
+              class="w-full py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 transition-colors text-[11px] font-bold text-white"
+            >
+              ⚔️ ATTAQUER
+            </button>
+          {/if}
+        </div>
+      {/if}
       <!-- Quick dice row: click a die to add it to the formula, then Roll -->
       <div class="flex items-center justify-center gap-1 mt-2 pt-2 border-t border-[#374151] flex-wrap">
         {#each QUICK_DICE as d}

@@ -24,6 +24,18 @@ const seedParam = params.get('seed');
 const modifierParam = parseInt(params.get('modifier') || '0', 10) || 0;
 const playerId = params.get('playerId') || '';
 const rollId = params.get('rollId') || '';
+let breakdownLines = [];
+try {
+  breakdownLines = JSON.parse(params.get('breakdown') || '[]');
+} catch {
+  breakdownLines = [];
+}
+if (breakdownLines.length) {
+  const el = document.createElement('div');
+  el.className = 'breakdown';
+  el.textContent = breakdownLines.join('\n');
+  document.querySelector('.card').appendChild(el);
+}
 const plainLabel = () => params.get('plainLabel') || 'Jet';
 
 document.getElementById('label').textContent = label;
