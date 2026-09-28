@@ -1,7 +1,8 @@
 // 3D dice visuals for the roll popup (dice.html) — lightweight take on the
 // official Owlbear dice plugin: its GLB meshes + locator face convention,
-// no physics engine (results are pre-computed). Each die tumbles and settles
-// with the rolled value's locator pointing up; crits glow gold, natural 1s red.
+// no physics engine. Top-down tray view; printed face numbers (canvas
+// textures placed at each locator); each die scatters, tumbles and settles
+// with the rolled value's face up. Crits glow gold, natural 1s red.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -45,7 +46,7 @@ if (error) {
   run3D();
 }
 
-function flatChips() {
+function fallbackFlat() {
   rolls.forEach((r, i) => {
     const die = document.createElement('div');
     die.className = parseInt(r, 10) === parseInt(types[i], 10) ? 'die crit' : parseInt(r, 10) === 1 ? 'die fail' : 'die';
@@ -54,20 +55,11 @@ function flatChips() {
     row.appendChild(die);
   });
   totalEl.style.animationDelay = `${0.45 + rolls.length * 0.08}s`;
-}
-
-function finishFlat() {
   if (crit) totalEl.classList.add('crit');
   else if (fail) totalEl.classList.add('fail');
   totalEl.textContent = total != null && total !== '' ? total : '—';
 }
 
-function fallbackFlat() {
-  flatChips();
-  finishFlat();
-}
-
-// ─── 3D scene ─────────────────────────────────────────────────────────────
 // Visual meshes per die; a d100 renders as percentile die + ones d10.
 function meshDefsFor() {
   const defs = [];
@@ -76,8 +68,8 @@ function meshDefsFor() {
     if (sides === 100) {
       const tens = value === 100 ? 0 : Math.floor(value / 10) * 10;
       const ones = value % 10;
-      defs.push({ type: 'd100', locator: '00', label: String(tens).padStart(2, '0'), crit: value === 100, fail: false });
-      defs.push({ type: 'd10', value: ones, label: String(ones), crit: false, fail: ones === 0 && value === 100 });
+      defs.push({ type: 'd100', value: tens, label: String(tens).padStart(2, '0'), crit: value === 100, fail: false });
+      defs.push({ type: 'd10', value: ones, label: String(ones), crit: false, fail: ones === 1 });
     } else {
       defs.push({ type: SIDES_TO_TYPE[sides], value, label: String(value), crit: value === sides, fail: value === 1 });
     }
@@ -87,10 +79,58 @@ function meshDefsFor() {
 
 const LOCATOR_PREFIX = { d4: '004', d6: '006', d8: '008', d10: '010', d12: '012', d20: '020', d100: '100' };
 
+function smoothstep(k) {
+  return k * k * (3 - 2 * k);
+}
+
 function locatorKey(type, value) {
   if (type === 'd100') return String(value).padStart(2, '0'); // 00,10…90
   if (type === 'd10') return String(value % 10); // 10 shows as 0
   return String(value);
+}
+
+// ─── Printed face numbers ────────────────────────────────────────────────
+const numberTextureCache = new Map();
+
+function numberTexture(text) {
+  if (numberTextureCache.has(text)) return numberTextureCache.get(text);
+  const canvas = document.createElement('canvas');
+  canvas.width = 96;
+  canvas.height = 96;
+  const ctx = canvas.getContext('2d');
+  ctx.font = `bold ${text.length > 1 ? 46 : 58}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = 'rgba(15,23,42,0.85)';
+  ctx.strokeText(text, 48, 52);
+  ctx.fillStyle = '#f9fafb';
+  ctx.fillText(text, 48, 52);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  numberTextureCache.set(text, texture);
+  return texture;
+}
+
+// A number plane for each face, anchored to its locator
+function addFaceNumbers(dieGroup, gltfScene, type) {
+  const diceGroup = gltfScene.getObjectByName('dice');
+  if (!diceGroup) return;
+  const geometry = new THREE.PlaneGeometry(0.62, 0.62);
+  for (const locator of diceGroup.children) {
+    const match = locator.name.match(/_locator_(.+)$/);
+    if (!match) continue;
+    const text = type === 'd100' ? match[1].padStart(2, '0') : match[1];
+    const dir = locator.position.clone().normalize();
+    const plane = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+      map: numberTexture(text),
+      transparent: true,
+      depthWrite: false
+    }));
+    plane.position.copy(locator.position).multiplyScalar(1.08);
+    plane.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+    dieGroup.add(plane);
+  }
 }
 
 function run3D() {
@@ -115,17 +155,16 @@ function run3D() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 100);
-  camera.position.set(0, 2.6, 6.6);
-  camera.lookAt(0, 0.2, 0);
+  // top-down view onto the tray
+  const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+  camera.up.set(0, 0, -1);
+  camera.position.set(0, 9.8, 0.01);
+  camera.lookAt(0, 0, 0);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
-  const key = new THREE.DirectionalLight(0xffffff, 1.8);
-  key.position.set(2.5, 4, 3);
+  scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+  const key = new THREE.DirectionalLight(0xffffff, 2.2);
+  key.position.set(2.5, 8, 3);
   scene.add(key);
-  const rim = new THREE.PointLight(0x818cf8, 14, 25);
-  rim.position.set(-3, 2.5, -2);
-  scene.add(rim);
 
   const tray = new THREE.Mesh(
     new THREE.CircleGeometry(3.4, 48),
@@ -157,15 +196,12 @@ function run3D() {
     const n = meshDefs.length;
     const cols = Math.min(n, 3);
     const rows = Math.ceil(n / cols);
+    const spread = n > 3 ? 1.15 : 1.5;
 
     const meshes = meshDefs.map((def, i) => {
       const die = byType[def.type].clone(true);
-      die.scale.setScalar(n > 3 ? 0.36 : 0.46);
-      die.rotation.set(
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2,
-        Math.random() * Math.PI * 2
-      );
+      const s = n > 3 ? 0.38 : 0.5;
+      die.scale.setScalar(s);
       const material = new THREE.MeshPhysicalMaterial({
         color,
         metalness: 0.15,
@@ -175,11 +211,9 @@ function run3D() {
       });
       die.traverse((o) => {
         if (o.isMesh) o.material = material;
-      });
-      // hide the GLB's locator empties (invisible anyway, but tidy)
-      die.traverse((o) => {
         if (o.name.includes('_locator_')) o.visible = false;
       });
+      addFaceNumbers(die, byType[def.type], def.type);
 
       // final orientation: rolled value's locator points up + random Y spin
       const diceGroup = byType[def.type].getObjectByName('dice');
@@ -194,27 +228,30 @@ function run3D() {
       const col = i % cols;
       const gridRow = Math.floor(i / cols);
       const inRow = Math.min(n - gridRow * cols, cols);
-      die.position.set(
-        (col - (inRow - 1) / 2) * (n > 3 ? 1.15 : 1.45),
-        3 + i * 0.35,
-        rows > 1 ? (gridRow === 0 ? -0.85 : 0.85) : 0
-      );
+      const targetX = (col - (inRow - 1) / 2) * spread;
+      const targetZ = rows > 1 ? (gridRow === 0 ? -0.9 : 0.9) : 0;
+      // start clustered near the tray center, scattered outward on roll
+      die.position.set(targetX * 0.1, 0, targetZ * 0.1 + (Math.random() - 0.5) * 0.4);
       scene.add(die);
 
       return {
         group: die,
         material,
         targetQuat,
+        targetX,
+        targetZ,
         axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
-        start: i * 0.22,
-        spin: (Math.random() < 0.5 ? -1 : 1) * (10 + Math.random() * 5),
+        start: i * 0.25,
+        spin: (Math.random() < 0.5 ? -1 : 1) * (3.5 + Math.random() * 2),
         glow: def.crit ? '#fbbf24' : def.fail ? '#dc2626' : null,
+        fromQuat: null,
         settled: false
       };
     });
 
     const clock = new THREE.Clock();
-    const SETTLE_TIME = 1.6;
+    const FALL_TIME = 1.15; // scatter + tumble
+    const SETTLE_TIME = 0.65; // smooth rotation into the rolled face
     let allSettled = false;
 
     function animate() {
@@ -222,22 +259,39 @@ function run3D() {
       for (const m of meshes) {
         const local = t - m.start;
         if (local < 0) continue;
-        if (local < SETTLE_TIME) {
-          const p = Math.min(1, local / SETTLE_TIME);
-          const ease = 1 - Math.pow(1 - p, 3);
-          m.group.position.y = (1 - ease) * 3.2;
-          m.group.quaternion.setFromAxisAngle(m.axis, ease * m.spin);
-          m.group.quaternion.slerp(m.targetQuat, 0.03 * ease);
+        if (local < FALL_TIME) {
+          const p = local / FALL_TIME;
+          // scatter outward with a slight overshoot (easeOutBack)
+          const back = 1 + 1.35 * Math.pow(p - 1, 3) + 0.35 * Math.pow(p - 1, 2);
+          m.group.position.x = m.targetX * back;
+          m.group.position.z = m.targetZ * back;
+          // decelerating tumble
+          m.group.quaternion.setFromAxisAngle(m.axis, m.spin * (1 - Math.pow(1 - p, 2)));
+          // start blending toward the target face near the end of the scatter
+          if (p > 0.55) {
+            if (!m.fromQuat) m.fromQuat = m.group.quaternion.clone();
+            const w = smoothstep((p - 0.55) / 0.45);
+            m.group.quaternion.slerpQuaternions(m.fromQuat, m.targetQuat, w);
+          }
         } else if (!m.settled) {
-          m.group.quaternion.copy(m.targetQuat);
-          m.group.position.y = 0;
-          m.settled = true;
-          // value chip appears as the die lands
-          const idx = meshes.indexOf(m);
-          const chip = document.createElement('div');
-          chip.className = meshDefs[idx].crit ? 'die crit' : meshDefs[idx].fail ? 'die fail' : 'die';
-          chip.textContent = meshDefs[idx].label;
-          row.appendChild(chip);
+          const k = Math.min(1, (local - FALL_TIME) / SETTLE_TIME);
+          const s = k * k * (3 - 2 * k);
+          if (!m.fromQuat) m.fromQuat = m.group.quaternion.clone();
+          // smooth final rotation + one soft landing bounce
+          m.group.quaternion.slerpQuaternions(m.fromQuat, m.targetQuat, s);
+          m.group.position.y = 0.28 * Math.sin(k * Math.PI) * (1 - k * k);
+          m.group.position.x = m.targetX;
+          m.group.position.z = m.targetZ;
+          if (k >= 1) {
+            m.group.quaternion.copy(m.targetQuat);
+            m.group.position.y = 0;
+            m.settled = true;
+            const idx = meshes.indexOf(m);
+            const chip = document.createElement('div');
+            chip.className = meshDefs[idx].crit ? 'die crit' : meshDefs[idx].fail ? 'die fail' : 'die';
+            chip.textContent = meshDefs[idx].label;
+            row.appendChild(chip);
+          }
         }
         if (m.settled && m.glow) {
           const pulse = 0.55 + 0.45 * Math.sin(t * 7);

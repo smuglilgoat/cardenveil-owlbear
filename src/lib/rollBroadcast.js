@@ -18,7 +18,8 @@ export async function broadcastRoll(data) {
     /* name optional */
   }
   try {
-    await OBR.broadcast.sendMessage(ROLL_CHANNEL, { ...data, rollId, playerName });
+    // ALL so the roller's own background page also opens the popup (top-center)
+    await OBR.broadcast.sendMessage(ROLL_CHANNEL, { ...data, rollId, playerName }, { destination: 'ALL' });
   } catch (err) {
     console.warn('Failed to broadcast roll:', err);
   }
