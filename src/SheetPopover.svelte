@@ -68,6 +68,16 @@
   ];
   let quickFormula = $state('');
 
+  // count of each die type in the quick formula (for the badge chips)
+  let quickCounts = $derived.by(() => {
+    const counts = {};
+    for (const m of quickFormula.matchAll(/(\d*)d(\d+)/gi)) {
+      const sides = m[2];
+      counts[sides] = (counts[sides] ?? 0) + (m[1] ? parseInt(m[1], 10) : 1);
+    }
+    return counts;
+  });
+
   function addQuickDie(die) {
     quickFormula = quickFormula ? `${quickFormula}+1${die}` : `1${die}`;
   }
@@ -336,17 +346,19 @@
           <div class="text-sm font-bold leading-tight text-[#4ade80]">{calc.mouvement}</div>
         </div>
       </div>
-      <!-- Per-turn action diamonds (centered; long hover shows the combat actions reference) -->
       <!-- Quick dice row: click a die to add it to the formula, then Roll -->
       <div class="flex items-center justify-center gap-1 mt-2 pt-2 border-t border-[#374151] flex-wrap">
         {#each QUICK_DICE as d}
           <button
             onclick={() => addQuickDie(d.die)}
             title={`Ajouter 1${d.die} à la formule`}
-            class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-[#111827] border border-[#374151] hover:border-indigo-500 hover:bg-[#1f2937] transition-colors text-[9px] font-bold text-indigo-300"
+            class="relative flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-[#111827] border {(quickCounts[d.die.slice(1)] ?? 0) > 0 ? 'border-indigo-400' : 'border-[#374151]'} hover:border-indigo-500 hover:bg-[#1f2937] transition-colors text-[9px] font-bold text-indigo-300"
           >
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">{@html d.icon}</svg>
             <span>{d.die}</span>
+            {#if (quickCounts[d.die.slice(1)] ?? 0) > 0}
+              <span class="absolute -top-1.5 -right-1.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-indigo-500 text-white text-[8px] font-bold leading-[14px]">{quickCounts[d.die.slice(1)]}</span>
+            {/if}
           </button>
         {/each}
         <input
@@ -355,7 +367,7 @@
           class="w-24 min-w-0 px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
         />
         <button
-          onclick={() => doRoll('Jet rapide', quickFormula)}
+          onclick={() => { doRoll('Jet rapide', quickFormula); quickFormula = ''; }}
           disabled={!quickFormula || !isDiceFormula(quickFormula, sheet?.stats ?? {})}
           title="Lancer la formule"
           class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-[10px] font-bold text-white"

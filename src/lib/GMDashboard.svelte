@@ -51,6 +51,14 @@
   
   // Character sheet management
   let viewingSheet = $state(null); // { playerId, sheet, isEditing }
+
+  // ── Dice visuals preference (3D or classic flat) — broadcast to all clients ──
+  let diceStyle = $state(localStorage.getItem('cardenveil-dice-style') || '');
+  function setDiceStyle(style) {
+    diceStyle = style;
+    localStorage.setItem('cardenveil-dice-style', style);
+    OBR.broadcast.sendMessage('cardenveil-prefs', { diceStyle: style }).catch(() => {});
+  }
   let sheetLoading = $state(false);
   let sheetError = $state('');
 
@@ -476,6 +484,25 @@
 </script>
 
 <div class="flex flex-col h-full overflow-y-auto p-3 gap-4">
+  <!-- ── Style des dés (3D animés ou classique) ────────────────────── -->
+  <div class="flex items-center gap-2 text-xs text-gray-400 px-1">
+    <span>Dés :</span>
+    <div class="flex rounded-lg overflow-hidden border border-[#374151]">
+      <button
+        onclick={() => setDiceStyle('')}
+        class="px-2.5 py-1 text-[11px] font-bold transition-colors {diceStyle === '' ? 'bg-indigo-600 text-white' : 'bg-[#111827] text-gray-400 hover:bg-[#1f2937]'}"
+      >
+        🎲 3D
+      </button>
+      <button
+        onclick={() => setDiceStyle('flat')}
+        class="px-2.5 py-1 text-[11px] font-bold transition-colors {diceStyle === 'flat' ? 'bg-indigo-600 text-white' : 'bg-[#111827] text-gray-400 hover:bg-[#1f2937]'}"
+      >
+        Classique
+      </button>
+    </div>
+  </div>
+
   <!-- ── Défausse ──────────────────────────────────────────────────── -->
   <div class="flex gap-4 text-xs text-gray-400 px-1">
     <span

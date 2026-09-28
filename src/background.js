@@ -8,6 +8,8 @@ const DICE_POPOVER_ID = 'cardenveil-dice';
 const CLOSE_AFTER_MS = 6000;
 let closeTimer;
 let lastRollId = null;
+// GM-selectable dice visuals ('flat' = classic CSS dice, '' = 3D)
+let diceStyle = localStorage.getItem('cardenveil-dice-style') || '';
 
 async function anchorFor(isSelf) {
   let width = 0;
@@ -32,7 +34,25 @@ async function anchorFor(isSelf) {
   };
 }
 
+function openDicePopover(params, anchor) {
+  return OBR.popover.open({
+    id: DICE_POPOVER_ID,
+    url: `${window.location.origin}/dice.html?${params.toString()}`,
+    width: 460,
+    height: 380,
+    ...anchor
+  });
+}
+
 OBR.onReady(() => {
+  // GM dice-style preference (broadcast by the GM dashboard)
+  OBR.broadcast.onMessage('cardenveil-prefs', ({ data }) => {
+    if (data?.diceStyle !== undefined) {
+      diceStyle = data.diceStyle;
+      localStorage.setItem('cardenveil-dice-style', diceStyle);
+    }
+  });
+
   OBR.broadcast.onMessage(ROLL_CHANNEL, async ({ data, connectionId }) => {
     if (!data?.rollId || data.rollId === lastRollId) return;
     lastRollId = data.rollId;
@@ -45,16 +65,11 @@ OBR.onReady(() => {
       rolls: (data.rolls ?? []).join(','),
       types: (data.diceTypes ?? []).join(','),
       color: data.color || '',
+      mode: diceStyle,
       error: ''
     });
     try {
-      await OBR.popover.open({
-        id: DICE_POPOVER_ID,
-        url: `${window.location.origin}/dice.html?${params.toString()}`,
-        width: 340,
-        height: 280,
-        ...(await anchorFor(isSelf))
-      });
+      await openDicePopover(params, await anchorFor(isSelf));
       clearTimeout(closeTimer);
       closeTimer = setTimeout(() => OBR.popover.close(DICE_POPOVER_ID).catch(() => {}), CLOSE_AFTER_MS);
     } catch (err) {
