@@ -51,7 +51,10 @@
     normalizeRaceName,
     syncSkillBonuses,
     syncStatsFromEquipment,
-    toNumber
+    toNumber,
+    DICE_GEMS,
+    DICE_GEM_LABELS,
+    diceGemColor
   } from './characterSheet.js';
   import { broadcastRoll } from './rollBroadcast.js';
 
@@ -365,7 +368,7 @@
         total: result.total,
         rolls: result.rolls,
       });
-      broadcastRoll({ label: capacityName, ...result });
+      broadcastRoll({ label: capacityName, color: diceGemColor(view), ...result });
       showDicePopup({ label: capacityName, ...result });
     } catch (err) {
       showDicePopup({ label: capacityName, error: err.message });
@@ -1402,6 +1405,15 @@
               <div>
                 <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">Niveau</label>
                 <input type="number" bind:value={editSheet.identity.niveau} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">Couleur des dés</label>
+                <select bind:value={editSheet.identity.diceColor} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1 py-1 focus:outline-none focus:border-indigo-500">
+                  <option value="">Auto (caractéristique max)</option>
+                  {#each Object.keys(DICE_GEMS) as gem}
+                    <option value={gem} style="color: {DICE_GEMS[gem]}">{DICE_GEM_LABELS[gem]}</option>
+                  {/each}
+                </select>
               </div>
               {#each IDENTITY_EXTRAS as [field, label]}
                 <div>

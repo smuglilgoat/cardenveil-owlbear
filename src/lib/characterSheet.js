@@ -475,7 +475,8 @@ export function createEmptyCharacterSheet() {
       poids: '',
       yeux: '',
       peau: '',
-      cheveux: ''
+      cheveux: '',
+      diceColor: ''
     },
     portrait: '',
     stats: {
@@ -1130,7 +1131,58 @@ export function parseDiceFormula(value, stats = {}) {
  * @returns {boolean}
  */
 export function isDiceFormula(value, stats = {}) {
-  return parseDiceFormula(value, stats) !== null;
+  if (parseDiceFormula(value, stats) !== null) return true;
+  // compound formulas: every '+' term must roll
+  if (typeof value === 'string' && value.includes('+')) {
+    const parts = value.split('+').map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 1 && parts.every((p) => parseDiceFormula(p, stats) !== null)) return true;
+  }
+  return false;
+}
+
+// ─── Dice color (gem themes for the 3D dice popup) ───
+/** stat → gem name when the stat color governs the dice (max-stat rule) */
+export const STAT_GEM = { force: 'ruby', agilite: 'emerald', esprit: 'sapphire', social: 'amethyst' };
+/** Player-selectable dice colors (ÉDITION IDENTITÉ) */
+export const DICE_GEMS = {
+  obsidian: '#312e81',
+  ruby: '#e11d48',
+  emerald: '#059669',
+  sapphire: '#3b82f6',
+  amethyst: '#a855f7',
+};
+export const DICE_GEM_LABELS = {
+  obsidian: 'Obsidienne',
+  ruby: 'Rubis',
+  emerald: 'Émeraude',
+  sapphire: 'Saphir',
+  amethyst: 'Améthyste',
+};
+
+/**
+ * Resolve the dice color for a sheet:
+ * explicit choice (identity.diceColor) > max-stat gem (random pick on ties)
+ * > obsidian (no meaningful stats). A random pick among tied gems gives a
+ * mixed color across rolls.
+ * @param {Object} [sheet]
+ * @returns {string} gem key ('obsidian' | 'ruby' | 'emerald' | 'sapphire' | 'amethyst')
+ */
+export function diceGem(sheet = {}) {
+  const chosen = sheet?.identity?.diceColor;
+  if (chosen && DICE_GEMS[chosen]) return chosen;
+  const keys = ['force', 'agilite', 'esprit', 'social'];
+  const values = keys.map((k) => Number(sheet?.stats?.[k]));
+  if (values.some((v) => !Number.isFinite(v)) || values.every((v) => v === values[0])) {
+    return 'obsidian';
+  }
+  const max = Math.max(...values);
+  const tied = keys.filter((k) => Number(sheet.stats[k]) === max).map((k) => STAT_GEM[k]);
+  return tied.length > 1 ? tied[Math.floor(Math.random() * tied.length)] : tied[0];
+}
+
+/** Resolved dice color as a hex string. */
+export function diceGemColor(sheet) {
+  return DICE_GEMS[diceGem(sheet)];
 }
 
 /**
@@ -1279,6 +1331,29 @@ export function syncSkillBonuses(sheet) {
  * @returns {{total: number, rolls: number[], modifier: number, formula: string}}
  */
 export function rollDice(formula, stats = {}) {
+  // compound formulas ("1d6+1d4"): roll each term, concat rolls in order
+  if (typeof formula === 'string' && formula.includes('+')) {
+    const parts = formula.split('+').map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 1) {
+      const parsed = parts.map((p) => parseDiceFormula(p, stats));
+      if (parsed.every(Boolean)) {
+        const rolls = [];
+        const diceTypes = [];
+        let total = 0;
+        for (const part of parsed) {
+          for (let i = 0; i < part.count; i++) {
+            const v = Math.floor(Math.random() * part.sides) + 1;
+            rolls.push(v);
+            diceTypes.push(part.sides);
+            total += v;
+          }
+          total += part.modifier;
+        }
+        return { total, rolls, diceTypes, modifier: 0, formula: parts.join('+') };
+      }
+    }
+  }
+
   const parsed = parseDiceFormula(formula, stats);
   if (!parsed) {
     throw new Error(`Invalid dice formula: ${formula}`);
@@ -1293,7 +1368,7 @@ export function rollDice(formula, stats = {}) {
   const sum = rolls.reduce((a, b) => a + b, 0);
   const total = sum + modifier;
 
-  return { total, rolls, modifier, formula: parsed.formula };
+  return { total, rolls, diceTypes: Array(count).fill(sides), modifier, formula: parsed.formula };
 }
 
 /**

@@ -43,6 +43,8 @@ OBR.onReady(() => {
       formula: data.formula || '',
       total: data.total != null ? String(data.total) : '',
       rolls: (data.rolls ?? []).join(','),
+      types: (data.diceTypes ?? []).join(','),
+      color: data.color || '',
       error: ''
     });
     try {

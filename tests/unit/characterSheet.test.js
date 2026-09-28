@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -287,6 +287,30 @@ describe('Character Sheet dice helpers', () => {
       const next = syncStatsFromEquipment(sheet);
       expect(next.derived.overrides.parade).toBe(20);
       expect(computeDerived(next).parade).toBe(20);
+    });
+
+    it('rollDice should support compound formulas and report die types', () => {
+      const result = rollDice('1d6+1d4', {});
+      expect(result.rolls).toHaveLength(2);
+      expect(result.diceTypes).toEqual([6, 4]);
+      expect(result.total).toBe(result.rolls[0] + result.rolls[1]);
+      expect(result.formula).toBe('1d6+1d4');
+    });
+
+    it('isDiceFormula should accept compound formulas', () => {
+      expect(isDiceFormula('1d6+1d4', {})).toBe(true);
+      expect(isDiceFormula('1d6+abc', {})).toBe(false);
+      expect(isDiceFormula('2d6+3', {})).toBe(true); // single term + modifier
+    });
+
+    it('diceGem should follow explicit > max-stat > obsidian', () => {
+      expect(diceGem({ identity: { diceColor: 'ruby' } })).toBe('ruby');
+      expect(diceGem({ stats: { force: 12, agilite: 14, esprit: 10, social: 10 } })).toBe('emerald');
+      // tie between force/agilite: random pick among their gems
+      const gem = diceGem({ stats: { force: 14, agilite: 14, esprit: 10, social: 10 } });
+      expect(['ruby', 'emerald']).toContain(gem);
+      expect(diceGem({ stats: { force: 10, agilite: 10, esprit: 10, social: 10 } })).toBe('obsidian');
+      expect(diceGemColor({ stats: { force: 14, agilite: 10, esprit: 10, social: 10 } })).toBe(DICE_GEMS.ruby);
     });
   });
 

@@ -17,7 +17,7 @@
         font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
         -webkit-font-smoothing: antialiased;
       }
-      .card { width: 100%; padding: 24px; text-align: center; }
+      .card { width: 100%; padding: 10px 24px 16px; text-align: center; }
       .label {
         font-size: 12px;
         font-weight: 700;
@@ -26,17 +26,17 @@
         letter-spacing: 0.05em;
       }
       .formula { font-size: 13px; color: #9ca3af; margin-top: 4px; }
-      .dice-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0 8px; min-height: 46px; }
+      .dice-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0 6px; min-height: 40px; }
       .die {
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
         background: #111827;
         border: 1px solid #374151;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
+        font-size: 12px;
         font-weight: 700;
         opacity: 0;
         animation: tumble 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
@@ -47,7 +47,7 @@
         100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
       }
       .total {
-        font-size: 46px;
+        font-size: 40px;
         font-weight: 800;
         line-height: 1.1;
         color: #a5b4fc;
@@ -58,7 +58,7 @@
       @keyframes pop {
         to { opacity: 1; transform: scale(1); }
       }
-      .hint { font-size: 10px; color: #6b7280; margin-top: 12px; }
+      .hint { font-size: 10px; color: #6b7280; margin-top: 6px; }
       .error { color: #f87171; font-size: 13px; margin-top: 20px; }
       /* Max-value roll: gold flash */
       .die.crit {
@@ -116,56 +116,6 @@
       <div class="total" id="total"></div>
       <div class="hint">Clic à l'extérieur pour fermer</div>
     </div>
-    <script>
-      const params = new URLSearchParams(location.search);
-      const label = params.get('label') || 'Lancer de dés';
-      const formula = params.get('formula') || '';
-      const total = params.get('total');
-      const rolls = (params.get('rolls') || '').split(',').filter(Boolean);
-      const error = params.get('error');
-      // Max-value roll ("crit"): a die equal to its formula's die size (d20 → 20, d6 → 6, …)
-      const critMatch = formula.match(/d\s*(\d+)/i);
-      const critSides = critMatch ? parseInt(critMatch[1], 10) : null;
-      const isCrit = (r) => critSides != null && parseInt(r, 10) === critSides;
-      // Natural 1 ("fail"): a die showing 1
-      const isFail = (r) => parseInt(r, 10) === 1;
-
-      document.getElementById('label').textContent = label;
-      const row = document.getElementById('dice-row');
-      const totalEl = document.getElementById('total');
-
-      if (error) {
-        totalEl.style.display = 'none';
-        const el = document.createElement('div');
-        el.className = 'error';
-        el.textContent = 'Formule invalide : ' + error;
-        row.replaceWith(el);
-      } else {
-        document.getElementById('formula').textContent = formula;
-        const shown = rolls.slice(0, 12);
-        shown.forEach((r, i) => {
-          const die = document.createElement('div');
-          die.className = isCrit(r) ? 'die crit' : isFail(r) ? 'die fail' : 'die';
-          die.style.animationDelay = `${i * 0.08}s`;
-          die.textContent = r;
-          row.appendChild(die);
-        });
-        if (rolls.length > shown.length) {
-          const more = document.createElement('div');
-          more.className = 'die';
-          more.style.animationDelay = `${shown.length * 0.08}s`;
-          more.textContent = `+${rolls.length - shown.length}`;
-          row.appendChild(more);
-        }
-        // Crit (gold) takes precedence over natural 1 (red) for the total
-        if (rolls.some(isCrit)) {
-          totalEl.classList.add('crit');
-        } else if (rolls.some(isFail)) {
-          totalEl.classList.add('fail');
-        }
-        totalEl.style.animationDelay = `${0.45 + (shown.length + 1) * 0.08}s`;
-        totalEl.textContent = total != null && total !== '' ? total : '—';
-      }
-    </script>
+    <script type="module" src="/src/dice3d.js"></script>
   </body>
 </html>

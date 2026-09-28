@@ -22,7 +22,10 @@
     suitColor,
     suitSymbol,
     toNumber,
-    isImageUrl
+    isImageUrl,
+    DICE_GEMS,
+    DICE_GEM_LABELS,
+    diceGemColor
   } from './lib/characterSheet.js';
   import { broadcastRoll } from './lib/rollBroadcast.js';
 
@@ -53,6 +56,22 @@
         saveInFlight = false;
       });
   }
+  // ─── Quick dice row (d4 → d100 icons; click adds to the formula) ───
+  const QUICK_DICE = [
+    { die: 'd4', icon: '<polygon points="12,2 22,20 2,20"/>' },
+    { die: 'd6', icon: '<rect x="3" y="3" width="18" height="18" rx="3"/>' },
+    { die: 'd8', icon: '<polygon points="12,1 23,12 12,23 1,12"/>' },
+    { die: 'd10', icon: '<polygon points="12,1 22,10 12,23 2,10"/>' },
+    { die: 'd12', icon: '<polygon points="12,1 23,9 19,22 5,22 1,9"/>' },
+    { die: 'd20', icon: '<polygon points="12,1 22,6.5 22,17.5 12,23 2,17.5 2,6.5"/>' },
+    { die: 'd100', icon: '<polygon points="15,2 21,10 15,22 9,10"/><polygon points="9,7 13,11 9,18 5,11" fill-opacity="0.5"/>' }
+  ];
+  let quickFormula = $state('');
+
+  function addQuickDie(die) {
+    quickFormula = quickFormula ? `${quickFormula}+1${die}` : `1${die}`;
+  }
+
   let expandedHeight = 540;
   const FOLDED_HEIGHT = 40;
 
@@ -170,7 +189,7 @@
     try {
       const result = rollDice(formula, sheet?.stats ?? {});
       // Dice popup is shown by the background page (top-center / bottom-right)
-      broadcastRoll({ label, ...result });
+      broadcastRoll({ label, color: diceGemColor(sheet), ...result });
       dispatch(roomId, {
         type: 'USE_CAPACITY',
         playerId,
@@ -316,6 +335,33 @@
           <div class="text-[7px] font-bold text-[#9ca3af]">VITESSE</div>
           <div class="text-sm font-bold leading-tight text-[#4ade80]">{calc.mouvement}</div>
         </div>
+      </div>
+      <!-- Per-turn action diamonds (centered; long hover shows the combat actions reference) -->
+      <!-- Quick dice row: click a die to add it to the formula, then Roll -->
+      <div class="flex items-center justify-center gap-1 mt-2 pt-2 border-t border-[#374151] flex-wrap">
+        {#each QUICK_DICE as d}
+          <button
+            onclick={() => addQuickDie(d.die)}
+            title={`Ajouter 1${d.die} à la formule`}
+            class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-[#111827] border border-[#374151] hover:border-indigo-500 hover:bg-[#1f2937] transition-colors text-[9px] font-bold text-indigo-300"
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">{@html d.icon}</svg>
+            <span>{d.die}</span>
+          </button>
+        {/each}
+        <input
+          bind:value={quickFormula}
+          placeholder="1d20+1d6…"
+          class="w-24 min-w-0 px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
+        />
+        <button
+          onclick={() => doRoll('Jet rapide', quickFormula)}
+          disabled={!quickFormula || !isDiceFormula(quickFormula, sheet?.stats ?? {})}
+          title="Lancer la formule"
+          class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-[10px] font-bold text-white"
+        >
+          🎲 Lancer
+        </button>
       </div>
       <!-- Per-turn action diamonds (centered; long hover shows the combat actions reference) -->
       <ActionDiamonds
