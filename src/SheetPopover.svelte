@@ -24,6 +24,7 @@
     toNumber,
     isImageUrl
   } from './lib/characterSheet.js';
+  import { openDicePopup, broadcastRoll, onRemoteRoll } from './lib/rollBroadcast.js';
 
   const params = new URLSearchParams(location.search);
   let playerId = params.get('playerId');
@@ -113,6 +114,16 @@
     window.addEventListener('focus', reconcile);
     document.addEventListener('visibilitychange', reconcile);
 
+    // Rolls from other players/GM (OBR broadcast): show the popup bottom-left
+    const offRoll = onRemoteRoll((data) => {
+      openDicePopup(data)
+        .then(() => {
+          clearTimeout(dicePopoverTimer);
+          dicePopoverTimer = setTimeout(() => OBR.popover.close(DICE_POPOVER_ID).catch(() => {}), 6000);
+        })
+        .catch((err) => console.warn('Remote dice popup unavailable:', err));
+    });
+
     OBR.onReady(async () => {
       try {
         expandedHeight = (await OBR.popover.getHeight(popoverId)) || expandedHeight;
@@ -123,6 +134,7 @@
     return () => {
       unsubscribe();
       offBroadcast();
+      offRoll();
       clearInterval(pollTimer);
       window.removeEventListener('focus', reconcile);
       document.removeEventListener('visibilitychange', reconcile);
@@ -170,21 +182,10 @@
   async function doRoll(label, formula) {
     try {
       const result = rollDice(formula, sheet?.stats ?? {});
-      // Animated dice popup (same as the main sheet); inline panel as fallback
+      // Animated dice popup (same as the main sheet), broadcast to the room
+      broadcastRoll({ label, ...result });
       try {
-        const params = new URLSearchParams({
-          label: label || '',
-          formula: result.formula || '',
-          total: result.total != null ? String(result.total) : '',
-          rolls: (result.rolls ?? []).join(','),
-          error: ''
-        });
-        await OBR.popover.open({
-          id: DICE_POPOVER_ID,
-          url: `${window.location.origin}/dice.html?${params.toString()}`,
-          width: 340,
-          height: 280
-        });
+        await openDicePopup({ label, ...result });
         clearTimeout(dicePopoverTimer);
         dicePopoverTimer = setTimeout(() => OBR.popover.close(DICE_POPOVER_ID).catch(() => {}), 6000);
       } catch (err) {

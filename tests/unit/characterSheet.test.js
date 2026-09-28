@@ -269,6 +269,25 @@ describe('Character Sheet dice helpers', () => {
       });
       expect(calc.bonusAttaque).toBe(2); // main-hand sword: force mod +2
     });
+
+    it('computeDerived should apply manual overrides and ignore empties', () => {
+      const sheet = {
+        stats: { force: 10, agilite: 10, esprit: 10, social: 10 },
+        derived: { overrides: { parade: 18, initiative: '', volonte: 9, seuilMiss: null } },
+      };
+      const calc = computeDerived(sheet);
+      expect(calc.parade).toBe(18);
+      expect(calc.volonte).toBe(9);
+      expect(calc.initiative).not.toBe('');
+      expect(calc.seuilMiss).toBe(1); // rule value (max(1, 1 - mod Agi))
+    });
+
+    it('syncStatsFromEquipment should preserve overrides', () => {
+      const sheet = { stats: {}, derived: { overrides: { parade: 20 } } };
+      const next = syncStatsFromEquipment(sheet);
+      expect(next.derived.overrides.parade).toBe(20);
+      expect(computeDerived(next).parade).toBe(20);
+    });
   });
 
   describe('ITEM_FIELDS', () => {

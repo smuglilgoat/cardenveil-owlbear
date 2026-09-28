@@ -969,6 +969,9 @@ export function attackBonus(weapon, stats = {}) {
  * @param {Object} [sheet] - Character sheet data
  * @returns {Object} Computed values
  */
+/** Computed values a player may override with a manual value (ÉDITION STATS). */
+export const OVERRIDABLE_DERIVED = ['parade', 'initiative', 'mouvement', 'seuilMiss', 'bonusAttaque', 'canalisation', 'volonte'];
+
 export function computeDerived(sheet = {}) {
   const stats = sheet?.stats ?? {};
   const equipment = sheet?.equipment ?? {};
@@ -983,7 +986,7 @@ export function computeDerived(sheet = {}) {
     (weapons ?? []).find((w) => w?.equipped && (w?.hand ?? 'main') === 'main') ??
     (weapons ?? []).find((w) => w?.equipped);
   const paradeBonus = paradeModifier(weapons, stats);
-  return {
+  const base = {
     ...eq,
     // Rule value: resilience modifier + casque. (eq.volonte above is the raw slot sum.)
     volonte: skillModifier(stats, 'resilience') + casque,
@@ -995,6 +998,13 @@ export function computeDerived(sheet = {}) {
     canalisation: statModifier(weaponStatScore(stats, 'esprit')),
     bonusAttaque: firstEquipped ? attackBonus(firstEquipped, stats) : 0,
   };
+  // Manual overrides (typed in ÉDITION); empty/absent = rule value applies.
+  const overrides = sheet?.derived?.overrides ?? {};
+  for (const key of OVERRIDABLE_DERIVED) {
+    const v = overrides[key];
+    if (v !== undefined && v !== null && v !== '') base[key] = toNumber(v);
+  }
+  return base;
 }
 
 /**

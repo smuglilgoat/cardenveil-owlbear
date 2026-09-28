@@ -53,6 +53,7 @@
     syncStatsFromEquipment,
     toNumber
   } from './characterSheet.js';
+  import { openDicePopup, broadcastRoll, onRemoteRoll } from './rollBroadcast.js';
 
   let { playerId, roomId, gameState = null, onAction = () => {} } = $props();
 
@@ -179,10 +180,13 @@
           sheet = msg.data;
         }
       });
+      // Rolls from other players/GM (OBR broadcast): show the popup bottom-left
+      const offRoll = onRemoteRoll((data) => showDicePopup(data));
 
       return () => {
         unsubscribe();
         offBroadcast();
+        offRoll();
       };
     } catch (err) {
       console.error('Failed to load character sheet:', err);
@@ -348,20 +352,8 @@
 
   // ─── Dice popup (OBR popover over the tabletop, inline fallback) ───
   async function showDicePopup(data) {
-    const params = new URLSearchParams({
-      label: data.label || '',
-      formula: data.formula || '',
-      total: data.total != null ? String(data.total) : '',
-      rolls: (data.rolls ?? []).join(','),
-      error: data.error || ''
-    });
     try {
-      await OBR.popover.open({
-        id: DICE_POPOVER_ID,
-        url: `${window.location.origin}/dice.html?${params.toString()}`,
-        width: 340,
-        height: 280
-      });
+      await openDicePopup(data);
       clearTimeout(dicePopoverTimer);
       dicePopoverTimer = setTimeout(() => {
         OBR.popover.close(DICE_POPOVER_ID).catch(() => {});
@@ -386,6 +378,7 @@
         total: result.total,
         rolls: result.rolls,
       });
+      broadcastRoll({ label: capacityName, ...result });
       showDicePopup({ label: capacityName, ...result });
     } catch (err) {
       showDicePopup({ label: capacityName, error: err.message });
@@ -494,6 +487,24 @@
     const bonus = formatModifier(attackBonus(weapon, view?.stats ?? {}));
     return `${weapon.nom} · ${weapon.de || '—'} · ${bonus}${two ? ' · à deux mains' : ''}`;
   }
+
+  // ÉDITION STATS: manual override for a rule-computed value (empty = rule value)
+  function setDerivedOverride(key, raw) {
+    const overrides = { ...(editSheet.derived?.overrides ?? {}) };
+    if (raw === '' || raw == null || Number.isNaN(Number(raw))) delete overrides[key];
+    else overrides[key] = Number(raw);
+    editSheet.derived = { ...(editSheet.derived ?? {}), overrides };
+  }
+
+  const DERIVED_CARDS = [
+    { key: 'parade', label: 'PARADE', formula: (c) => `= ${c.deflexion}+${c.garde}+${c.paradeBonus}` },
+    { key: 'initiative', label: 'INITIATIVE', formula: () => '= Agi − 10 + gants' },
+    { key: 'mouvement', label: 'MOUVEMENT', formula: () => '= 5 + Agi/2 + bottes' },
+    { key: 'seuilMiss', label: 'SEUIL MISS', formula: () => '= max(1, 1 − mod Agi)' },
+    { key: 'bonusAttaque', label: 'BONUS ATTAQUE', signed: true, formula: () => "= stat + tier de l'arme" },
+    { key: 'canalisation', label: 'CANALISATION', signed: true, formula: () => '= mod Esprit' },
+    { key: 'volonte', label: 'VOLONTÉ', formula: () => '= mod Résilience + casque' }
+  ];
 
   function saveSheet(next) {
     sheet = next;
@@ -1467,36 +1478,25 @@
           </div>
 
           <div>
-            <h3 class="text-[11px] font-bold text-[#9ca3af] mb-2">DÉFENSE &amp; JETS (calculés)</h3>
+            <h3 class="text-[11px] font-bold text-[#9ca3af] mb-2">DÉFENSE &amp; JETS (calculés — saisir pour forcer)</h3>
             <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2">
-              <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[9px] font-bold text-[#9ca3af]">PARADE</div>
-                <div class="text-[15px] font-bold">{editCalc.parade} <span class="text-[10px] font-medium text-[#9ca3af]">= {editCalc.deflexion}+{editCalc.garde}+{editCalc.paradeBonus}</span></div>
-              </div>
-              <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[9px] font-bold text-[#9ca3af]">INITIATIVE</div>
-                <div class="text-[15px] font-bold">{editCalc.initiative} <span class="text-[10px] font-medium text-[#9ca3af]">= Agi − 10 + gants</span></div>
-              </div>
-              <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[9px] font-bold text-[#9ca3af]">MOUVEMENT</div>
-                <div class="text-[15px] font-bold">{editCalc.mouvement} <span class="text-[10px] font-medium text-[#9ca3af]">= 5 + Agi/2 + bottes</span></div>
-              </div>
-              <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[9px] font-bold text-[#9ca3af]">SEUIL MISS</div>
-                <div class="text-[15px] font-bold">{editCalc.seuilMiss} <span class="text-[10px] font-medium text-[#9ca3af]">= max(1, 1 − mod Agi)</span></div>
-              </div>
-              <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[9px] font-bold text-[#9ca3af]">BONUS ATTAQUE</div>
-                <div class="text-[15px] font-bold">{formatModifier(editCalc.bonusAttaque)} <span class="text-[10px] font-medium text-[#9ca3af]">= stat + tier de l'arme</span></div>
-              </div>
-              <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[9px] font-bold text-[#9ca3af]">CANALISATION</div>
-                <div class="text-[15px] font-bold">{formatModifier(editCalc.canalisation)} <span class="text-[10px] font-medium text-[#9ca3af]">= mod Esprit</span></div>
-              </div>
-              <div class="bg-[#111827] rounded-md px-2 py-1.5">
-                <div class="text-[9px] font-bold text-[#9ca3af]">VOLONTÉ</div>
-                <div class="text-[15px] font-bold">{editCalc.volonte} <span class="text-[10px] font-medium text-[#9ca3af]">= mod Résilience + casque</span></div>
-              </div>
+              {#each DERIVED_CARDS as card}
+                {@const override = editSheet.derived?.overrides?.[card.key]}
+                <div class="bg-[#111827] rounded-md px-2 py-1.5">
+                  <div class="text-[9px] font-bold text-[#9ca3af]">{card.label}</div>
+                  <div class="flex items-baseline gap-1.5">
+                    <input
+                      type="number"
+                      title="Valeur calculée — saisir pour forcer (vide = valeur de règle)"
+                      value={override ?? ''}
+                      placeholder={card.signed ? formatModifier(editCalc[card.key]) : String(editCalc[card.key])}
+                      onchange={(e) => setDerivedOverride(card.key, e.currentTarget.value)}
+                      class="w-14 bg-transparent border-b {override != null && override !== '' ? 'border-indigo-500 text-indigo-300' : 'border-transparent text-white'} text-[15px] font-bold focus:outline-none focus:border-indigo-500"
+                    />
+                    <span class="text-[10px] font-medium text-[#9ca3af]">{card.formula(editCalc)}</span>
+                  </div>
+                </div>
+              {/each}
             </div>
           </div>
 
@@ -1708,7 +1708,7 @@
                         onclick={() => {
                           const tpl = findEquipmentTemplate(itemTemplate);
                           const fam = tpl?.family ?? '';
-                          editSheet.inventoryItems = [...(editSheet.inventoryItems || []), {
+                          editSheet.inventoryItems = [{
                             type: tpl ? 'Équipement' : 'Divers',
                             icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
                             slot: tpl?.slot ?? '',
@@ -1719,7 +1719,7 @@
                             ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),
                             attributs: tpl?.proprietes ?? '',
                             description: ''
-                          }];
+                          }, ...(editSheet.inventoryItems || [])];
                           itemTemplate = '';
                         }}
                         class="px-3 py-1 bg-indigo-600 rounded-full text-[11px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
@@ -1852,7 +1852,7 @@
                       <button
                         onclick={() => {
                           const tpl = findEquipmentTemplate(weaponTemplate);
-                          editSheet.weapons = [...(editSheet.weapons || []), {
+                          editSheet.weapons = [{
                             icon: tpl ? FAMILY_ICONS[tpl.family] ?? '' : '',
                             nom: tpl?.nom ?? '',
                             de: tpl?.de ?? '',
@@ -1860,7 +1860,7 @@
                             propriétés: tpl?.proprietes ?? '',
                             forceAgi: '', critique: '', avantage: '',
                             bonus: '', perfection: '', notes: '', equipped: false
-                          }];
+                          }, ...(editSheet.weapons || [])];
                           weaponTemplate = '';
                         }}
                         class="px-3 py-1 bg-indigo-600 rounded-full text-[11px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
