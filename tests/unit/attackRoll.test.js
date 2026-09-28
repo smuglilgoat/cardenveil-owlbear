@@ -38,6 +38,19 @@ describe('weaponFlags / engagementStat', () => {
     expect(engagementStat({ proprietes: 'Catalyseur' })).toBe('esprit');
     expect(engagementStat({ proprietes: 'Deux mains, Brutalité' })).toBe('force');
   });
+
+  it('reads properties from the accented key older sheets carry (propriétés)', () => {
+    // weapon editor templates historically stored the key as `propriétés`
+    const dagger = { nom: 'Dague', proprietes: undefined, 'propriétés': 'Finesse, Légère, Lancer (10m), Garde' };
+    expect(engagementStat(dagger)).toBe('agilite');
+    expect(weaponFlags(dagger)).toEqual({ finesse: true, catalyseur: false, hache: false });
+  });
+
+  it('detects Finesse on serpe / arcs / arbalètes (2026-09 rules update)', () => {
+    for (const nom of ['Serpe', 'Arc court', 'Arc long', 'Arbalète de poing', 'Arbalète', 'Arbalète lourde']) {
+      expect(weaponFlags({ nom, proprietes: 'Finesse' })).toMatchObject({ finesse: true });
+    }
+  });
 });
 
 describe('attackPreview', () => {
@@ -62,6 +75,12 @@ describe('attackPreview', () => {
     expect(attackPreview({ de: '1d8', proprietes: 'Finesse' }, stats, { engagement: 1 })).toMatchObject({ engagementStat: 'agilite', engagementMod: 2 });
     expect(attackPreview({ de: '1d8', proprietes: 'Catalyseur' }, stats, { engagement: 1 })).toMatchObject({ engagementStat: 'esprit', engagementMod: 0 });
     expect(attackPreview({ de: '1d8', proprietes: '' }, stats, { engagement: 1 })).toMatchObject({ engagementStat: 'force', engagementMod: 3 });
+  });
+
+  it('uses the accented propriétés key when deriving the engagement stat', () => {
+    // Dagger from an older sheet: Finesse lives under `propriétés`
+    const w = { de: '1d4', proprietes: undefined, 'propriétés': 'Finesse, Légère, Lancer (10m), Garde' };
+    expect(attackPreview(w, stats, { engagement: 1 })).toMatchObject({ engagementStat: 'agilite', engagementMod: 2, finesse: true });
   });
 
   it('returns null for a weapon without a die', () => {

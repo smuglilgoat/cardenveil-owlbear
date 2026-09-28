@@ -14,9 +14,12 @@ const CATALYSEUR_RE = /catalyseur/i;
 const HACHE_RE = /brutalité|hache/i;
 const STAT_LABELS_FR = { force: 'Force', agilite: 'Agilité', esprit: 'Esprit' };
 
-/** Weapon flags from the free-text `proprietes` field (+ name fallback). */
+/** Weapon flags from the free-text `proprietes` field (+ name fallback).
+ *  Reads both spellings — older sheets store it as `propriétés` (accented).
+ */
 export function weaponFlags(weapon) {
-  const text = `${weapon?.nom ?? ''} ${weapon?.proprietes ?? ''}`;
+  const props = weapon?.proprietes ?? weapon?.['propriétés'] ?? '';
+  const text = `${weapon?.nom ?? ''} ${props}`;
   return {
     finesse: FINESS_RE.test(text),
     catalyseur: CATALYSEUR_RE.test(text),

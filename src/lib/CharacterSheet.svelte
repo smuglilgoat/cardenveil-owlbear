@@ -1905,7 +1905,7 @@
                             nom: tpl?.nom ?? '',
                             de: tpl?.de ?? '',
                             degats: tpl?.degats ?? '',
-                            propriétés: tpl?.proprietes ?? '',
+                            proprietes: tpl?.proprietes ?? '',
                             forceAgi: '', critique: '', avantage: '',
                             bonus: '', perfection: '', notes: '', equipped: false
                           }, ...(editSheet.weapons || [])];
@@ -1960,7 +1960,7 @@
                       <!-- fields -->
                       <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2.5 px-3 pb-3">
                         {#each Object.entries(weapon ?? {}).filter(([field]) => field !== 'nom' && field !== 'equipped' && field !== 'hand') as [field]}
-                          <div class={field === 'notes' || field === 'propriétés' ? 'col-span-full' : ''}>
+                          <div class={field === 'notes' || field === 'propriétés' || field === 'proprietes' ? 'col-span-full' : ''}>
                             <label class="block text-[10px] font-bold text-[#9ca3af] mb-1 capitalize">{field}</label>
                             {#if field === 'notes'}
                               <textarea bind:value={editSheet.weapons[i][field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>

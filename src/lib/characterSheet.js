@@ -219,7 +219,7 @@ export const EQUIPMENT_CATALOG = [
     family: 'Épées courbes',
     kind: 'arme',
     items: [
-      { nom: 'Serpe', de: '1d4', degats: 'tranchant', proprietes: 'Légère, Fluide' },
+      { nom: 'Serpe', de: '1d4', degats: 'tranchant', proprietes: 'Finesse, Légère, Fluide' },
       { nom: 'Épée courbe (cimeterre)', de: '1d6', degats: 'tranchant', proprietes: 'Finesse, Légère, Fluide' },
       { nom: 'Katana (sabre long)', de: '1d10', degats: 'tranchant', proprietes: 'Finesse, Deux mains, Fluide' },
       { nom: 'Grand sabre', de: '1d12', degats: 'tranchant', proprietes: 'Deux mains, Fluide' }
@@ -260,8 +260,8 @@ export const EQUIPMENT_CATALOG = [
     family: 'Arcs',
     kind: 'arme',
     items: [
-      { nom: 'Arc court', de: '1d6', degats: 'perçant', proprietes: 'Distance, Deux mains, Surplomb' },
-      { nom: 'Arc long', de: '1d8', degats: 'perçant', proprietes: 'Distance, Deux mains, Surplomb' }
+      { nom: 'Arc court', de: '1d6', degats: 'perçant', proprietes: 'Distance, Finesse, Deux mains, Surplomb' },
+      { nom: 'Arc long', de: '1d8', degats: 'perçant', proprietes: 'Distance, Finesse, Deux mains, Surplomb' }
     ]
   },
   {
@@ -269,9 +269,9 @@ export const EQUIPMENT_CATALOG = [
     family: 'Arbalètes',
     kind: 'arme',
     items: [
-      { nom: 'Arbalète de poing', de: '1d4', degats: 'perçant', proprietes: 'Distance, Brute, Tir léger, Secondaire, Perforant' },
-      { nom: 'Arbalète', de: '1d8', degats: 'perçant', proprietes: 'Distance, Deux mains, Perforant' },
-      { nom: 'Arbalète lourde', de: '1d12', degats: 'perçant', proprietes: 'Distance, Deux mains, Recharge, Perforant' }
+      { nom: 'Arbalète de poing', de: '1d4', degats: 'perçant', proprietes: 'Distance, Finesse, Brute, Tir léger, Secondaire, Perforant' },
+      { nom: 'Arbalète', de: '1d8', degats: 'perçant', proprietes: 'Distance, Finesse, Deux mains, Perforant' },
+      { nom: 'Arbalète lourde', de: '1d12', degats: 'perçant', proprietes: 'Distance, Finesse, Deux mains, Recharge, Perforant' }
     ]
   },
   {
