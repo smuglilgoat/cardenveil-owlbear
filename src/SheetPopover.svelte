@@ -225,6 +225,8 @@
           label,
           color: diceGemColor(sheet),
           playerId,
+          portrait: sheet?.portrait || '',
+          portraitIsImage: isImageUrl(sheet?.portrait),
           formula: spec.formula,
           diceSpec: spec.terms,
           modifier: spec.modifier,
@@ -235,8 +237,14 @@
     }
     try {
       const result = rollDice(formula, sheet?.stats ?? {});
-      // Dice popup is shown by the background page (top-center / bottom-right)
-      broadcastRoll({ label, color: diceGemColor(sheet), playerId, ...result });
+      broadcastRoll({
+        label,
+        color: diceGemColor(sheet),
+        playerId,
+        portrait: sheet?.portrait || '',
+        portraitIsImage: isImageUrl(sheet?.portrait),
+        ...result
+      });
       dispatch(roomId, {
         type: 'USE_CAPACITY',
         playerId,

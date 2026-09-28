@@ -4,12 +4,15 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { groupDiceByRoll, meshDefsFor, rollValueForGroup, SIDES_TO_TYPE } from './lib/diceRoll.js';
+import { groupDiceByRoll, meshDefsFor, rollValueForGroup, SIDES_TO_TYPE, MAX_VISIBLE_DICE, visibleRollChip } from './lib/diceRoll.js';
 import { reportRollResult } from './lib/rollBroadcast.js';
 
 const params = new URLSearchParams(location.search);
 const label = params.get('label') || 'Lancer de dés';
 const formula = params.get('formula') || '';
+const playerName = params.get('playerName') || '';
+const portrait = params.get('portrait') || '';
+const portraitIsImage = params.get('portraitImage') === '1';
 const totalParam = params.get('total');
 const rollsParam = (params.get('rolls') || '').split(',').filter(Boolean);
 const typesParam = (params.get('types') || '').split(',').filter(Number);
@@ -24,9 +27,39 @@ const rollId = params.get('rollId') || '';
 const plainLabel = () => params.get('plainLabel') || 'Jet';
 
 document.getElementById('label').textContent = label;
+const portraitEl = document.getElementById('portrait');
+portraitEl.textContent = playerName.trim().charAt(0).toUpperCase() || '👤';
+if (portrait) {
+  if (portraitIsImage) {
+    const img = document.createElement('img');
+    img.src = portrait;
+    img.alt = '';
+    img.onerror = () => img.remove();
+    portraitEl.appendChild(img);
+  } else {
+    portraitEl.textContent = portrait;
+  }
+}
 const row = document.getElementById('dice-row');
 const totalEl = document.getElementById('total');
 const formulaEl = document.getElementById('formula');
+
+function appendRollChip(value, sides, index, count, delay = 0) {
+  const result = visibleRollChip(value, sides, index, count);
+  if (!result) return;
+  const chip = document.createElement('div');
+  if (result.more != null) {
+    chip.className = 'die more';
+    chip.textContent = `+${result.more}`;
+  } else {
+    chip.className = result.crit ? 'die crit' : result.fail ? 'die fail' : 'die';
+    chip.textContent = String(result.value);
+  }
+  if (delay) chip.style.animationDelay = `${delay}s`;
+  const more = row.querySelector('.more');
+  if (more && result.more == null) row.insertBefore(chip, more);
+  else row.appendChild(chip);
+}
 
 // official Owlbear dice plugin collider hulls (raw GLB units)
 const COLLIDER_VERTICES = {
@@ -72,14 +105,8 @@ if (error) {
 
 function showPreRolled() {
   formulaEl.textContent = formula;
-  rollsParam.forEach((r, i) => {
-    const die = document.createElement('div');
-    die.className = parseInt(r, 10) === parseInt(typesParam[i], 10) ? 'die crit' : parseInt(r, 10) === 1 ? 'die fail' : 'die';
-    die.style.animationDelay = `${i * 0.08}s`;
-    die.textContent = r;
-    row.appendChild(die);
-  });
-  totalEl.style.animationDelay = `${0.45 + rollsParam.length * 0.08}s`;
+  rollsParam.forEach((r, i) => appendRollChip(r, typesParam[i], i, rollsParam.length, i * 0.08));
+  totalEl.style.animationDelay = `${0.45 + Math.min(rollsParam.length, MAX_VISIBLE_DICE + 1) * 0.08}s`;
   if (critPre) totalEl.classList.add('crit');
   else if (failPre) totalEl.classList.add('fail');
   totalEl.textContent = totalParam != null && totalParam !== '' ? totalParam : '—';
@@ -104,14 +131,8 @@ function fallbackFromSpec(spec, modifier) {
   if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total: rolls.reduce((a, b) => a + b, 0) + modifier });
   const crit = rolls.some((r, i) => r === diceTypes[i]);
   const fail = rolls.some((r) => r === 1);
-  rolls.forEach((r, i) => {
-    const die = document.createElement('div');
-    die.className = r === diceTypes[i] ? 'die crit' : r === 1 ? 'die fail' : 'die';
-    die.style.animationDelay = `${i * 0.08}s`;
-    die.textContent = r;
-    row.appendChild(die);
-  });
-  totalEl.style.animationDelay = `${0.45 + rolls.length * 0.08}s`;
+  rolls.forEach((r, i) => appendRollChip(r, diceTypes[i], i, rolls.length, i * 0.08));
+  totalEl.style.animationDelay = `${0.45 + Math.min(rolls.length, MAX_VISIBLE_DICE + 1) * 0.08}s`;
   if (crit) totalEl.classList.add('crit');
   else if (fail) totalEl.classList.add('fail');
   totalEl.textContent = String(rolls.reduce((a, b) => a + b, 0) + modifier);
@@ -588,10 +609,7 @@ async function startSim(spec, seed, modifier) {
       }
       const crit = value === d.def.sides;
       const fail = value === 1;
-      const chip = document.createElement('div');
-      chip.className = crit ? 'die crit' : fail ? 'die fail' : 'die';
-      chip.textContent = String(value);
-      row.appendChild(chip);
+      appendRollChip(value, d.def.sides, d.def.rollIndex, rollGroups.length);
       if (crit) d.glow = '#fbbf24';
       else if (fail) d.glow = '#dc2626';
     }

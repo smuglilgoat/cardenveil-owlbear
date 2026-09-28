@@ -33,3 +33,15 @@ export function rollValueForGroup(group, readFace) {
   const value = readFace(die) ?? '1';
   return die.def.type === 'd10' && value === '0' ? 10 : parseInt(value, 10);
 }
+
+export const MAX_VISIBLE_DICE = 15;
+
+export function visibleRollChip(value, sides, index, count) {
+  if (index < MAX_VISIBLE_DICE) {
+    return { value, crit: Number(value) === sides, fail: Number(value) === 1 };
+  }
+  if (index === MAX_VISIBLE_DICE && count > MAX_VISIBLE_DICE) {
+    return { more: count - MAX_VISIBLE_DICE };
+  }
+  return null;
+}

@@ -30,8 +30,8 @@ function openDicePopover(params, anchor) {
   return OBR.popover.open({
     id: DICE_POPOVER_ID,
     url: `${window.location.origin}/dice.html?${params.toString()}`,
-    width: 460,
-    height: 380,
+    width: 520,
+    height: 440,
     ...anchor
   });
 }
@@ -56,6 +56,9 @@ OBR.onReady(() => {
       mode: diceStyle,
       rollId: data.rollId,
       playerId: data.playerId || '',
+      playerName: data.playerName || '',
+      portrait: data.portrait || '',
+      portraitImage: data.portraitIsImage ? '1' : '0',
       plainLabel: data.label || 'Jet',
       self: isSelf ? '1' : '0',
       error: ''

@@ -387,6 +387,8 @@
           label: capacityName,
           color: diceGemColor(view),
           playerId,
+          portrait: view?.portrait || '',
+          portraitIsImage: isImageUrl(view?.portrait),
           formula: spec.formula,
           diceSpec: spec.terms,
           modifier: spec.modifier,
@@ -408,7 +410,14 @@
         total: result.total,
         rolls: result.rolls,
       });
-      broadcastRoll({ label: capacityName, color: diceGemColor(view), playerId, ...result });
+      broadcastRoll({
+        label: capacityName,
+        color: diceGemColor(view),
+        playerId,
+        portrait: view?.portrait || '',
+        portraitIsImage: isImageUrl(view?.portrait),
+        ...result
+      });
       showDicePopup({ label: capacityName, ...result });
     } catch (err) {
       showDicePopup({ label: capacityName, error: err.message });

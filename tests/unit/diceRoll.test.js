@@ -1,4 +1,4 @@
-import { groupDiceByRoll, meshDefsFor, rollValueForGroup } from '../../src/lib/diceRoll.js';
+import { groupDiceByRoll, meshDefsFor, rollValueForGroup, MAX_VISIBLE_DICE, visibleRollChip } from '../../src/lib/diceRoll.js';
 
 describe('3D dice result grouping', () => {
   it('keeps each die in a multi-die term as a separate result', () => {
@@ -19,5 +19,11 @@ describe('3D dice result grouping', () => {
 
     expect(groups).toHaveLength(2);
     expect(groups.map((group) => rollValueForGroup(group, face))).toEqual([100, 4]);
+  });
+
+  it('caps displayed die chips and summarizes the rest', () => {
+    expect(visibleRollChip(6, 6, MAX_VISIBLE_DICE - 1, 20)).toMatchObject({ value: 6, crit: true });
+    expect(visibleRollChip(3, 6, MAX_VISIBLE_DICE, 20)).toEqual({ more: 5 });
+    expect(visibleRollChip(3, 6, MAX_VISIBLE_DICE + 1, 20)).toBeNull();
   });
 });
