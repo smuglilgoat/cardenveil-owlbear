@@ -160,9 +160,9 @@ const MIN_LAUNCH_VELOCITY = 3;
 const MAX_LAUNCH_VELOCITY = 6;
 const MIN_ANGULAR_VELOCITY = 4;
 const MAX_ANGULAR_VELOCITY = 9;
-const MIN_ROLL_FINISHED_SPEED = 0.005;
+const MIN_ROLL_FINISHED_SPEED = 0.015;
 const SLOW_FRAMES_REQUIRED = 8;
-const FORCE_STOP_MS = 5000;
+const HARD_STOP_MS = 9500; // absolute deadline: read the best face
 
 // ─── Visual mesh layout: one def per mesh; a d100 = percentile + ones ────
 function meshDefsFor(spec) {
@@ -323,7 +323,7 @@ async function startSim(spec, seed, modifier) {
     [0, -0.8 - T, -3.0 - T],
     [3.1 + T, -0.8 - T, 0],
     [-3.1 - T, -0.8 - T, 0],
-    [0, 2.2 + T, 0]
+    [0, 6 + T, 0] // roof well above the spawn height (2.6–3.2)
   ]) {
     world.createCollider(RAPIER.ColliderDesc.cuboid(T, T, T).setTranslation(x, y, z), wallBody);
   }
@@ -390,8 +390,9 @@ async function startSim(spec, seed, modifier) {
         .setTranslation(spawn.x, spawn.y, spawn.z)
         .setRotation(throws[i].rotation)
         .setLinvel((-spawn.x / toCenter) * speed, 0, (-spawn.z / toCenter) * speed)
-        .setAngvel(throws[i].angularVelocity.x, throws[i].angularVelocity.y, throws[i].angularVelocity.z)
+        .setAngvel(throws[i].angularVelocity) // desc API takes a vector object
         .setGravityScale(1.6)
+        .setCanSleep(false) // rapier can freeze an unstable edge-balance — never let it
     );
     const verts = new Float32Array(COLLIDER_VERTICES[def.type].map((v) => v * scale));
     world.createCollider(RAPIER.ColliderDesc.convexHull(verts).setFriction(0.12).setRestitution(0.45).setDensity(1), body);
@@ -399,8 +400,11 @@ async function startSim(spec, seed, modifier) {
   });
 
   const settled = new Set();
-  let simMs = 0;
+  let pendingMs = 0;
+  let lastTick = performance.now();
   let reported = false;
+  const startMs = lastTick;
+  const STEP_MS = 1000 / 60;
 
   function readFace(die) {
     let bestDot = -Infinity;
@@ -416,13 +420,38 @@ async function startSim(spec, seed, modifier) {
     return best;
   }
 
-  function animate() {
-    // fixed timestep accumulator → frame-rate independent outcomes
-    let steps = 0;
-    while (simMs < FORCE_STOP_MS && steps < 4) {
-      world.step();
-      simMs += 1000 / 60;
+  // how clearly the top locator faces up (1 = face perfectly flat up)
+  function readFaceDot(die) {
+    let bestDot = -Infinity;
+    for (const [, { dir }] of die.geom.faces) {
+      const dot = dir.clone().applyQuaternion(die.die.quaternion).dot(up);
+      if (dot > bestDot) bestDot = dot;
     }
+    return bestDot;
+  }
+
+  function lockDie(d) {
+    d.body.setEnabledRotations(false, false, false);
+    d.body.setEnabledTranslations(false, false, false);
+    d.body.setAngvel({ x: 0, y: 0, z: 0 }, false);
+    d.body.setLinvel({ x: 0, y: 0, z: 0 }, false);
+    settled.add(d);
+  }
+
+  function animate() {
+    // fixed timestep accumulator driven by REAL elapsed time: the same
+    // simulated duration passes regardless of the display's frame rate
+    const now = performance.now();
+    const elapsed = Math.min(now - lastTick, 100);
+    lastTick = now;
+    if (!reported) {
+      pendingMs += elapsed;
+      while (pendingMs >= STEP_MS) {
+        world.step();
+        pendingMs -= STEP_MS;
+      }
+    }
+    const wallNow = now - startMs;
     for (const d of dice) {
       const t = d.body.translation();
       const r = d.body.rotation();
@@ -432,14 +461,22 @@ async function startSim(spec, seed, modifier) {
       const lin = d.body.linvel();
       const ang = d.body.angvel();
       const speed = Math.hypot(lin.x, lin.y, lin.z) + Math.hypot(ang.x, ang.y, ang.z);
-      const resting = d.body.isSleeping() || d.body.translation().y < 1.4;
-      if (speed < MIN_ROLL_FINISHED_SPEED && resting) d.slowFrames += 1;
+      if (speed < MIN_ROLL_FINISHED_SPEED) d.slowFrames += 1;
       else d.slowFrames = 0;
-      if (d.slowFrames >= SLOW_FRAMES_REQUIRED || simMs >= FORCE_STOP_MS) {
-        d.body.setEnabledRotations(false, false, false);
-        d.body.setEnabledTranslations(false, false, false);
-        d.body.setAngvel({ x: 0, y: 0, z: 0 }, false);
-        settled.add(d);
+      // a die counts as settled ONLY once a face sits clearly up — a die
+      // balanced on a tip/edge is snapped onto its nearest face (reads as
+      // toppling over) instead of being read
+      const faceUp = readFaceDot(d) >= 0.92;
+      if (d.slowFrames >= SLOW_FRAMES_REQUIRED && faceUp) {
+        lockDie(d);
+      } else if (d.slowFrames >= SLOW_FRAMES_REQUIRED && !faceUp) {
+        const face = d.geom.faces.get(readFace(d));
+        if (face) d.body.setRotation(new THREE.Quaternion().setFromUnitVectors(face.dir, up), true);
+        d.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        d.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+        d.slowFrames = 0;
+      } else if (wallNow >= HARD_STOP_MS) {
+        lockDie(d); // absolute deadline: read the best face
       }
     }
     // per logical roll: all its meshes settled → value chip
