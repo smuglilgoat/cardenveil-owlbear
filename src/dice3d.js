@@ -1,14 +1,11 @@
-// Dice roll popup with real physics — vanilla three.js + rapier
-// (@dimforge/rapier3d-compat), same approach as the official Owlbear dice
-// plugin but without React. THE RAPIER SIMULATION IS THE SOURCE OF THE
-// RESULTS: the roller's popup runs the authoritative simulation and reports
-// the resting-face values + final transforms; every other client REPLAYS
-// those transforms so numbers are identical everywhere regardless of frame
-// rate. Flat (GM Classique) mode keeps pre-rolled CSS dice.
+// Dice roll popup with deterministic Rapier physics, matching the official
+// Owlbear dice plugin: every client simulates the same seeded throw. Flat (GM
+// Classique) mode keeps pre-rolled CSS dice.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { reportRollResult, onRemoteRollResult } from './lib/rollBroadcast.js';
+import { groupDiceByRoll, meshDefsFor, rollValueForGroup, SIDES_TO_TYPE } from './lib/diceRoll.js';
+import { reportRollResult } from './lib/rollBroadcast.js';
 
 const params = new URLSearchParams(location.search);
 const label = params.get('label') || 'Lancer de dés';
@@ -31,7 +28,6 @@ const row = document.getElementById('dice-row');
 const totalEl = document.getElementById('total');
 const formulaEl = document.getElementById('formula');
 
-const SIDES_TO_TYPE = { 4: 'd4', 6: 'd6', 8: 'd8', 10: 'd10', 12: 'd12', 20: 'd20', 100: 'd100' };
 // official Owlbear dice plugin collider hulls (raw GLB units)
 const COLLIDER_VERTICES = {
   d4: [0.0, -0.635828, -1.269768, 0.0, 1.159624, 0.0, 1.099651, -0.635829, 0.634884, -1.099651, -0.635829, 0.634884],
@@ -54,21 +50,7 @@ if (error) {
   el.textContent = 'Formule invalide : ' + error;
   row.replaceWith(el);
 } else if (rollsParam.length && rollsParam.length === typesParam.length) {
-  // authoritative result from the roller: replay the recorded transforms
-  // (3D) or fall back to CSS dice
-  let transforms = null;
-  try {
-    transforms = JSON.parse(params.get('transforms') || 'null');
-  } catch {
-    transforms = null;
-  }
-  const meshDefs = meshDefsForTypes(typesParam);
-  if (Array.isArray(transforms) && transforms.length === meshDefs.length) {
-    formulaEl.textContent = formula;
-    replayRoll(typesParam, transforms, modifierParam);
-  } else {
-    showPreRolled();
-  }
+  showPreRolled();
 } else {
   let spec = null;
   try {
@@ -112,13 +94,14 @@ function fallbackFromSpec(spec, modifier) {
   }
   const rolls = [];
   const diceTypes = [];
+  const rng = mulberry32(Number(seedParam) || 0);
   for (const term of spec) {
     for (let i = 0; i < term.count; i++) {
-      rolls.push(Math.floor(Math.random() * term.sides) + 1);
+      rolls.push(Math.floor(rng() * term.sides) + 1);
       diceTypes.push(term.sides);
     }
   }
-  reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total: rolls.reduce((a, b) => a + b, 0) + modifier });
+  if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total: rolls.reduce((a, b) => a + b, 0) + modifier });
   const crit = rolls.some((r, i) => r === diceTypes[i]);
   const fail = rolls.some((r) => r === 1);
   rolls.forEach((r, i) => {
@@ -172,22 +155,42 @@ const MAX_ANGULAR_VELOCITY = 9;
 const MIN_ROLL_FINISHED_SPEED = 0.015;
 const SLOW_FRAMES_REQUIRED = 8;
 const HARD_STOP_MS = 9500; // absolute deadline: read the best face
+const SNAP_DURATION_MS = 250;
+
+// ponytail: one synthesized clack avoids audio assets; use recordings if it sounds too synthetic.
+function createClackSound() {
+  if (!window.AudioContext) return () => {};
+  let context;
+  try {
+    context = new AudioContext();
+  } catch {
+    return () => {};
+  }
+  const buffer = context.createBuffer(1, context.sampleRate * 0.05, context.sampleRate);
+  const noise = buffer.getChannelData(0);
+  for (let i = 0; i < noise.length; i++) noise[i] = Math.random() * 2 - 1;
+  const resume = () => context.state === 'suspended' && context.resume().catch(() => {});
+  window.addEventListener('pointerdown', resume, { once: true });
+  return (speed) => {
+    resume();
+    if (context.state !== 'running') return;
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    const now = context.currentTime;
+    source.buffer = buffer;
+    filter.type = 'bandpass';
+    filter.frequency.value = 1400 + Math.min(speed * 250, 1800);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    source.connect(filter).connect(gain).connect(context.destination);
+    source.start(now);
+    source.stop(now + 0.05);
+  };
+}
 
 // ─── Visual mesh layout: one def per mesh; a d100 = percentile + ones ────
-function meshDefsFor(spec) {
-  const defs = [];
-  spec.forEach((term, rollIndex) => {
-    for (let i = 0; i < term.count; i++) {
-      if (term.sides === 100) {
-        defs.push({ type: 'd100', rollIndex, sides: 100 });
-        defs.push({ type: 'd10', rollIndex, sides: 100 });
-      } else {
-        defs.push({ type: SIDES_TO_TYPE[term.sides], rollIndex, sides: term.sides });
-      }
-    }
-  });
-  return defs;
-}
 
 // Jittered-grid spawn positions: dice can never spawn interpenetrating
 // (grid spacing ≥ die size by construction); deterministic draw order.
@@ -322,7 +325,7 @@ function makeHostCanvas(hostHeight) {
   return { host, canvas, width, height: hostHeight };
 }
 
-// ─── Roller's popup: the authoritative rapier simulation ─────────────────
+// ─── Every client's seeded Rapier simulation ────────────────────────────
 async function startSim(spec, seed, modifier) {
   const meshDefs = meshDefsFor(spec);
   const { host, canvas, width, height } = makeHostCanvas(210);
@@ -351,7 +354,7 @@ async function startSim(spec, seed, modifier) {
   const T = 50; // huge wall half-extents so nothing teleports through
   const floorBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
   world.createCollider(RAPIER.ColliderDesc.cuboid(T, T, T).setTranslation(0, -0.8 - T, 0), floorBody);
-  // walls sized to the visible canvas so dice bounce off the frame they see
+  // Walls rise above the floor so airborne dice cannot escape the visible tray.
   const rect = visibleRect(width, height);
   buildTray(scene, rect.halfW, rect.halfH);
   const n0 = meshDefs.length;
@@ -362,14 +365,16 @@ async function startSim(spec, seed, modifier) {
   const wallX = Math.max(1, rect.halfW - (diam0 / 2 + 0.15));
   const wallZ = Math.max(1, rect.halfH - (diam0 / 2 + 0.15));
   const wallBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-  for (const [x, y, z] of [
-    [0, -0.8 - T, wallZ + T],
-    [0, -0.8 - T, -wallZ - T],
-    [wallX + T, -0.8 - T, 0],
-    [-wallX - T, -0.8 - T, 0],
-    [0, 6 + T, 0] // roof well above the spawn height (2.6–3.2)
+  const wallHeight = 6;
+  const wallThickness = 0.16;
+  const wallY = -0.8 + wallHeight / 2;
+  for (const [shape, x, z] of [
+    [RAPIER.ColliderDesc.cuboid(wallX + wallThickness, wallHeight / 2, wallThickness / 2), 0, wallZ + wallThickness / 2],
+    [RAPIER.ColliderDesc.cuboid(wallX + wallThickness, wallHeight / 2, wallThickness / 2), 0, -wallZ - wallThickness / 2],
+    [RAPIER.ColliderDesc.cuboid(wallThickness / 2, wallHeight / 2, wallZ + wallThickness), wallX + wallThickness / 2, 0],
+    [RAPIER.ColliderDesc.cuboid(wallThickness / 2, wallHeight / 2, wallZ + wallThickness), -wallX - wallThickness / 2, 0]
   ]) {
-    world.createCollider(RAPIER.ColliderDesc.cuboid(T, T, T).setTranslation(x, y, z), wallBody);
+    world.createCollider(shape.setTranslation(x, wallY, z).setFriction(0.12).setRestitution(0.45), wallBody);
   }
 
   const loader = new GLTFLoader();
@@ -388,6 +393,9 @@ async function startSim(spec, seed, modifier) {
     fallbackFromSpec(spec, modifier);
     return;
   }
+  const eventQueue = new RAPIER.EventQueue(true);
+  const playClack = createClackSound();
+  let lastClack = 0;
   const geometries = new Map(needTypes.map((t) => [t, typeGeometry(byType[t])]));
 
   const rng = mulberry32(seed);
@@ -440,10 +448,19 @@ async function startSim(spec, seed, modifier) {
         .setCanSleep(false) // rapier can freeze an unstable edge-balance — never let it
     );
     const verts = new Float32Array(COLLIDER_VERTICES[def.type].map((v) => v * scale));
-    world.createCollider(RAPIER.ColliderDesc.convexHull(verts).setFriction(0.12).setRestitution(0.45).setDensity(1), body);
-    return { def, geom, die, material, body, glow: null, chipDone: false, slowFrames: 0 };
+    world.createCollider(
+      RAPIER.ColliderDesc.convexHull(verts)
+        .setFriction(0.12)
+        .setRestitution(0.45)
+        .setDensity(1)
+        .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
+      body
+    );
+    return { def, geom, die, material, body, glow: null, chipDone: false, slowFrames: 0, snap: null };
   });
 
+  const rollGroups = groupDiceByRoll(dice);
+  const diceByBody = new Map(dice.map((d) => [d.body.handle, d]));
   const settled = new Set();
   let pendingMs = 0;
   let lastTick = performance.now();
@@ -483,6 +500,33 @@ async function startSim(spec, seed, modifier) {
     settled.add(d);
   }
 
+  function playCollision(first, second, started) {
+    // ponytail: global cooldown caps dense pools; use per-die cooldowns if too sparse.
+    if (!started || performance.now() - lastClack < 85) return;
+    for (const handle of [first, second]) {
+      const body = world.getCollider(handle).parent();
+      const die = body && diceByBody.get(body.handle);
+      if (!die) continue;
+      const velocity = die.body.linvel();
+      playClack(Math.hypot(velocity.x, velocity.y, velocity.z));
+      lastClack = performance.now();
+      break;
+    }
+  }
+
+  function snapDie(d, now) {
+    const face = d.geom.faces.get(readFace(d));
+    if (!face) return lockDie(d);
+    const from = d.die.quaternion.clone();
+    const facing = face.dir.clone().applyQuaternion(from).normalize();
+    const correction = new THREE.Quaternion().setFromUnitVectors(facing, up);
+    d.snap = { from, to: correction.multiply(from), start: now };
+    d.body.setEnabledRotations(false, false, false);
+    d.body.setEnabledTranslations(false, false, false);
+    d.body.setAngvel({ x: 0, y: 0, z: 0 }, false);
+    d.body.setLinvel({ x: 0, y: 0, z: 0 }, false);
+  }
+
   function animate() {
     // fixed timestep accumulator driven by REAL elapsed time: the same
     // simulated duration passes regardless of the display's frame rate
@@ -492,12 +536,26 @@ async function startSim(spec, seed, modifier) {
     if (!reported) {
       pendingMs += elapsed;
       while (pendingMs >= STEP_MS) {
-        world.step();
+        world.step(eventQueue);
+        eventQueue.drainCollisionEvents(playCollision);
         pendingMs -= STEP_MS;
       }
     }
     const wallNow = now - startMs;
     for (const d of dice) {
+      if (d.snap) {
+        const t = d.body.translation();
+        d.die.position.set(t.x, t.y, t.z);
+        const progress = Math.min(1, (now - d.snap.start) / SNAP_DURATION_MS);
+        const ease = 1 - Math.pow(1 - progress, 3);
+        d.die.quaternion.slerpQuaternions(d.snap.from, d.snap.to, ease);
+        if (progress >= 1) {
+          d.body.setRotation(d.snap.to, false);
+          d.snap = null;
+          lockDie(d);
+        }
+        continue;
+      }
       const t = d.body.translation();
       const r = d.body.rotation();
       d.die.position.set(t.x, t.y, t.z);
@@ -514,33 +572,20 @@ async function startSim(spec, seed, modifier) {
       const faceUp = readFaceDot(d) >= 0.92;
       if (d.slowFrames >= SLOW_FRAMES_REQUIRED && faceUp) {
         lockDie(d);
-      } else if (d.slowFrames >= SLOW_FRAMES_REQUIRED && !faceUp) {
-        const face = d.geom.faces.get(readFace(d));
-        if (face) d.body.setRotation(new THREE.Quaternion().setFromUnitVectors(face.dir, up), true);
-        d.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-        d.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-        d.slowFrames = 0;
-      } else if (wallNow >= HARD_STOP_MS) {
-        lockDie(d); // absolute deadline: read the best face
+      } else if (d.slowFrames >= SLOW_FRAMES_REQUIRED || wallNow >= HARD_STOP_MS) {
+        snapDie(d, now); // ease a tip/edge balance onto its nearest face
       }
     }
     // per logical roll: all its meshes settled → value chip
     for (const d of dice) {
       if (d.chipDone || !settled.has(d)) continue;
-      const group = dice.filter((x) => x.def.rollIndex === d.def.rollIndex);
+      const group = rollGroups[d.def.rollIndex];
       if (!group.every((x) => settled.has(x))) continue;
-      let value;
-      if (d.def.sides === 100) {
-        const tens = parseInt(readFace(group.find((x) => x.def.type === 'd100')) ?? '0', 10);
-        const onesNum = readFace(group.find((x) => x.def.type === 'd10')) ?? '0';
-        const ones = parseInt(onesNum, 10);
-        value = tens === 0 && ones === 0 ? 100 : tens + ones;
-      } else {
-        const num = readFace(d) ?? '1';
-        value = d.def.type === 'd10' && num === '0' ? 10 : parseInt(num, 10);
+      const value = rollValueForGroup(group, readFace);
+      for (const die of group) {
+        die.rollValue = value;
+        die.chipDone = true;
       }
-      d.rollValue = value;
-      d.chipDone = true;
       const crit = value === d.def.sides;
       const fail = value === 1;
       const chip = document.createElement('div');
@@ -552,34 +597,16 @@ async function startSim(spec, seed, modifier) {
     }
     if (!reported && dice.every((d) => d.chipDone)) {
       reported = true;
-      const rolls = [];
-      const diceTypes = [];
-      const transforms = [];
-      const byRoll = new Map();
-      for (const d of dice) {
-        if (!byRoll.has(d.def.rollIndex)) byRoll.set(d.def.rollIndex, []);
-        byRoll.get(d.def.rollIndex).push(d);
-      }
-      for (const [, group] of byRoll) {
-        rolls.push(group[0].rollValue ?? 1);
-        diceTypes.push(group[0].def.sides);
-      }
-      for (const d of dice) {
-        const t = d.body.translation();
-        const r = d.body.rotation();
-        transforms.push({ position: { x: t.x, y: t.y, z: t.z }, rotation: { x: r.x, y: r.y, z: r.z, w: r.w } });
-      }
+      const rolls = rollGroups.map((group) => group[0].rollValue ?? 1);
+      const diceTypes = rollGroups.map((group) => group[0].def.sides);
       const crit = diceTypes.some((s, i) => rolls[i] === s);
       const fail = rolls.some((r) => r === 1);
       if (crit) totalEl.classList.add('crit');
       else if (fail) totalEl.classList.add('fail');
       const total = rolls.reduce((a, b) => a + b, 0) + modifier;
       totalEl.textContent = String(total);
-      // cap replay payload (OBR messages max 16KB; huge pools replay as CSS)
-      reportRollResult({
-        playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total,
-        transforms: dice.length <= 20 ? transforms : undefined
-      });
+      if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total });
+      eventQueue.free();
     }
     for (const d of dice) {
       if (d.glow && d.chipDone) {
@@ -592,170 +619,4 @@ async function startSim(spec, seed, modifier) {
     requestAnimationFrame(animate);
   }
   animate();
-}
-
-// mesh layout for pre-rolled results (types carry the roll order)
-function meshDefsForTypes(types) {
-  const defs = [];
-  types.forEach((sides, rollIndex) => {
-    if (sides === 100) {
-      defs.push({ type: 'd100', rollIndex, sides: 100 });
-      defs.push({ type: 'd10', rollIndex, sides: 100 });
-    } else {
-      defs.push({ type: SIDES_TO_TYPE[sides], rollIndex, sides });
-    }
-  });
-  return defs;
-}
-
-// ─── Other players/GM: replay the roller's recorded result ──────────────
-function replayRoll(types, transforms, modifier) {
-  const meshDefs = meshDefsForTypes(types);
-  const total = (rollsParam || []).reduce((a, b) => a + parseInt(b, 10), 0) + modifier;
-  const { host, canvas, width, height } = makeHostCanvas(210);
-  let stage;
-  try {
-    stage = buildStage(canvas, width, height, color);
-  } catch (err) {
-    console.warn('WebGL unavailable:', err);
-    host.remove();
-    showPreRolled();
-    return Promise.resolve();
-  }
-  const { renderer, scene, camera } = stage;
-
-  const loader = new GLTFLoader();
-  const needTypes = [...new Set(meshDefs.map((m) => m.type))];
-  return Promise.all(
-    needTypes.map(
-      (t) =>
-        new Promise((resolve) => {
-          loader.load(`/dice/${t}.glb`, (gltf) => resolve([t, gltf.scene]), undefined, () => resolve([t, null]));
-        })
-    )
-  ).then((loaded) => {
-    const byType = Object.fromEntries(loaded);
-    if (loaded.some(([, s]) => !s)) {
-      host.remove();
-      showPreRolled();
-      return;
-    }
-    const geometries = new Map(needTypes.map((t) => [t, typeGeometry(byType[t])]));
-    const rect = visibleRect(width, height);
-    buildTray(scene, rect.halfW, rect.halfH);
-    const n = meshDefs.length;
-    const cols = Math.min(n, Math.ceil(Math.sqrt(n)));
-    const rows = Math.ceil(n / cols);
-    const renderedDiameter = Math.min(2.3, 5.8 / cols, (rect.halfH * 2 - 0.5) / (1.2 * rows + 0.5));
-    const spacing = renderedDiameter * 1.2;
-    const dice = meshDefs.map((def, i) => {
-      const geom = geometries.get(def.type);
-      const scale = Math.min(0.62, renderedDiameter / (2 * geom.radius));
-      const die = byType[def.type].clone(true);
-      die.scale.setScalar(scale);
-      const material = new THREE.MeshPhysicalMaterial({
-        color,
-        metalness: 0.15,
-        roughness: 0.22,
-        clearcoat: 0.7,
-        clearcoatRoughness: 0.25
-      });
-      die.traverse((o) => {
-        if (o.isMesh) o.material = material;
-      });
-      addFaceNumbers(die, geom);
-      // start above the recorded resting spot and tumble into it
-      const final = transforms[i];
-      die.position.set(
-        (final?.position.x ?? 0) + 0.6,
-        THROW_MAX_Y + 0.5 + (i % 3) * 0.4,
-        (final?.position.z ?? 0) + 0.6
-      );
-      scene.add(die);
-      return { def, die, material, final, start: i * 0.18 };
-    });
-
-    const startMs = performance.now();
-    const DURATION = 1500;
-    let shown = 0;
-    const shownValues = rollsParam.map((r) => parseInt(r, 10));
-    const diceTypes = types;
-
-    function animate() {
-      const t = performance.now() - startMs;
-      for (const d of dice) {
-        const idx = dice.indexOf(d);
-        const local = Math.max(0, t - d.start);
-        const p = Math.min(1, local / DURATION);
-        const ease = 1 - Math.pow(1 - p, 3);
-        const final = transforms[idx];
-        if (final) {
-          // tumble into the exact recorded resting transform
-          const fromY = THROW_MAX_Y + 0.5 + (idx % 3) * 0.4;
-          d.die.position.set(
-            THREE.MathUtils.lerp(final.position.x + 0.4, final.position.x, ease),
-            THREE.MathUtils.lerp(fromY, final.position.y, ease),
-            THREE.MathUtils.lerp(final.position.z + 0.6, final.position.z, ease)
-          );
-          const startQ = new THREE.Quaternion().setFromAxisAngle(
-            new THREE.Vector3(idx % 2 ? 1 : -1, 0.4, 0.3).normalize(),
-            (1 - ease) * 4
-          );
-          d.die.quaternion.copy(startQ.slerp(new THREE.Quaternion(final.rotation.x, final.rotation.y, final.rotation.z, final.rotation.w), ease));
-        }
-        if (p >= 1 && !d.chipDone) {
-          d.chipDone = true;
-          shown += 1;
-          const rollIndex = d.def.rollIndex;
-          const value = shownValues[rollIndex] ?? 1;
-          if (row.children.length < 15) {
-            const chip = document.createElement('div');
-            chip.className = value === d.def.sides ? 'die crit' : value === 1 ? 'die fail' : 'die';
-            chip.textContent = String(value);
-            row.appendChild(chip);
-          } else if (!row.querySelector('.more')) {
-            const more = document.createElement('div');
-            more.className = 'die more';
-            more.textContent = `+${shownValues.length - 15}`;
-            row.appendChild(more);
-          }
-          if (value === d.def.sides) d.glow = '#fbbf24';
-          else if (value === 1) d.glow = '#dc2626';
-        }
-        if (d.glow) {
-          const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 1000 * 7);
-          d.material.emissive.set(d.glow);
-          d.material.emissiveIntensity = pulse * 1.5;
-        }
-      }
-      if (shown >= dice.length) {
-        const crit = diceTypes.some((s, i) => shownValues[i] === s);
-        const fail = shownValues.some((r) => r === 1);
-        if (crit) totalEl.classList.add('crit');
-        else if (fail) totalEl.classList.add('fail');
-        totalEl.textContent = String(total);
-        return; // stop the loop; the resting dice stay visible
-      }
-      renderer.render(scene, camera);
-      requestAnimationFrame(animate);
-    }
-    animate();
-  });
-}
-
-// replay unavailable (no WebGL/transforms) → chips + total only (pre-rolled path)
-function showResultOnly(result) {
-  const rolls = result?.rolls ?? [];
-  const diceTypes = result?.diceTypes ?? [];
-  rolls.forEach((r, i) => {
-    const die = document.createElement('div');
-    die.className = r === diceTypes[i] ? 'die crit' : r === 1 ? 'die fail' : 'die';
-    die.style.animationDelay = `${i * 0.08}s`;
-    die.textContent = String(r);
-    row.appendChild(die);
-  });
-  totalEl.style.animationDelay = `${0.45 + rolls.length * 0.08}s`;
-  if (diceTypes.some((s, i) => rolls[i] === s)) totalEl.classList.add('crit');
-  else if (rolls.some((r) => r === 1)) totalEl.classList.add('fail');
-  totalEl.textContent = String(result?.total ?? '—');
 }

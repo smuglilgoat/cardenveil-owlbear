@@ -22,7 +22,7 @@ export async function broadcastRoll(data) {
     /* name optional */
   }
   try {
-    // ALL so the roller's own background page also opens the popup (top-center)
+    // ALL so every client's background page opens its matching popup.
     await OBR.broadcast.sendMessage(ROLL_CHANNEL, { ...data, rollId, playerName }, { destination: 'ALL' });
   } catch (err) {
     console.warn('Failed to broadcast roll:', err);
@@ -45,34 +45,13 @@ export function onRollResult(callback) {
   }
 }
 
-const OBR_RESULT_CHANNEL = 'cardenveil-roll-result';
-
-/**
- * Report a roll result: locally via BroadcastChannel (roller's frames log
- * it) and remotely via the OBR broadcast (other clients replay the motion).
- */
+/** Report the roller's result to its local sheet frames for logging. */
 export function reportRollResult(result) {
   try {
-    new BroadcastChannel(ROLL_RESULT_CHANNEL).postMessage(JSON.parse(JSON.stringify(result)));
+    const channel = new BroadcastChannel(ROLL_RESULT_CHANNEL);
+    channel.postMessage(JSON.parse(JSON.stringify(result)));
+    channel.close();
   } catch (err) {
     console.warn('Failed to report roll result:', err);
-  }
-  try {
-    OBR.broadcast.sendMessage(ROLL_RESULT_CHANNEL, result, { destination: 'ALL' }).catch(() => {});
-  } catch {
-    /* remote replay optional */
-  }
-}
-
-/**
- * Listen for results broadcast over the room (for remote replay).
- * Callback receives (data, senderConnectionId). Returns an unsubscribe.
- */
-export function onRemoteRollResult(callback) {
-  try {
-    return OBR.broadcast.onMessage(ROLL_RESULT_CHANNEL, ({ data, connectionId }) => callback(data, connectionId));
-  } catch (err) {
-    console.warn('Remote roll results unavailable:', err);
-    return () => {};
   }
 }

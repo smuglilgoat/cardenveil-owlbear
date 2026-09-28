@@ -38,6 +38,7 @@
 - `[2026-06-17T19:28Z]` `[CODE]` Moved `maybeAasimarHeart` call from PROPOSE_EXCHANGE to ACCEPT_EXCHANGE for sender. Updated optimistic UI to look up exchange sender.
 
 ## [PROGRESS]
+- `[2026-09-28T21:25:18+02:00]` `[USER]` Dice mechanic review: smooth face snap, contain dice, fix totals, synchronize popups, add clacks. `[CODE]` branch `agent/fix-dice-rolling`: smooth 250ms face alignment; tray walls now extend above the floor; each logical die gets its own result index (d100's two meshes remain paired); every client opens on the shared seeded intent (roller bottom-left, others bottom-right); only the roller logs the local result; collision clacks use Web Audio.
 - `[2026-09-16T00:10Z]` `[USER]` Report: the equipment switcher list should show item icons. `[CODE]` (main `3f52bf4`) Each candidate button now renders its item's icon (own icon field when set; slot-glyph for import-mapped gear); no logic change
 - `[2026-09-16T00:00Z]` `[USER]` Bug: Vider while wearing 2 weapons cleared the off-hand paper-doll slot while the weapon was still equipped. `[CODE]` (main `25e7290`) Root cause: mixed tagged/legacy equipped weapons — the previous strict handSlots left a tagged main un-promoted but handSlots' legacy handling mis-resolved occupants, so Vider on main unequipped/cleared the off-hand display. FIX: explicit inference in handSlots (tagged weapons win their slot, untagged takes the remaining slot, no tags keeps array order). Both the doll and the ÉDITION hand dropdown inherit the fix
 ## [PROGRESS]
