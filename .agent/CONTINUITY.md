@@ -184,3 +184,10 @@
 - [CODE] Tests 159/159 (override + syncStatsFromEquipment-preserves-overrides added); build OK.
 - [CODE] rewrite @ c0c89bc (+f44aecc gitlink cleanup): dice popup now opened exclusively by a persistent background page (background.html + src/background.js, manifest background_url — same pattern as official Owlbear dice extension in docs/dice). Listens on cardenveil-roll, dedupe by rollId; top-center anchor for the roller (connectionId match), bottom-right for others; 6s auto-close. Components only broadcastRoll; inline fallback when !OBR.isAvailable. Sheet frames no longer open/subscribe for rolls.
 - [ASSUMPTION] anchorPosition coordinates are viewport-relative (per OBR popover docs); untested in a live room. UNCONFIRMED.
+
+## [2026-02-13T00:00Z] feat/3d-dice → main @ 4a1d60f
+- [USER] Wanted the official Owlbear dice plugin's 3D dice in the roll popup + quick-dice row (d4→d100) in the compact popover (accumulate + Roll). Answers: lightweight physics (no rapier), player-selectable dice color (ÉDITION IDENTITÉ: Auto/Obsidienne/Rubis/Émeraude/Saphir/Améthyste; Auto = max-stat gem w/ random tie-pick, all-equal stats → obsidian), accumulate+Roll row.
+- [CODE] dice.html → module script + src/dice3d.js (three.js dep ~623KB/159KB gzip, only loaded with popup): official GLB meshes copied to public/dice/, locator convention forces the pre-rolled value's face up, gold/red emissive pulse for crit/natural-1, value chips + total after settle; CSS fallback (stat formulas, >5 dice, exotic sides, WebGL unavailable).
+- [CODE] rollDice/isDiceFormula support compound "1d6+1d4" (+ per-die `diceTypes` in result); SheetPopover gets QUICK_DICE row (shape-icon buttons + editable formula + 🎲 Lancer).
+- [CODE] identity.diceColor ('' = Auto); diceGem()/diceGemColor() resolve explicit > max-stat random-tie > obsidian; color flows via broadcastRoll → background → dice.html `color` param.
+- [ASSUMPTION] d100 renders as percentile+d10 pair (00+0 convention for 100); numbers are shown as chips, not on faces (GLBs carry no textures).
