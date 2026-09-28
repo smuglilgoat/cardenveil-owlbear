@@ -1,14 +1,14 @@
 // Dice roll popup with real physics — vanilla three.js + rapier
 // (@dimforge/rapier3d-compat), same approach as the official Owlbear dice
 // plugin but without React. THE RAPIER SIMULATION IS THE SOURCE OF THE
-// RESULTS: every client simulates the identical seeded throw and reads the
-// resting face values from the official locator convention. The roller's
-// popup reports the result on the local roll-result channel for the log.
-// Flat (GM Classique) mode keeps pre-rolled values rendered as CSS dice.
+// RESULTS: the roller's popup runs the authoritative simulation and reports
+// the resting-face values + final transforms; every other client REPLAYS
+// those transforms so numbers are identical everywhere regardless of frame
+// rate. Flat (GM Classique) mode keeps pre-rolled CSS dice.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { reportRollResult } from './lib/rollBroadcast.js';
+import { reportRollResult, onRemoteRollResult } from './lib/rollBroadcast.js';
 
 const params = new URLSearchParams(location.search);
 const label = params.get('label') || 'Lancer de dés';
@@ -18,14 +18,12 @@ const rollsParam = (params.get('rolls') || '').split(',').filter(Boolean);
 const typesParam = (params.get('types') || '').split(',').filter(Number);
 const error = params.get('error');
 const color = params.get('color') || '#312e81';
-const mode = params.get('mode') || '';
-// physics roll: explicit dice terms + seed (rapier decides the numbers)
+const isSelf = params.get('self') === '1';
 const specParam = params.get('diceSpec'); // JSON [{count, sides}...]
 const seedParam = params.get('seed');
 const modifierParam = parseInt(params.get('modifier') || '0', 10) || 0;
 const playerId = params.get('playerId') || '';
 const rollId = params.get('rollId') || '';
-// plain label without the playerName prefix (for the action log)
 const plainLabel = () => params.get('plainLabel') || 'Jet';
 
 document.getElementById('label').textContent = label;
@@ -38,10 +36,9 @@ const SIDES_TO_TYPE = { 4: 'd4', 6: 'd6', 8: 'd8', 10: 'd10', 12: 'd12', 20: 'd2
 const COLLIDER_VERTICES = {
   d4: [0.0, -0.635828, -1.269768, 0.0, 1.159624, 0.0, 1.099651, -0.635829, 0.634884, -1.099651, -0.635829, 0.634884],
   d6: [-0.8, -0.8, 0.8, -0.8, 0.8, 0.8, -0.8, -0.8, -0.8, -0.8, 0.8, -0.8, 0.8, -0.8, 0.8, 0.8, 0.8, 0.8, 0.8, -0.8, -0.8, 0.8, 0.8, -0.8],
-  d10: [0.0, -1.172751, 0.0, 0.0, 1.172751, 0.0, 1.122302, -0.123811, 0.364658, 0.693621, 0.123811, 0.954687, 0.0, -0.123811, 1.180058, 0.69362, -0.123811, -0.954687, 1.122302, 0.123811, -0.364658, 0.0, 0.123811, -1.180058, -0.693621, -0.123811, -0.954687, -1.122301, -0.123811, 0.364658, -1.122301, 0.123811, -0.364658, -0.693621, 0.12381, 0.954687],
+  d10: [0.0, -1.172751, 0.0, 0.0, 1.172751, 0.0, 1.122302, -0.123811, 0.364658, 0.693621, 0.123811, 0.954687, 0.0, -0.123811, 1.180058, 0.69362, -0.123811, -0.954687, 1.122302, 0.123811, -0.364658, 0.0, 0.123811, -1.180058, -0.693621, -0.123811, -0.954687, -1.122301, 0.123811, 0.364658, -1.122301, 0.123811, -0.364658, -0.693621, 0.12381, 0.954687],
   d20: [-1.355243, -0.262864, 0.0, -0.415876, -1.09821, 0.725756, -0.678737, 0.257012, 1.174309, -0.841197, 1.094606, 0.0, -0.678737, 0.257012, -1.174309, -0.415876, -1.09821, -0.725756, 0.678737, -0.257012, 1.174309, 0.415876, 1.09821, 0.725756, 0.415876, 1.09821, -0.725756, 0.678737, -0.257012, -1.174309, 0.841197, -1.094606, 0.0, 1.355243, 0.262864, 0.0]
 };
-// d8/d12 reuse the closest matching hull at matching size
 COLLIDER_VERTICES.d8 = COLLIDER_VERTICES.d10;
 COLLIDER_VERTICES.d12 = COLLIDER_VERTICES.d20;
 COLLIDER_VERTICES.d100 = COLLIDER_VERTICES.d10;
@@ -58,6 +55,31 @@ if (error) {
   row.replaceWith(el);
 } else if (rollsParam.length && rollsParam.length === typesParam.length) {
   // pre-rolled (flat mode) → CSS dice display
+  showPreRolled();
+} else {
+  let spec = null;
+  try {
+    spec = JSON.parse(specParam || 'null');
+  } catch {
+    spec = null;
+  }
+  const playable = Array.isArray(spec) && spec.length && spec.every((t) => SIDES_TO_TYPE[t.sides]);
+  if (!playable) {
+    fallbackFromSpec(spec, modifierParam);
+  } else if (isSelf) {
+    formulaEl.textContent = formula;
+    startSim(spec, parseInt(seedParam, 10), modifierParam).catch((err) => {
+      console.warn('Dice simulation failed:', err);
+      fallbackFromSpec(spec, modifierParam);
+    });
+  } else {
+    // other players/GM: wait for the roller's authoritative result, replay it
+    formulaEl.textContent = formula;
+    waitForResult(spec);
+  }
+}
+
+function showPreRolled() {
   formulaEl.textContent = formula;
   rollsParam.forEach((r, i) => {
     const die = document.createElement('div');
@@ -70,23 +92,10 @@ if (error) {
   if (critPre) totalEl.classList.add('crit');
   else if (failPre) totalEl.classList.add('fail');
   totalEl.textContent = totalParam != null && totalParam !== '' ? totalParam : '—';
-} else {
-  let spec = null;
-  try {
-    spec = JSON.parse(specParam || 'null');
-  } catch {
-    spec = null;
-  }
-  if (!Array.isArray(spec) || seedParam == null || !spec.length || !spec.every((t) => SIDES_TO_TYPE[t.sides])) {
-    // unplayable spec → random values from the spec, CSS display, still logged
-    fallbackFromSpec(spec, modifierParam);
-  } else {
-    formulaEl.textContent = formula;
-    startPhysics(spec, parseInt(seedParam, 10), modifierParam);
-  }
 }
 
-// Fallback: no physics (spec unusable) → random values + result still logged
+// Fallback: unusable spec or crashed sim → random values from the spec,
+// displayed as CSS dice and still reported so the log stays consistent.
 function fallbackFromSpec(spec, modifier) {
   if (!spec) {
     totalEl.textContent = '—';
@@ -116,7 +125,7 @@ function fallbackFromSpec(spec, modifier) {
   totalEl.textContent = String(rolls.reduce((a, b) => a + b, 0) + modifier);
 }
 
-// ─── Seeded RNG + throw generation (official DiceThrower logic) ──────────
+// ─── Seeded RNG (deterministic rotations across the roller's throws) ─────
 function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
@@ -126,46 +135,6 @@ function mulberry32(seed) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-const THROW_MIN_X = -0.9;
-const THROW_MAX_X = 0.9;
-const THROW_MIN_Y = 2;
-const THROW_MAX_Y = 2.4;
-const THROW_MIN_Z = -1.9;
-const THROW_MAX_Z = 1.9;
-const MIN_LAUNCH_VELOCITY = 2;
-const MAX_LAUNCH_VELOCITY = 4.5;
-const MIN_ANGULAR_VELOCITY = 3;
-const MAX_ANGULAR_VELOCITY = 8;
-const MIN_ROLL_FINISHED_SPEED = 0.005;
-const MAX_ROLL_TIME = 5000;
-
-// Deterministic throws shared by every client (same seed → same numbers)
-function seededThrows(rng, meshDefs) {
-  const history = [];
-  return meshDefs.map(() => {
-    let position;
-    for (let i = 0; i < 50; i++) {
-      position = {
-        x: THROW_MIN_X + rng() * (THROW_MAX_X - THROW_MIN_X),
-        y: THROW_MIN_Y + rng() * (THROW_MAX_Y - THROW_MIN_Y),
-        z: THROW_MIN_Z + rng() * (THROW_MAX_Z - THROW_MIN_Z)
-      };
-      if (history.every((q) => Math.hypot(position.x - q.x, position.z - q.z) >= 0.7)) break;
-    }
-    history.push(position);
-    return {
-      position,
-      rotation: randomRotation(rng),
-      linearVelocity: launchVelocity(position, rng),
-      angularVelocity: {
-        x: MIN_ANGULAR_VELOCITY + rng() * (MAX_ANGULAR_VELOCITY - MIN_ANGULAR_VELOCITY),
-        y: MIN_ANGULAR_VELOCITY + rng() * (MAX_ANGULAR_VELOCITY - MIN_ANGULAR_VELOCITY),
-        z: MIN_ANGULAR_VELOCITY + rng() * (MAX_ANGULAR_VELOCITY - MIN_ANGULAR_VELOCITY)
-      }
-    };
-  });
 }
 
 function randomRotation(rng) {
@@ -185,20 +154,17 @@ function randomRotation(rng) {
   return { x, y, z: s * u, w: s * v };
 }
 
-// Always launches from the die's position towards the tray center
-function launchVelocity(position, rng) {
-  const { x, z } = position;
-  const length = Math.sqrt(x * x + z * z);
-  const speed = MIN_LAUNCH_VELOCITY + rng() * (MAX_LAUNCH_VELOCITY - MIN_LAUNCH_VELOCITY);
-  if (!length) return { x: 0, y: 0, z: 0 };
-  return {
-    x: (x / length) * speed * -1,
-    y: 0,
-    z: (z / length) * speed * -1
-  };
-}
+const THROW_MIN_Y = 2.6;
+const THROW_MAX_Y = 3.2;
+const MIN_LAUNCH_VELOCITY = 3;
+const MAX_LAUNCH_VELOCITY = 6;
+const MIN_ANGULAR_VELOCITY = 4;
+const MAX_ANGULAR_VELOCITY = 9;
+const MIN_ROLL_FINISHED_SPEED = 0.005;
+const SLOW_FRAMES_REQUIRED = 8;
+const FORCE_STOP_MS = 5000;
 
-// ─── Visual mesh layout: one def per mesh, d100 = percentile + ones ──────
+// ─── Visual mesh layout: one def per mesh; a d100 = percentile + ones ────
 function meshDefsFor(spec) {
   const defs = [];
   spec.forEach((term, rollIndex) => {
@@ -214,7 +180,23 @@ function meshDefsFor(spec) {
   return defs;
 }
 
-const LOCATOR_PREFIX = { d4: '004', d6: '006', d8: '008', d10: '010', d12: '012', d20: '020', d100: '100' };
+// Jittered-grid spawn positions: dice can never spawn interpenetrating
+// (grid spacing ≥ die size by construction); deterministic draw order.
+function spawnGrid(rng, count, cols, spacing) {
+  const rows = Math.ceil(count / cols);
+  const positions = [];
+  for (let row = 0; row < rows; row++) {
+    const inRow = Math.min(count - row * cols, cols);
+    for (let col = 0; col < inRow; col++) {
+      positions.push({
+        x: (col - (inRow - 1) / 2) * spacing + (rng() - 0.5) * 0.2,
+        y: THROW_MIN_Y + rng() * (THROW_MAX_Y - THROW_MIN_Y),
+        z: (row - (rows - 1) / 2) * spacing + (rng() - 0.5) * 0.2
+      });
+    }
+  }
+  return positions;
+}
 
 // printed face numbers (canvas textures at the locator anchors)
 const numberTextureCache = new Map();
@@ -222,17 +204,17 @@ const numberTextureCache = new Map();
 function numberTexture(text) {
   if (numberTextureCache.has(text)) return numberTextureCache.get(text);
   const canvas = document.createElement('canvas');
-  canvas.width = 96;
-  canvas.height = 96;
+  canvas.width = 128;
+  canvas.height = 128;
   const ctx = canvas.getContext('2d');
-  ctx.font = `bold ${text.length > 1 ? 46 : 58}px system-ui, Arial, sans-serif`;
+  ctx.font = `bold ${text.length > 1 ? 62 : 78}px system-ui, Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.lineWidth = 9;
-  ctx.strokeStyle = 'rgba(15,23,42,0.9)';
-  ctx.strokeText(text, 48, 50);
+  ctx.lineWidth = 12;
+  ctx.strokeStyle = 'rgba(10,15,30,0.95)';
+  ctx.strokeText(text, 64, 68);
   ctx.fillStyle = '#f9fafb';
-  ctx.fillText(text, 48, 50);
+  ctx.fillText(text, 64, 68);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   numberTextureCache.set(text, texture);
@@ -257,26 +239,69 @@ function typeGeometry(gltfScene) {
   return { radius: Math.max(size.x, size.y, size.z) / 2, faces };
 }
 
-async function startPhysics(spec, seed, modifier) {
-  const meshDefs = meshDefsFor(spec);
+function addFaceNumbers(dieGroup, geom) {
+  const geometry = new THREE.PlaneGeometry(0.85, 0.85);
+  for (const [num, { dir, dist }] of geom.faces) {
+    const text = num.length === 1 ? num : num.length === 2 ? num : num;
+    const plane = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+      map: numberTexture(text),
+      transparent: true,
+      depthWrite: false
+    }));
+    plane.position.copy(dir).multiplyScalar(dist * 1.02 + 0.04);
+    plane.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+    dieGroup.add(plane);
+  }
+}
+
+// shared stage: top-down tray view
+function buildStage(canvas, width, height, materialColor) {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setSize(width, height, false);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+  camera.up.set(0, 0, -1);
+  camera.position.set(0, 8.2, 0.01);
+  camera.lookAt(0, 0, 0);
+  scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+  const key = new THREE.DirectionalLight(0xffffff, 2.2);
+  key.position.set(2.5, 8, 3);
+  scene.add(key);
+  const tray = new THREE.Mesh(
+    new THREE.CircleGeometry(3.4, 48),
+    new THREE.MeshStandardMaterial({ color: '#111827', roughness: 0.9 })
+  );
+  tray.rotation.x = -Math.PI / 2;
+  tray.position.y = -0.8;
+  scene.add(tray);
+  return { renderer, scene, camera };
+}
+
+function makeHostCanvas(hostHeight) {
   const host = document.createElement('div');
-  host.style.cssText = 'width:100%;height:200px;display:flex;justify-content:center;overflow:hidden';
+  host.style.cssText = `width:100%;height:${hostHeight}px;display:flex;justify-content:center;overflow:hidden`;
   row.parentNode.insertBefore(host, row);
   const canvas = document.createElement('canvas');
   host.appendChild(canvas);
   const width = host.clientWidth || 420;
-  const height = 200;
+  return { host, canvas, width, height: hostHeight };
+}
 
-  let renderer;
+// ─── Roller's popup: the authoritative rapier simulation ─────────────────
+async function startSim(spec, seed, modifier) {
+  const meshDefs = meshDefsFor(spec);
+  const { host, canvas, width, height } = makeHostCanvas(210);
+  let stage;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  } catch {
+    stage = buildStage(canvas, width, height, color);
+  } catch (err) {
+    console.warn('WebGL unavailable:', err);
     host.remove();
     fallbackFromSpec(spec, modifier);
     return;
   }
-  renderer.setSize(width, height, false);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const { renderer, scene, camera } = stage;
 
   try {
     await RAPIER.init();
@@ -287,47 +312,24 @@ async function startPhysics(spec, seed, modifier) {
     return;
   }
 
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-  camera.up.set(0, 0, -1);
-  camera.position.set(0, 9.8, 0.01);
-  camera.lookAt(0, 0, 0);
-  scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-  const key = new THREE.DirectionalLight(0xffffff, 2.2);
-  key.position.set(2.5, 8, 3);
-  scene.add(key);
-
-  // tray visuals
-  const tray = new THREE.Mesh(
-    new THREE.CircleGeometry(3.4, 48),
-    new THREE.MeshStandardMaterial({ color: '#111827', roughness: 0.9 })
-  );
-  tray.rotation.x = -Math.PI / 2;
-  tray.position.y = -0.8;
-  scene.add(tray);
-
-  // ─── rapier world (official tray + die conventions) ───
-  const world = new RAPIER.World({ x: 0, y: -25, z: 0 });
+  const world = new RAPIER.World({ x: 0, y: -14, z: 0 });
+  world.timestep = 1 / 60;
   const T = 50; // huge wall half-extents so nothing teleports through
   const floorBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-  // floor top coincides with the visual tray plane (y = -0.8)
   world.createCollider(RAPIER.ColliderDesc.cuboid(T, T, T).setTranslation(0, -0.8 - T, 0), floorBody);
-  // walls: inner faces at x ±3.3, z ±3.2 + roof; no rotation needed
-  const wallDefs = [
-    [0, -0.8 - T, 3.2 + T],
-    [0, -0.8 - T, -3.2 - T],
-    [3.3 + T, -0.8 - T, 0],
-    [-3.3 - T, -0.8 - T, 0],
-    [0, 1.5 + T, 0]
-  ];
   const wallBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-  for (const [x, y, z] of wallDefs) {
+  for (const [x, y, z] of [
+    [0, -0.8 - T, 3.0 + T],
+    [0, -0.8 - T, -3.0 - T],
+    [3.1 + T, -0.8 - T, 0],
+    [-3.1 - T, -0.8 - T, 0],
+    [0, 2.2 + T, 0]
+  ]) {
     world.createCollider(RAPIER.ColliderDesc.cuboid(T, T, T).setTranslation(x, y, z), wallBody);
   }
 
   const loader = new GLTFLoader();
   const needTypes = [...new Set(meshDefs.map((m) => m.type))];
-
   const loaded = await Promise.all(
     needTypes.map(
       (t) =>
@@ -343,19 +345,26 @@ async function startPhysics(spec, seed, modifier) {
     return;
   }
   const geometries = new Map(needTypes.map((t) => [t, typeGeometry(byType[t])]));
-  const rng = mulberry32(seed);
-  const throws = seededThrows(rng, meshDefs);
 
-  const up = new THREE.Vector3(0, 1, 0);
+  const rng = mulberry32(seed);
   const n = meshDefs.length;
   const cols = Math.min(n, Math.ceil(Math.sqrt(n)));
-  const rows = Math.ceil(n / cols);
-  const renderedDiameter = Math.min(1.6, 5.6 / cols);
-  const spacing = renderedDiameter * 1.35;
+  const renderedDiameter = Math.min(2.3, 5.8 / cols);
+  const spacing = renderedDiameter * 1.2;
+  const spawnPositions = spawnGrid(rng, n, cols, spacing);
+  const throws = meshDefs.map(() => ({
+    rotation: randomRotation(rng),
+    angularVelocity: {
+      x: MIN_ANGULAR_VELOCITY + rng() * (MAX_ANGULAR_VELOCITY - MIN_ANGULAR_VELOCITY),
+      y: MIN_ANGULAR_VELOCITY + rng() * (MAX_ANGULAR_VELOCITY - MIN_ANGULAR_VELOCITY),
+      z: MIN_ANGULAR_VELOCITY + rng() * (MAX_ANGULAR_VELOCITY - MIN_ANGULAR_VELOCITY)
+    }
+  }));
+  const up = new THREE.Vector3(0, 1, 0);
 
   const dice = meshDefs.map((def, i) => {
     const geom = geometries.get(def.type) ?? typeGeometry(byType[def.type]);
-    const scale = Math.min(0.55, renderedDiameter / (2 * geom.radius));
+    const scale = Math.min(0.62, renderedDiameter / (2 * geom.radius));
     const die = byType[def.type].clone(true);
     die.scale.setScalar(scale);
     const material = new THREE.MeshPhysicalMaterial({
@@ -368,46 +377,32 @@ async function startPhysics(spec, seed, modifier) {
     die.traverse((o) => {
       if (o.isMesh) o.material = material;
     });
-    addFaceNumbers(die, geom, def.type);
+    addFaceNumbers(die, geom);
     scene.add(die);
 
-    const th = throws[i];
+    // spawn on the jittered grid (no interpenetration by construction) and
+    // launch toward the tray center (official throwing motion)
+    const spawn = spawnPositions[i];
+    const toCenter = Math.hypot(spawn.x, spawn.z) || 1;
+    const speed = MIN_LAUNCH_VELOCITY + rng() * (MAX_LAUNCH_VELOCITY - MIN_LAUNCH_VELOCITY);
     const body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(th.position.x, th.position.y, th.position.z)
-        .setRotation(th.rotation)
-        .setLinvel(th.linearVelocity.x, th.linearVelocity.y, th.linearVelocity.z)
-        .setAngvel(th.angularVelocity.x, th.angularVelocity.y, th.angularVelocity.z)
-        .setGravityScale(2)
+        .setTranslation(spawn.x, spawn.y, spawn.z)
+        .setRotation(throws[i].rotation)
+        .setLinvel((-spawn.x / toCenter) * speed, 0, (-spawn.z / toCenter) * speed)
+        .setAngvel(throws[i].angularVelocity.x, throws[i].angularVelocity.y, throws[i].angularVelocity.z)
+        .setGravityScale(1.6)
     );
     const verts = new Float32Array(COLLIDER_VERTICES[def.type].map((v) => v * scale));
-    world.createCollider(RAPIER.ColliderDesc.convexHull(verts).setFriction(0.1).setDensity(1), body);
-
-    return { def, geom, die, material, body, glow: null, chipDone: false };
+    world.createCollider(RAPIER.ColliderDesc.convexHull(verts).setFriction(0.12).setRestitution(0.45).setDensity(1), body);
+    return { def, geom, die, material, body, glow: null, chipDone: false, slowFrames: 0 };
   });
 
-  function addFaceNumbers(dieGroup, geom, type) {
-    const geometry = new THREE.PlaneGeometry(0.62, 0.62);
-    for (const [num, { dir, dist }] of geom.faces) {
-      const text = type === 'd100' ? num.padStart(2, '0') : num;
-      const plane = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-        map: numberTexture(text),
-        transparent: true,
-        depthWrite: false
-      }));
-      plane.position.copy(dir).multiplyScalar(dist * 1.04 + 0.04);
-      plane.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-      dieGroup.add(plane);
-    }
-  }
-
-  const startMs = performance.now();
-  const settledMeshes = new Set();
+  const settled = new Set();
+  let simMs = 0;
   let reported = false;
 
   function readFace(die) {
-    // highest-dot locator = the resting face (official convention)
-    const up = new THREE.Vector3(0, 1, 0);
     let bestDot = -Infinity;
     let best = null;
     for (const [num, { dir }] of die.geom.faces) {
@@ -422,29 +417,36 @@ async function startPhysics(spec, seed, modifier) {
   }
 
   function animate() {
-    world.step();
+    // fixed timestep accumulator → frame-rate independent outcomes
+    let steps = 0;
+    while (simMs < FORCE_STOP_MS && steps < 4) {
+      world.step();
+      simMs += 1000 / 60;
+    }
     for (const d of dice) {
       const t = d.body.translation();
       const r = d.body.rotation();
       d.die.position.set(t.x, t.y, t.z);
       d.die.quaternion.set(r.x, r.y, r.z, r.w);
-      if (!settledMeshes.has(d) && !d.chipDone) {
-        const lin = d.body.linvel();
-        const ang = d.body.angvel();
-        const speed = Math.hypot(lin.x, lin.y, lin.z) + Math.hypot(ang.x, ang.y, ang.z);
-        if ((performance.now() - startMs > 600 && speed < MIN_ROLL_FINISHED_SPEED) || performance.now() - startMs > 5000) {
-          // lock the die so it can't be nudged after settling
-          d.body.setEnabledRotations(false, false, false);
-          d.body.setAngvel({ x: 0, y: 0, z: 0 }, false);
-          settledMeshes.add(d);
-        }
+      if (settled.has(d) || d.chipDone) continue;
+      const lin = d.body.linvel();
+      const ang = d.body.angvel();
+      const speed = Math.hypot(lin.x, lin.y, lin.z) + Math.hypot(ang.x, ang.y, ang.z);
+      const resting = d.body.isSleeping() || d.body.translation().y < 1.4;
+      if (speed < MIN_ROLL_FINISHED_SPEED && resting) d.slowFrames += 1;
+      else d.slowFrames = 0;
+      if (d.slowFrames >= SLOW_FRAMES_REQUIRED || simMs >= FORCE_STOP_MS) {
+        d.body.setEnabledRotations(false, false, false);
+        d.body.setEnabledTranslations(false, false, false);
+        d.body.setAngvel({ x: 0, y: 0, z: 0 }, false);
+        settled.add(d);
       }
     }
     // per logical roll: all its meshes settled → value chip
     for (const d of dice) {
-      if (d.chipDone || !settledMeshes.has(d)) continue;
+      if (d.chipDone || !settled.has(d)) continue;
       const group = dice.filter((x) => x.def.rollIndex === d.def.rollIndex);
-      if (!group.every((x) => settledMeshes.has(x))) continue;
+      if (!group.every((x) => settled.has(x))) continue;
       let value;
       if (d.def.sides === 100) {
         const tens = parseInt(readFace(group.find((x) => x.def.type === 'd100')) ?? '0', 10);
@@ -466,20 +468,24 @@ async function startPhysics(spec, seed, modifier) {
       if (crit) d.glow = '#fbbf24';
       else if (fail) d.glow = '#dc2626';
     }
-    // every logical roll settled → total + report
     if (!reported && dice.every((d) => d.chipDone)) {
       reported = true;
       const rolls = [];
       const diceTypes = [];
+      const transforms = [];
       const byRoll = new Map();
       for (const d of dice) {
         if (!byRoll.has(d.def.rollIndex)) byRoll.set(d.def.rollIndex, []);
         byRoll.get(d.def.rollIndex).push(d);
       }
       for (const [, group] of byRoll) {
-        const v = group[0].rollValue ?? 1;
-        rolls.push(v);
+        rolls.push(group[0].rollValue ?? 1);
         diceTypes.push(group[0].def.sides);
+      }
+      for (const d of dice) {
+        const t = d.body.translation();
+        const r = d.body.rotation();
+        transforms.push({ position: { x: t.x, y: t.y, z: t.z }, rotation: { x: r.x, y: r.y, z: r.z, w: r.w } });
       }
       const crit = diceTypes.some((s, i) => rolls[i] === s);
       const fail = rolls.some((r) => r === 1);
@@ -487,7 +493,7 @@ async function startPhysics(spec, seed, modifier) {
       else if (fail) totalEl.classList.add('fail');
       const total = rolls.reduce((a, b) => a + b, 0) + modifier;
       totalEl.textContent = String(total);
-      reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total });
+      reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total, transforms });
     }
     for (const d of dice) {
       if (d.glow && d.chipDone) {
@@ -500,4 +506,165 @@ async function startPhysics(spec, seed, modifier) {
     requestAnimationFrame(animate);
   }
   animate();
+}
+
+// ─── Other players/GM: wait for the result, replay the recorded motion ───
+function waitForResult(spec) {
+  const stop = onRemoteRollResult((result) => {
+    if (!result || result.rollId !== rollId) return;
+    stop();
+    replayFromResult(spec, result).catch((err) => {
+      console.warn('Replay failed:', err);
+      showResultOnly(result);
+    });
+  });
+  // the roller's sim is capped at ~5s; if nothing arrives, show the tray empty
+  setTimeout(() => stop(), 9000);
+}
+
+function replayFromResult(spec, result) {
+  const meshDefs = meshDefsFor(spec);
+  const { host, canvas, width, height } = makeHostCanvas(210);
+  let stage;
+  try {
+    stage = buildStage(canvas, width, height, color);
+  } catch (err) {
+    console.warn('WebGL unavailable:', err);
+    host.remove();
+    showResultOnly(result);
+    return Promise.resolve();
+  }
+  const { renderer, scene, camera } = stage;
+
+  const loader = new GLTFLoader();
+  const needTypes = [...new Set(meshDefs.map((m) => m.type))];
+  return Promise.all(
+    needTypes.map(
+      (t) =>
+        new Promise((resolve) => {
+          loader.load(`/dice/${t}.glb`, (gltf) => resolve([t, gltf.scene]), undefined, () => resolve([t, null]));
+        })
+    )
+  ).then((loaded) => {
+    const byType = Object.fromEntries(loaded);
+    if (loaded.some(([, s]) => !s)) {
+      host.remove();
+      showResultOnly(result);
+      return;
+    }
+    const geometries = new Map(needTypes.map((t) => [t, typeGeometry(byType[t])]));
+    const n = meshDefs.length;
+    const cols = Math.min(n, Math.ceil(Math.sqrt(n)));
+    const renderedDiameter = Math.min(2.3, 5.8 / cols);
+    const spacing = renderedDiameter * 1.2;
+    const dice = meshDefs.map((def, i) => {
+      const geom = geometries.get(def.type);
+      const scale = Math.min(0.62, renderedDiameter / (2 * geom.radius));
+      const die = byType[def.type].clone(true);
+      die.scale.setScalar(scale);
+      const material = new THREE.MeshPhysicalMaterial({
+        color,
+        metalness: 0.15,
+        roughness: 0.22,
+        clearcoat: 0.7,
+        clearcoatRoughness: 0.25
+      });
+      die.traverse((o) => {
+        if (o.isMesh) o.material = material;
+      });
+      addFaceNumbers(die, geom);
+      // start above the recorded resting spot and tumble into it
+      const final = result.transforms?.[i];
+      die.position.set(
+        (final?.position.x ?? 0) + 0.6,
+        THROW_MAX_Y + 0.5 + (i % 3) * 0.4,
+        (final?.position.z ?? 0) + 0.6
+      );
+      scene.add(die);
+      return { def, die, material, final, start: i * 0.18 };
+    });
+
+    const startMs = performance.now();
+    const DURATION = 1500;
+    let shown = 0;
+    const shownValues = result.rolls ?? [];
+    const diceTypes = result.diceTypes ?? [];
+
+    function animate() {
+      const t = performance.now() - startMs;
+      for (const d of dice) {
+        const idx = dice.indexOf(d);
+        const local = Math.max(0, t - d.start);
+        const p = Math.min(1, local / DURATION);
+        const ease = 1 - Math.pow(1 - p, 3);
+        const final = result.transforms?.[idx];
+        if (final) {
+          // tumble into the exact recorded resting transform
+          const fromY = THROW_MAX_Y + 0.5 + (idx % 3) * 0.4;
+          d.die.position.set(
+            THREE.MathUtils.lerp(final.position.x + 0.4, final.position.x, ease),
+            THREE.MathUtils.lerp(fromY, final.position.y, ease),
+            THREE.MathUtils.lerp(final.position.z + 0.6, final.position.z, ease)
+          );
+          const startQ = new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(idx % 2 ? 1 : -1, 0.4, 0.3).normalize(),
+            (1 - ease) * 4
+          );
+          d.die.quaternion.copy(startQ.slerp(new THREE.Quaternion(final.rotation.x, final.rotation.y, final.rotation.z, final.rotation.w), ease));
+        }
+        if (p >= 1 && !d.chipDone) {
+          d.chipDone = true;
+          shown += 1;
+          const rollIndex = d.def.rollIndex;
+          const value = shownValues[rollIndex] ?? 1;
+          if (row.children.length < 15) {
+            const chip = document.createElement('div');
+            chip.className = value === d.def.sides ? 'die crit' : value === 1 ? 'die fail' : 'die';
+            chip.textContent = String(value);
+            row.appendChild(chip);
+          } else if (!row.querySelector('.more')) {
+            const more = document.createElement('div');
+            more.className = 'die more';
+            more.textContent = `+${shownValues.length - 15}`;
+            row.appendChild(more);
+          }
+          if (value === d.def.sides) d.glow = '#fbbf24';
+          else if (value === 1) d.glow = '#dc2626';
+        }
+        if (d.glow) {
+          const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 1000 * 7);
+          d.material.emissive.set(d.glow);
+          d.material.emissiveIntensity = pulse * 1.5;
+        }
+      }
+      if (shown >= dice.length) {
+        const crit = diceTypes.some((s, i) => shownValues[i] === s);
+        const fail = shownValues.some((r) => r === 1);
+        if (crit) totalEl.classList.add('crit');
+        else if (fail) totalEl.classList.add('fail');
+        totalEl.textContent = String(result.total ?? shownValues.reduce((a, b) => a + b, 0));
+        return; // stop the loop; the resting dice stay visible
+      }
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+  });
+}
+
+// replay unavailable (no WebGL/transforms) → chips + total only
+function showResultOnly(result) {
+  const rolls = result?.rolls ?? [];
+  const diceTypes = result?.diceTypes ?? [];
+  rolls.forEach((r, i) => {
+    const die = document.createElement('div');
+    die.className = r === diceTypes[i] ? 'die crit' : r === 1 ? 'die fail' : 'die';
+    die.style.animationDelay = `${i * 0.08}s`;
+    die.textContent = String(r);
+    row.appendChild(die);
+  });
+  totalEl.style.animationDelay = `${0.45 + rolls.length * 0.08}s`;
+  if (diceTypes.some((s, i) => rolls[i] === s)) totalEl.classList.add('crit');
+  else if (rolls.some((r) => r === 1)) totalEl.classList.add('fail');
+  totalEl.textContent = String(result?.total ?? '—');
 }

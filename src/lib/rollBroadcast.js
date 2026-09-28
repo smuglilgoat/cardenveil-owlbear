@@ -45,13 +45,34 @@ export function onRollResult(callback) {
   }
 }
 
+const OBR_RESULT_CHANNEL = 'cardenveil-roll-result';
+
 /**
- * Report a roll result from the dice popup to the roller's frames.
+ * Report a roll result: locally via BroadcastChannel (roller's frames log
+ * it) and remotely via the OBR broadcast (other clients replay the motion).
  */
 export function reportRollResult(result) {
   try {
     new BroadcastChannel(ROLL_RESULT_CHANNEL).postMessage(JSON.parse(JSON.stringify(result)));
   } catch (err) {
     console.warn('Failed to report roll result:', err);
+  }
+  try {
+    OBR.broadcast.sendMessage(ROLL_RESULT_CHANNEL, result, { destination: 'ALL' }).catch(() => {});
+  } catch {
+    /* remote replay optional */
+  }
+}
+
+/**
+ * Listen for results broadcast over the room (for remote replay).
+ * Returns an unsubscribe function.
+ */
+export function onRemoteRollResult(callback) {
+  try {
+    return OBR.broadcast.onMessage(ROLL_RESULT_CHANNEL, ({ data }) => callback(data));
+  } catch (err) {
+    console.warn('Remote roll results unavailable:', err);
+    return () => {};
   }
 }

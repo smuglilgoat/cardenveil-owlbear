@@ -66,6 +66,7 @@ OBR.onReady(() => {
       rollId: data.rollId || '',
       playerId: data.playerId || '',
       plainLabel: data.label || 'Jet',
+      self: isSelf ? '1' : '0',
       error: ''
     });
     if (data.rolls) {
