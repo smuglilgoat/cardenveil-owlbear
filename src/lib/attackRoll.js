@@ -50,6 +50,23 @@ const keepValue = (dice, keep) =>
   keep === 'max' ? Math.max(...dice) : keep === 'min' ? Math.min(...dice) : dice[0];
 
 /**
+ * Resolve which equipped weapon the attack panel targets. Falls back through
+ * the saved name → main hand → first equipped, so a stale/missing selection
+ * never leaves the panel blank (e.g. after re-equipping). Duplicate names
+ * resolve to array order.
+ * @param {Array} [weapons] - Sheet weapons array
+ * @param {string} [preferredName] - Last used / saved weapon name
+ * @returns {{weapon: Object|null, equipped: Array}} Selected weapon + equipped list
+ */
+export function pickAttackWeapon(weapons = [], preferredName = '') {
+  const equipped = weapons.filter((w) => w?.equipped);
+  if (!equipped.length) return { weapon: null, equipped };
+  const preferred = preferredName ? equipped.find((w) => w?.nom === preferredName) : null;
+  const weapon = preferred ?? equipped.find((w) => (w?.hand ?? 'main') === 'main') ?? equipped[0] ?? null;
+  return { weapon, equipped };
+}
+
+/**
  * Static parts of an attack (no dice): die count, keep rule, bonuses,
  * engagement stat. Powers the live preview in SheetPopover.
  * @param {Object} weapon - Equipped weapon ({ de, bonus, proprietes, nom })

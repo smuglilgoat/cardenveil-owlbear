@@ -4,7 +4,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
   supabase: { from: jest.fn(), channel: jest.fn(), removeChannel: jest.fn() }
 }));
 
-const { rollAttack, attackPreview, weaponFlags, engagementStat } = await import('../../src/lib/attackRoll.js');
+const { rollAttack, attackPreview, pickAttackWeapon, weaponFlags, engagementStat } = await import('../../src/lib/attackRoll.js');
 
 // Deterministic RNG: `rolls` is the list of die outcomes consumed in order
 // across the whole attack (initial pool, then each explosion). Uniform in
@@ -25,6 +25,43 @@ const die = (sides, face) => 1 + Math.floor(((face - 1) / 1e9) * sides);
 
 const stats = { force: 16, agilite: 14, esprit: 10, social: 10 }; // mods +3/+2/0
 const noMiss = (w) => ({ ...w, seuilMiss: 0 });
+
+describe('pickAttackWeapon (panel selection)', () => {
+  const hache = { nom: 'Grande hache', equipped: true, hand: 'main' };
+  const dagueMain = { nom: 'Dague', equipped: true, hand: 'main' };
+  const dagueOff = { nom: 'Dague', equipped: true, hand: 'off' };
+
+  it('resolves a two-handed weapon equipped alone', () => {
+    expect(pickAttackWeapon([hache]).weapon).toBe(hache);
+  });
+
+  it('resolves an off-hand-only equipped weapon', () => {
+    expect(pickAttackWeapon([{ nom: 'Dague', equipped: true, hand: 'off' }]).weapon).toMatchObject({ hand: 'off' });
+  });
+
+  it('falls back to the main hand when the saved name is stale (no longer equipped)', () => {
+    // saved attack used the hache, sheet now has only the dagger equipped
+    expect(pickAttackWeapon([dagueMain, { nom: 'Grande hache', equipped: false }], 'Grande hache').weapon).toBe(dagueMain);
+  });
+
+  it('keeps the saved weapon when still equipped', () => {
+    expect(pickAttackWeapon([dagueMain, dagueOff], 'Dague').weapon).toBe(dagueMain);
+  });
+
+  it('prefers main hand over array order when no name is set', () => {
+    const off = { nom: 'Dague', equipped: true, hand: 'off' };
+    expect(pickAttackWeapon([off, dagueMain]).weapon).toBe(dagueMain);
+  });
+
+  it('returns null with no equipped weapons', () => {
+    expect(pickAttackWeapon([{ nom: 'Dague', equipped: false }]).weapon).toBeNull();
+    expect(pickAttackWeapon([]).weapon).toBeNull();
+  });
+
+  it('returns the equipped list for the dropdown', () => {
+    expect(pickAttackWeapon([{ nom: 'X' }, dagueMain, hache]).equipped).toEqual([dagueMain, hache]);
+  });
+});
 
 describe('weaponFlags / engagementStat', () => {
   it('detects Finesse, Catalyseur and Hache (Brutalité) flags', () => {

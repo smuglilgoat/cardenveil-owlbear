@@ -29,7 +29,7 @@
     parseDiceSpec
   } from './lib/characterSheet.js';
   import { broadcastRoll, onRollResult } from './lib/rollBroadcast.js';
-  import { rollAttack, attackPreview, engagementStat } from './lib/attackRoll.js';
+  import { rollAttack, attackPreview, pickAttackWeapon } from './lib/attackRoll.js';
 
   const params = new URLSearchParams(location.search);
   let playerId = params.get('playerId');
@@ -265,7 +265,7 @@
   let attackAdv = $state(0); // −7…+7 (− = désavantage, + = avantage)
   let attackEngagement = $state(0); // 0…7
 
-  let equippedWeapons = $derived((sheet?.weapons ?? []).filter((w) => w?.equipped));
+  let equippedWeapons = $derived(pickAttackWeapon(sheet?.weapons ?? []).equipped);
 
   // restore last-used settings once the sheet is loaded
   let attackSettingsLoaded = false;
@@ -276,19 +276,15 @@
         const saved = JSON.parse(localStorage.getItem(`cardenveil-attack-${playerId}`) || '{}');
         if (typeof saved.adv === 'number') attackAdv = Math.max(-7, Math.min(7, saved.adv));
         if (typeof saved.engagement === 'number') attackEngagement = Math.max(0, Math.min(7, saved.engagement));
-        if (saved.weapon && equippedWeapons.some((w) => w?.nom === saved.weapon)) attackWeaponName = saved.weapon;
+        if (typeof saved.weapon === 'string') attackWeaponName = saved.weapon;
       } catch {
         /* corrupt settings — defaults */
       }
     }
-    if (!attackWeaponName && equippedWeapons.length > 0) attackWeaponName = mainHandWeapon()?.nom || equippedWeapons[0]?.nom || '';
   });
 
-  function mainHandWeapon() {
-    return equippedWeapons.find((w) => (w?.hand ?? 'main') === 'main') ?? equippedWeapons[0] ?? null;
-  }
-
-  let selectedAttackWeapon = $derived(equippedWeapons.find((w) => w?.nom === attackWeaponName) ?? null);
+  // Self-healing selection: stale saved name falls back to main hand → first equipped.
+  let selectedAttackWeapon = $derived(pickAttackWeapon(sheet?.weapons ?? [], attackWeaponName).weapon);
   let attackCalc = $derived(
     selectedAttackWeapon
       ? attackPreview(selectedAttackWeapon, sheet?.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement })
