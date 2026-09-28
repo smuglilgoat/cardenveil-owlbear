@@ -54,8 +54,21 @@ if (error) {
   el.textContent = 'Formule invalide : ' + error;
   row.replaceWith(el);
 } else if (rollsParam.length && rollsParam.length === typesParam.length) {
-  // pre-rolled (flat mode) → CSS dice display
-  showPreRolled();
+  // authoritative result from the roller: replay the recorded transforms
+  // (3D) or fall back to CSS dice
+  let transforms = null;
+  try {
+    transforms = JSON.parse(params.get('transforms') || 'null');
+  } catch {
+    transforms = null;
+  }
+  const meshDefs = meshDefsForTypes(typesParam);
+  if (Array.isArray(transforms) && transforms.length === meshDefs.length) {
+    formulaEl.textContent = formula;
+    replayRoll(typesParam, transforms, modifierParam);
+  } else {
+    showPreRolled();
+  }
 } else {
   let spec = null;
   try {
@@ -66,16 +79,12 @@ if (error) {
   const playable = Array.isArray(spec) && spec.length && spec.every((t) => SIDES_TO_TYPE[t.sides]);
   if (!playable) {
     fallbackFromSpec(spec, modifierParam);
-  } else if (isSelf) {
+  } else {
     formulaEl.textContent = formula;
     startSim(spec, parseInt(seedParam, 10), modifierParam).catch((err) => {
       console.warn('Dice simulation failed:', err);
       fallbackFromSpec(spec, modifierParam);
     });
-  } else {
-    // other players/GM: wait for the roller's authoritative result, replay it
-    formulaEl.textContent = formula;
-    waitForResult(spec);
   }
 }
 
@@ -268,14 +277,39 @@ function buildStage(canvas, width, height, materialColor) {
   const key = new THREE.DirectionalLight(0xffffff, 2.2);
   key.position.set(2.5, 8, 3);
   scene.add(key);
+  return { renderer, scene, camera };
+}
+
+// visible world rectangle on the tray plane (y=0) for a top-down camera
+function visibleRect(width, height) {
+  const cameraHeight = 8.2;
+  const halfH = cameraHeight * Math.tan(THREE.MathUtils.degToRad(40 / 2));
+  const halfW = halfH * (width / height);
+  return { halfW, halfH };
+}
+
+// tray floor covering the full canvas + a visible frame AT the wall line
+function buildTray(scene, halfW, halfH) {
   const tray = new THREE.Mesh(
-    new THREE.CircleGeometry(3.4, 48),
+    new THREE.PlaneGeometry(halfW * 2, halfH * 2),
     new THREE.MeshStandardMaterial({ color: '#111827', roughness: 0.9 })
   );
   tray.rotation.x = -Math.PI / 2;
   tray.position.y = -0.8;
   scene.add(tray);
-  return { renderer, scene, camera };
+  // chunky visible border (thin boxes) exactly on the wall inner faces
+  const borderMat = new THREE.MeshStandardMaterial({ color: '#6366f1', roughness: 0.4, metalness: 0.2 });
+  const t = 0.08, h = 0.16;
+  for (const [w, d, x, z] of [
+    [halfW * 2 + t, t, 0, halfH],
+    [halfW * 2 + t, t, 0, -halfH],
+    [t, halfH * 2 + t, halfW, 0],
+    [t, halfH * 2 + t, -halfW, 0]
+  ]) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), borderMat);
+    bar.position.set(x, -0.78, z);
+    scene.add(bar);
+  }
 }
 
 function makeHostCanvas(hostHeight) {
@@ -317,12 +351,22 @@ async function startSim(spec, seed, modifier) {
   const T = 50; // huge wall half-extents so nothing teleports through
   const floorBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
   world.createCollider(RAPIER.ColliderDesc.cuboid(T, T, T).setTranslation(0, -0.8 - T, 0), floorBody);
+  // walls sized to the visible canvas so dice bounce off the frame they see
+  const rect = visibleRect(width, height);
+  buildTray(scene, rect.halfW, rect.halfH);
+  const n0 = meshDefs.length;
+  const cols0 = Math.min(n0, Math.ceil(Math.sqrt(n0)));
+  const rows0 = Math.ceil(n0 / cols0);
+  // die size also constrained by the visible depth (rows stack along z)
+  const diam0 = Math.min(2.3, 5.8 / cols0, (rect.halfH * 2 - 0.5) / (1.2 * rows0 + 0.5));
+  const wallX = Math.max(1, rect.halfW - (diam0 / 2 + 0.15));
+  const wallZ = Math.max(1, rect.halfH - (diam0 / 2 + 0.15));
   const wallBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
   for (const [x, y, z] of [
-    [0, -0.8 - T, 3.0 + T],
-    [0, -0.8 - T, -3.0 - T],
-    [3.1 + T, -0.8 - T, 0],
-    [-3.1 - T, -0.8 - T, 0],
+    [0, -0.8 - T, wallZ + T],
+    [0, -0.8 - T, -wallZ - T],
+    [wallX + T, -0.8 - T, 0],
+    [-wallX - T, -0.8 - T, 0],
     [0, 6 + T, 0] // roof well above the spawn height (2.6–3.2)
   ]) {
     world.createCollider(RAPIER.ColliderDesc.cuboid(T, T, T).setTranslation(x, y, z), wallBody);
@@ -348,8 +392,9 @@ async function startSim(spec, seed, modifier) {
 
   const rng = mulberry32(seed);
   const n = meshDefs.length;
-  const cols = Math.min(n, Math.ceil(Math.sqrt(n)));
-  const renderedDiameter = Math.min(2.3, 5.8 / cols);
+  const cols = cols0;
+  const rows = rows0;
+  const renderedDiameter = diam0;
   const spacing = renderedDiameter * 1.2;
   const spawnPositions = spawnGrid(rng, n, cols, spacing);
   const throws = meshDefs.map(() => ({
@@ -530,7 +575,11 @@ async function startSim(spec, seed, modifier) {
       else if (fail) totalEl.classList.add('fail');
       const total = rolls.reduce((a, b) => a + b, 0) + modifier;
       totalEl.textContent = String(total);
-      reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total, transforms });
+      // cap replay payload (OBR messages max 16KB; huge pools replay as CSS)
+      reportRollResult({
+        playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total,
+        transforms: dice.length <= 20 ? transforms : undefined
+      });
     }
     for (const d of dice) {
       if (d.glow && d.chipDone) {
@@ -545,22 +594,24 @@ async function startSim(spec, seed, modifier) {
   animate();
 }
 
-// ─── Other players/GM: wait for the result, replay the recorded motion ───
-function waitForResult(spec) {
-  const stop = onRemoteRollResult((result) => {
-    if (!result || result.rollId !== rollId) return;
-    stop();
-    replayFromResult(spec, result).catch((err) => {
-      console.warn('Replay failed:', err);
-      showResultOnly(result);
-    });
+// mesh layout for pre-rolled results (types carry the roll order)
+function meshDefsForTypes(types) {
+  const defs = [];
+  types.forEach((sides, rollIndex) => {
+    if (sides === 100) {
+      defs.push({ type: 'd100', rollIndex, sides: 100 });
+      defs.push({ type: 'd10', rollIndex, sides: 100 });
+    } else {
+      defs.push({ type: SIDES_TO_TYPE[sides], rollIndex, sides });
+    }
   });
-  // the roller's sim is capped at ~5s; if nothing arrives, show the tray empty
-  setTimeout(() => stop(), 9000);
+  return defs;
 }
 
-function replayFromResult(spec, result) {
-  const meshDefs = meshDefsFor(spec);
+// ─── Other players/GM: replay the roller's recorded result ──────────────
+function replayRoll(types, transforms, modifier) {
+  const meshDefs = meshDefsForTypes(types);
+  const total = (rollsParam || []).reduce((a, b) => a + parseInt(b, 10), 0) + modifier;
   const { host, canvas, width, height } = makeHostCanvas(210);
   let stage;
   try {
@@ -568,7 +619,7 @@ function replayFromResult(spec, result) {
   } catch (err) {
     console.warn('WebGL unavailable:', err);
     host.remove();
-    showResultOnly(result);
+    showPreRolled();
     return Promise.resolve();
   }
   const { renderer, scene, camera } = stage;
@@ -586,13 +637,16 @@ function replayFromResult(spec, result) {
     const byType = Object.fromEntries(loaded);
     if (loaded.some(([, s]) => !s)) {
       host.remove();
-      showResultOnly(result);
+      showPreRolled();
       return;
     }
     const geometries = new Map(needTypes.map((t) => [t, typeGeometry(byType[t])]));
+    const rect = visibleRect(width, height);
+    buildTray(scene, rect.halfW, rect.halfH);
     const n = meshDefs.length;
     const cols = Math.min(n, Math.ceil(Math.sqrt(n)));
-    const renderedDiameter = Math.min(2.3, 5.8 / cols);
+    const rows = Math.ceil(n / cols);
+    const renderedDiameter = Math.min(2.3, 5.8 / cols, (rect.halfH * 2 - 0.5) / (1.2 * rows + 0.5));
     const spacing = renderedDiameter * 1.2;
     const dice = meshDefs.map((def, i) => {
       const geom = geometries.get(def.type);
@@ -611,7 +665,7 @@ function replayFromResult(spec, result) {
       });
       addFaceNumbers(die, geom);
       // start above the recorded resting spot and tumble into it
-      const final = result.transforms?.[i];
+      const final = transforms[i];
       die.position.set(
         (final?.position.x ?? 0) + 0.6,
         THROW_MAX_Y + 0.5 + (i % 3) * 0.4,
@@ -624,8 +678,8 @@ function replayFromResult(spec, result) {
     const startMs = performance.now();
     const DURATION = 1500;
     let shown = 0;
-    const shownValues = result.rolls ?? [];
-    const diceTypes = result.diceTypes ?? [];
+    const shownValues = rollsParam.map((r) => parseInt(r, 10));
+    const diceTypes = types;
 
     function animate() {
       const t = performance.now() - startMs;
@@ -634,7 +688,7 @@ function replayFromResult(spec, result) {
         const local = Math.max(0, t - d.start);
         const p = Math.min(1, local / DURATION);
         const ease = 1 - Math.pow(1 - p, 3);
-        const final = result.transforms?.[idx];
+        const final = transforms[idx];
         if (final) {
           // tumble into the exact recorded resting transform
           const fromY = THROW_MAX_Y + 0.5 + (idx % 3) * 0.4;
@@ -679,7 +733,7 @@ function replayFromResult(spec, result) {
         const fail = shownValues.some((r) => r === 1);
         if (crit) totalEl.classList.add('crit');
         else if (fail) totalEl.classList.add('fail');
-        totalEl.textContent = String(result.total ?? shownValues.reduce((a, b) => a + b, 0));
+        totalEl.textContent = String(total);
         return; // stop the loop; the resting dice stay visible
       }
       renderer.render(scene, camera);
@@ -689,7 +743,7 @@ function replayFromResult(spec, result) {
   });
 }
 
-// replay unavailable (no WebGL/transforms) → chips + total only
+// replay unavailable (no WebGL/transforms) → chips + total only (pre-rolled path)
 function showResultOnly(result) {
   const rolls = result?.rolls ?? [];
   const diceTypes = result?.diceTypes ?? [];

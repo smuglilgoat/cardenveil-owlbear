@@ -66,11 +66,11 @@ export function reportRollResult(result) {
 
 /**
  * Listen for results broadcast over the room (for remote replay).
- * Returns an unsubscribe function.
+ * Callback receives (data, senderConnectionId). Returns an unsubscribe.
  */
 export function onRemoteRollResult(callback) {
   try {
-    return OBR.broadcast.onMessage(ROLL_RESULT_CHANNEL, ({ data }) => callback(data));
+    return OBR.broadcast.onMessage(ROLL_RESULT_CHANNEL, ({ data, connectionId }) => callback(data, connectionId));
   } catch (err) {
     console.warn('Remote roll results unavailable:', err);
     return () => {};
