@@ -270,13 +270,13 @@ function run3D() {
       };
     });
 
-    const clock = new THREE.Clock();
+    const startMs = performance.now();
     const FALL_TIME = 1.15; // scatter + tumble
     const SETTLE_TIME = 0.65; // smooth rotation into the rolled face
     let allSettled = false;
 
     function animate() {
-      const t = clock.getElapsedTime();
+      const t = (performance.now() - startMs) / 1000;
       for (const m of meshes) {
         const local = t - m.start;
         if (local < 0) continue;
