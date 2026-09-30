@@ -303,8 +303,7 @@
   let capacityInFlight = false;
   let capMultiplier = $state(1); // ×0.5 … ×20
   let capBase = $state(''); // '' = Mod Esprit (canalisation); max 99
-  let capDice = $state('d6'); // d4 … d100
-  const CAP_DICE = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
+  let capDice = $state('d6'); // d4 … d100 (QUICK_DICE buttons)
 
   let equippedWeapons = $derived(pickAttackWeapon(sheet?.weapons ?? []).equipped);
 
@@ -372,9 +371,9 @@
     }
   }
 
-  /** Valeur brute roll: Base dice of the chosen type, × multiplier. */
+  /** Valeur brute roll: the dice POOL is Multiplier × Base, summed as-is. */
   let capCount = $derived(
-    Math.max(1, Math.min(99, Math.round(Number(capBase)) || Math.max(1, calc.canalisation)))
+    Math.max(1, Math.min(999, Math.round(capMult * (Math.round(Number(capBase)) || Math.max(1, calc.canalisation)))))
   );
   let capMult = $derived(Math.min(20, Math.max(0.5, Number(capMultiplier) || 1)));
 
@@ -382,10 +381,11 @@
     if (attackInFlight || capacityInFlight) return;
     const count = capCount;
     const sides = parseInt(capDice.slice(1), 10);
-    const mult = capMult;
-    const label = `Valeur brute · ${count}d${sides}${mult !== 1 ? ` ×${mult}` : ''}`;
+    const label = `Valeur brute · ${count}d${sides}`;
     let rolls;
-    if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat' && SIDES_TO_TYPE[sides]) {
+    // ponytail: physics throws stay playable up to 50 dice — bigger pools
+    // fall back to flat pre-rolled (bump the cap if the sim handles more)
+    if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat' && SIDES_TO_TYPE[sides] && count <= 50) {
       capacityInFlight = true;
       try {
         rolls = await throwAttackStage(label, count, sides, null);
@@ -403,25 +403,24 @@
         return;
       }
     }
-    const raw = rolls.reduce((a, b) => a + b, 0);
-    const total = Math.round(raw * mult * 100) / 100;
+    const total = rolls.reduce((a, b) => a + b, 0);
     broadcastRoll({
       label,
       color: diceGemColor(sheet),
       playerId,
       portrait: sheet?.portrait || '',
       portraitIsImage: isImageUrl(sheet?.portrait),
-      formula: `${count}d${sides}${mult !== 1 ? ` ×${mult}` : ''}`,
+      formula: `${count}d${sides}`,
       rolls,
       diceTypes: rolls.map(() => sides),
       total,
-      breakdown: [`Dé : ${count}d${sides} [${rolls.join(', ')}] = ${raw}`, ...(mult !== 1 ? [`× ${mult}`, ''] : []), `Total : ${total}`]
+      breakdown: [`Dé : ${count}d${sides} [${rolls.join(', ')}]`, `Total : ${total}`]
     });
     dispatch(roomId, {
       type: 'USE_CAPACITY',
       playerId,
       capacityName: 'Valeur brute',
-      formula: `${count}d${sides}${mult !== 1 ? ` ×${mult}` : ''}`.slice(0, 32),
+      formula: `${count}d${sides}`.slice(0, 32),
       total,
       rolls
     }).catch((err) => console.error('Failed to dispatch capacity roll:', err));
@@ -800,18 +799,19 @@
             />
             <span class="text-[8px] text-[#9ca3af]">dés (vide = Mod Esprit)</span>
           </div>
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5 flex-wrap">
             <span class="text-[8px] font-bold text-[#9ca3af] shrink-0 w-20">DÉS</span>
-            <select
-              bind:value={capDice}
-              class="px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
-            >
-              {#each CAP_DICE as d}
-                <option value={d}>{d}</option>
-              {/each}
-            </select>
+            {#each QUICK_DICE as d}
+              <button
+                onclick={() => (capDice = d.die)}
+                class={`relative flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-[#111827] border text-[9px] font-bold text-indigo-300 transition-colors ${capDice === d.die ? 'border-indigo-400' : 'border-[#374151] hover:border-indigo-500 hover:bg-[#1f2937]'}`}
+              >
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">{@html d.icon}</svg>
+                <span>{d.die}</span>
+              </button>
+            {/each}
           </div>
-          <div class="text-[9px] text-[#9ca3af]">Valeur brute : {capCount}d{capDice.slice(1)}{capMult !== 1 ? ` × ${capMult}` : ''}</div>
+          <div class="text-[9px] text-[#9ca3af]">Valeur brute : {capCount}d{capDice.slice(1)} ({capMult} × {Math.round(Number(capBase)) || Math.max(1, calc.canalisation)})</div>
           <button
             onclick={doCapacityRoll}
             class="w-full py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 transition-colors text-[11px] font-bold text-white"
