@@ -3,6 +3,7 @@
   import OBR from '@owlbear-rodeo/sdk';
   import { tooltip } from './tooltip.js';
   import ActionDiamonds from './ActionDiamonds.svelte';
+  import TemplateDropdown from './TemplateDropdown.svelte';
   import { importSheetArchive } from './sheetAssets.js';
   import { RACES } from './deck.js';
   import {
@@ -154,10 +155,6 @@
   // Rule-derived combat values (parade, initiative, mouvement, volonté, ...) — always computed, never manual.
   let calc = $derived(computeDerived(view ?? {}));
   let editCalc = $derived(computeDerived(editSheet ?? {}));
-
-  // Selected equipment-catalog templates for the add buttons (edit modal)
-  let weaponTemplate = $state('');
-  let itemTemplate = $state('');
 
   const SHEET_POPOVER_ID = 'cardenveil-sheet';
   let sheetPopoverOpen = $state(false);
@@ -547,6 +544,43 @@
     { key: 'canalisation', label: 'CANALISATION', signed: true, formula: () => '= mod Esprit' },
     { key: 'volonte', label: 'VOLONTÉ', formula: () => '= mod Résilience + casque' }
   ];
+
+  // ─── Template add-buttons (ÉDITION INVENTAIRE) ──
+  // templateName '' = blank item (findEquipmentTemplate returns null).
+  function addInventoryItem(templateName) {
+    const tpl = findEquipmentTemplate(templateName);
+    const fam = tpl?.family ?? '';
+    const consumable = tpl?.kind === 'consommable';
+    editSheet.inventoryItems = [{
+      type: tpl ? (consumable ? 'Consommable' : 'Équipement') : 'Divers',
+      icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
+      slot: tpl?.slot ?? '',
+      name: tpl?.nom ?? '',
+      ...(consumable
+        ? { quantite: tpl?.quantite ?? 1, attributs: tpl?.effet ?? '' }
+        : {
+            degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
+            family: fam,
+            familySummary: fam ? FAMILY_SUMMARIES[fam] ?? '' : '',
+            ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),
+            attributs: tpl?.proprietes ?? ''
+          }),
+      description: ''
+    }, ...(editSheet.inventoryItems || [])];
+  }
+
+  function addWeaponFromTemplate(templateName) {
+    const tpl = findEquipmentTemplate(templateName);
+    editSheet.weapons = [{
+      icon: tpl ? FAMILY_ICONS[tpl.family] ?? '' : '',
+      nom: tpl?.nom ?? '',
+      de: tpl?.de ?? '',
+      degats: tpl?.degats ?? '',
+      proprietes: tpl?.proprietes ?? '',
+      forceAgi: '', critique: '', avantage: '',
+      bonus: '', perfection: '', notes: '', equipped: false
+    }, ...(editSheet.weapons || [])];
+  }
 
   function saveSheet(next) {
     sheet = next;
@@ -1753,47 +1787,7 @@
                   <div class="flex items-center justify-between mb-1.5">
                     <h4 class="text-[11px] font-bold text-[#9ca3af]">INVENTAIRE</h4>
                     <div class="flex items-center gap-1.5">
-                      <select
-                        bind:value={itemTemplate}
-                        title="Choisir un modèle d'équipement"
-                        class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
-                      >
-                        <option value="">— Modèle —</option>
-                        {#each EQUIPMENT_CATALOG.filter((grp) => grp.kind !== 'arme') as grp}
-                          <optgroup label={grp.group}>
-                            {#each grp.items as item}
-                              <option value={item.nom} title={item.proprietes || item.effet}>{item.nom}{item.de ? ` — ${item.de}` : ''}</option>
-                            {/each}
-                          </optgroup>
-                        {/each}
-                      </select>
-                      <button
-                        onclick={() => {
-                          const tpl = findEquipmentTemplate(itemTemplate);
-                          const fam = tpl?.family ?? '';
-                          const consumable = tpl?.kind === 'consommable';
-                          editSheet.inventoryItems = [{
-                            type: tpl ? (consumable ? 'Consommable' : 'Équipement') : 'Divers',
-                            icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
-                            slot: tpl?.slot ?? '',
-                            name: tpl?.nom ?? '',
-                            ...(consumable
-                              ? { quantite: tpl?.quantite ?? 1, attributs: tpl?.effet ?? '' }
-                              : {
-                                  degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
-                                  family: fam,
-                                  familySummary: fam ? FAMILY_SUMMARIES[fam] ?? '' : '',
-                                  ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),
-                                  attributs: tpl?.proprietes ?? ''
-                                }),
-                            description: ''
-                          }, ...(editSheet.inventoryItems || [])];
-                          itemTemplate = '';
-                        }}
-                        class="px-3 py-1 bg-indigo-600 rounded-full text-[11px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
-                      >
-                        + Ajouter un objet
-                      </button>
+                      <TemplateDropdown label="+ Ajouter un objet" groups={EQUIPMENT_CATALOG.filter((grp) => grp.kind !== 'arme')} onPick={addInventoryItem} />
                     </div>
                   </div>
                   {#each editSheet.inventoryItems || [] as item, i}
@@ -1903,38 +1897,7 @@
                   <div class="flex items-center justify-between mb-1.5">
                     <h4 class="text-[11px] font-bold text-[#9ca3af]">ARMES</h4>
                     <div class="flex items-center gap-1.5">
-                      <select
-                        bind:value={weaponTemplate}
-                        title="Choisir un modèle d'arme"
-                        class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
-                      >
-                        <option value="">— Modèle —</option>
-                        {#each EQUIPMENT_CATALOG.filter((grp) => grp.kind === 'arme') as grp}
-                          <optgroup label={grp.group}>
-                            {#each grp.items as item}
-                              <option value={item.nom} title={item.proprietes}>{item.nom}{item.de ? ` — ${item.de}` : ''}</option>
-                            {/each}
-                          </optgroup>
-                        {/each}
-                      </select>
-                      <button
-                        onclick={() => {
-                          const tpl = findEquipmentTemplate(weaponTemplate);
-                          editSheet.weapons = [{
-                            icon: tpl ? FAMILY_ICONS[tpl.family] ?? '' : '',
-                            nom: tpl?.nom ?? '',
-                            de: tpl?.de ?? '',
-                            degats: tpl?.degats ?? '',
-                            proprietes: tpl?.proprietes ?? '',
-                            forceAgi: '', critique: '', avantage: '',
-                            bonus: '', perfection: '', notes: '', equipped: false
-                          }, ...(editSheet.weapons || [])];
-                          weaponTemplate = '';
-                        }}
-                        class="px-3 py-1 bg-indigo-600 rounded-full text-[11px] font-semibold hover:bg-indigo-500 transition-colors whitespace-nowrap"
-                      >
-                        + Ajouter une arme
-                      </button>
+                      <TemplateDropdown label="+ Ajouter une arme" groups={EQUIPMENT_CATALOG.filter((grp) => grp.kind === 'arme')} onPick={addWeaponFromTemplate} />
                     </div>
                   </div>
                   {#each editSheet.weapons || [] as weapon, i}
