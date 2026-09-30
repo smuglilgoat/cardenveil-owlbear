@@ -624,6 +624,11 @@
     saveSheet({ ...sheet, notes: notesDraft });
   }
 
+  /** Quick-move: smooth-scroll the ÉDITION modal body to a section. */
+  function scrollToEditSection(id) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function applySlotItem(slot, item) {
     // slot object built from the item's own stat fields; mark the item as
     // occupying the slot so ÉDITION shows (and edits) its stat fields
@@ -1773,6 +1778,20 @@
               </div>
             {:else if editTab === 'inventaire'}
               <div class="space-y-3">
+                <div class="flex gap-1.5">
+                  <button
+                    onclick={() => scrollToEditSection('edit-armes')}
+                    class="px-2.5 py-1 bg-[#111827] border border-[#374151] rounded-md text-[10px] font-bold text-[#9ca3af] hover:text-white hover:border-indigo-500 transition-colors"
+                  >
+                    ⚔️ Armes
+                  </button>
+                  <button
+                    onclick={() => scrollToEditSection('edit-inventaire')}
+                    class="px-2.5 py-1 bg-[#111827] border border-[#374151] rounded-md text-[10px] font-bold text-[#9ca3af] hover:text-white hover:border-indigo-500 transition-colors"
+                  >
+                    🎒 Inventaire
+                  </button>
+                </div>
                 <div>
                   <h4 class="text-[11px] font-bold text-[#9ca3af] mb-1.5">ÉQUIPEMENT</h4>
                   <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2">
@@ -1796,7 +1815,7 @@
                   </div>
                 </div>
 
-                <div>
+                <div id="edit-inventaire">
                   <div class="flex items-center justify-between mb-1.5">
                     <h4 class="text-[11px] font-bold text-[#9ca3af]">INVENTAIRE</h4>
                     <div class="flex items-center gap-1.5">
@@ -1906,7 +1925,7 @@
                   {/if}
                 </div>
 
-                <div>
+                <div id="edit-armes">
                   <div class="flex items-center justify-between mb-1.5">
                     <h4 class="text-[11px] font-bold text-[#9ca3af]">ARMES</h4>
                     <div class="flex items-center gap-1.5">
