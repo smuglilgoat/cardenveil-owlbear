@@ -292,6 +292,8 @@
   // single-slot resolver for the current staged throw (sequential by design)
   let pendingStage = null;
   const STAGE_TIMEOUT_MS = 10000;
+  // let players read the settled dice before the next stage / summary opens
+  const STAGE_PAUSE_MS = 3000;
   let attackWeaponName = $state('');
   let attackAdv = $state(0); // −7…+7 (− = désavantage, + = avantage)
   let attackEngagement = $state(0); // 0…7
@@ -364,8 +366,10 @@
 
   /**
    * Throw one attack stage as a seeded 3D intent; resolves with the dice
-   * read off the settled physics (reported back by the popup). Rejects on
-   * timeout — the caller falls back to the flat pre-rolled path.
+   * read off the settled physics (reported back by the popup). Holds
+   * STAGE_PAUSE_MS so players can read the dice before the next stage or
+   * the final summary replaces them. Rejects on timeout — the caller
+   * falls back to the flat pre-rolled path.
    */
   async function throwAttackStage(baseLabel, pool, sides, keep) {
     const rollId = await broadcastRoll({
@@ -386,7 +390,7 @@
         reject(new Error('attack stage timeout'));
       }, STAGE_TIMEOUT_MS);
       pendingStage = { rollId, resolve, timer };
-    }).then((msg) => msg.rolls);
+    }).then((msg) => new Promise((r) => setTimeout(() => r(msg.rolls), STAGE_PAUSE_MS)));
   }
 
   async function doAttackRoll() {
