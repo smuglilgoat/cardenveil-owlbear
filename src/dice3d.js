@@ -19,6 +19,7 @@ const typesParam = (params.get('types') || '').split(',').filter(Number);
 const error = params.get('error');
 const color = params.get('color') || '#312e81';
 const stagedParam = params.get('staged') === '1';
+const zoomCritParam = params.get('zoomCrit') === '1'; // crit camera punch-in allowed (attack/stat/skill rolls)
 const isSelf = params.get('self') === '1';
 const specParam = params.get('diceSpec'); // JSON [{count, sides}...]
 const seedParam = params.get('seed');
@@ -566,7 +567,7 @@ async function startSim(spec, seed, modifier) {
     const face = d.geom.faces.get(readFace(d));
     if (!face) return lockDie(d);
     // drama: a die snapping onto its max face zooms the camera onto it
-    if (!critZoom && rollValueForGroup(rollGroups[d.def.rollIndex], readFace) === d.def.sides) {
+    if (!critZoom && zoomCritParam && rollValueForGroup(rollGroups[d.def.rollIndex], readFace) === d.def.sides) {
       critZoom = { pos: d.die.position.clone(), from: camera.position.clone(), start: now };
     }
     const from = d.die.quaternion.clone();
@@ -646,7 +647,7 @@ async function startSim(spec, seed, modifier) {
         // covers cleanly-settled crits too — snapDie only fires for dice that
         // were tip/edge-balanced, so a die landing flat on its max face never
         // passed through it
-        if (!critZoom) {
+        if (!critZoom && zoomCritParam) {
           critZoom = { pos: group[0].die.position.clone(), from: camera.position.clone(), start: now };
         }
       } else if (fail) d.glow = '#dc2626';

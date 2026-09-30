@@ -65,7 +65,9 @@ OBR.onReady(() => {
       breakdown: data.breakdown ? JSON.stringify(data.breakdown) : '',
       // attack stage throws (3D): the popup reports each stage back to the
       // roller, which applies the rules and throws the next stage
-      staged: data.staged ? '1' : '0'
+      staged: data.staged ? '1' : '0',
+      // crit camera punch-in is allowed only for attack/stat/skill rolls
+      zoomCrit: data.zoomCrit ? '1' : '0'
     });
     if (data.rolls) {
       params.set('rolls', (data.rolls ?? []).join(','));

@@ -245,7 +245,7 @@
   // Flat mode (GM Classique): pre-rolled numbers (old path). 3D mode: the
   // rapier simulation in the popup decides the numbers — broadcast an intent
   // and dispatch USE_CAPACITY when the result is reported back.
-  async function doRoll(label, formula) {
+  async function doRoll(label, formula, opts = {}) {
     if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat') {
       const spec = parseDiceSpec(formula, sheet?.stats ?? {});
       if (spec) {
@@ -258,7 +258,8 @@
           formula: spec.formula,
           diceSpec: spec.terms,
           modifier: spec.modifier,
-          seed: Math.floor(Math.random() * 0xffffffff)
+          seed: Math.floor(Math.random() * 0xffffffff),
+          zoomCrit: !!opts?.zoomCrit
         });
         return;
       }
@@ -457,6 +458,7 @@
       portraitIsImage: isImageUrl(sheet?.portrait),
       formula: `${pool}d${sides}`,
       diceSpec: [{ count: pool, sides }],
+      zoomCrit: true,
       seed: Math.floor(Math.random() * 0xffffffff),
       modifier: 0,
       staged: true
@@ -591,10 +593,10 @@
       <div class="grid grid-cols-4 gap-1.5 mt-2">
         {#each ['force', 'agilite', 'esprit', 'social'] as stat}
           <div
-            onclick={() => doRoll(STAT_LABELS[stat] || stat, `d20${statMod(stat) >= 0 ? '+' + statMod(stat) : statMod(stat)}`)}
+            onclick={() => doRoll(STAT_LABELS[stat] || stat, `d20${statMod(stat) >= 0 ? '+' + statMod(stat) : statMod(stat)}`, { zoomCrit: true })}
             role="button"
             tabindex="0"
-            onkeydown={(e) => e.key === 'Enter' && doRoll(STAT_LABELS[stat] || stat, `d20${statMod(stat) >= 0 ? '+' + statMod(stat) : statMod(stat)}`)}
+            onkeydown={(e) => e.key === 'Enter' && doRoll(STAT_LABELS[stat] || stat, `d20${statMod(stat) >= 0 ? '+' + statMod(stat) : statMod(stat)}`, { zoomCrit: true })}
             use:tooltip={`Jet de ${STAT_LABELS[stat] || stat} (d20) · Compétences : ${SKILL_GROUPS.find((g) => g.stat === stat)?.skills.map((sk) => SKILL_LABELS[sk] || sk).join(', ') || '—'}`}
             class="bg-[#111827] rounded-md px-1.5 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
           >
@@ -868,7 +870,7 @@
       {#each pinnedSkills as skillKey}
         <button
           class="w-full flex items-center gap-2 bg-[#111827] hover:bg-[#1f2937] rounded-md px-2.5 py-2 text-left transition-colors"
-          onclick={() => doRoll(SKILL_LABELS[skillKey] || skillKey, `d20${skillMod(skillKey) >= 0 ? '+' + skillMod(skillKey) : skillMod(skillKey)}`)}
+          onclick={() => doRoll(SKILL_LABELS[skillKey] || skillKey, `d20${skillMod(skillKey) >= 0 ? '+' + skillMod(skillKey) : skillMod(skillKey)}`, { zoomCrit: true })}
         >
           <div class="w-1 h-5 rounded-full" style="background: {skillColor(skillKey)}"></div>
           <span class="text-[11px] font-medium truncate">

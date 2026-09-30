@@ -390,7 +390,7 @@
   // Flat mode (GM Classique): pre-rolled numbers (old path). 3D mode:
   // the rapier simulation in the popup decides the numbers — broadcast an
   // intent and dispatch USE_CAPACITY when the result is reported back.
-  function handleDiceRoll(capacityName, formula) {
+  function handleDiceRoll(capacityName, formula, opts = {}) {
     if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat') {
       const spec = parseDiceSpec(formula, view?.stats ?? {});
       if (spec) {
@@ -403,7 +403,8 @@
           formula: spec.formula,
           diceSpec: spec.terms,
           modifier: spec.modifier,
-          seed: Math.floor(Math.random() * 0xffffffff)
+          seed: Math.floor(Math.random() * 0xffffffff),
+          zoomCrit: !!opts?.zoomCrit
         });
         showDicePopup({ label: capacityName }); // inline fallback only
         return;
@@ -438,12 +439,12 @@
   function handleSkillRoll(skillKey) {
     const mod = skillRollModifier(view.stats, skillKey, view.skills?.[skillKey]);
     const label = SKILL_LABELS[skillKey] || skillKey;
-    checkUnsavedChanges(() => handleDiceRoll(label, `d20${mod >= 0 ? '+' + mod : mod}`));
+    checkUnsavedChanges(() => handleDiceRoll(label, `d20${mod >= 0 ? '+' + mod : mod}`, { zoomCrit: true }));
   }
 
   function handleStatRoll(stat) {
     const mod = getStatModifier(stat);
-    checkUnsavedChanges(() => handleDiceRoll(STAT_LABELS[stat] || stat, `d20${mod >= 0 ? '+' + mod : mod}`));
+    checkUnsavedChanges(() => handleDiceRoll(STAT_LABELS[stat] || stat, `d20${mod >= 0 ? '+' + mod : mod}`, { zoomCrit: true }));
   }
 
   // Derived combat rolls: initiative and volonté both roll d20 + their value
