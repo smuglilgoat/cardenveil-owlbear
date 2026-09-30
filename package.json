@@ -23,6 +23,7 @@
     "jest": "^30.0.5",
     "jest-environment-jsdom": "^30.0.5",
     "sharp": "^0.34.5",
+    "supabase": "^2.118.0",
     "svelte": "^5.43.8",
     "svelte-jester": "^5.0.0",
     "vite": "^7.2.4"
