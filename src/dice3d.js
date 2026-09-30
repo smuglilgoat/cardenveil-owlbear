@@ -494,6 +494,7 @@ async function startSim(spec, seed, modifier) {
   });
 
   const rollGroups = groupDiceByRoll(dice);
+  let critZoom = null; // { pos, from, start } — camera punch-in on a crit face
   const diceByBody = new Map(dice.map((d) => [d.body.handle, d]));
   const settled = new Set();
   let pendingMs = 0;
@@ -551,6 +552,10 @@ async function startSim(spec, seed, modifier) {
   function snapDie(d, now) {
     const face = d.geom.faces.get(readFace(d));
     if (!face) return lockDie(d);
+    // drama: a die snapping onto its max face zooms the camera onto it
+    if (!critZoom && rollValueForGroup(rollGroups[d.def.rollIndex], readFace) === d.def.sides) {
+      critZoom = { pos: d.die.position.clone(), from: camera.position.clone(), start: now };
+    }
     const from = d.die.quaternion.clone();
     const facing = face.dir.clone().applyQuaternion(from).normalize();
     const correction = new THREE.Quaternion().setFromUnitVectors(facing, up);
@@ -645,6 +650,14 @@ async function startSim(spec, seed, modifier) {
         d.material.emissive.set(d.glow);
         d.material.emissiveIntensity = pulse * 1.5;
       }
+    }
+    // camera punch-in onto the crit die, eased over the snap, then held
+    if (critZoom) {
+      const p = Math.min(1, (now - critZoom.start) / SNAP_DURATION_MS);
+      const ease = 1 - Math.pow(1 - p, 3);
+      const target = critZoom.pos.clone().add(new THREE.Vector3(0, 3.2, 0.01));
+      camera.position.lerpVectors(critZoom.from, target, ease);
+      camera.lookAt(critZoom.pos);
     }
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
