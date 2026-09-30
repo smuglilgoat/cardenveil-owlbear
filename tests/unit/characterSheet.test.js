@@ -790,6 +790,34 @@ describe('Character Sheet dice helpers', () => {
       expect(findEquipmentTemplate('')).toBeNull();
       expect(findEquipmentTemplate(undefined)).toBeNull();
     });
+
+    it('should list the consumable templates right after the armor group, in order', () => {
+      const idxArmor = EQUIPMENT_CATALOG.findIndex((g) => g.kind === 'armure');
+      const idxConso = EQUIPMENT_CATALOG.findIndex((g) => g.family === 'Consommables');
+      expect(idxConso).toBe(idxArmor + 1);
+      expect(EQUIPMENT_CATALOG[idxConso].items.map((i) => i.nom)).toEqual([
+        'Potion de soin',
+        'Potion de buff',
+        'Huile d’imprégnation',
+        'Parchemin',
+        'Nourriture',
+        'Poudre',
+        'Bombe à dégâts',
+        'Bombe à effet',
+        'Munition spéciale',
+        'Piège',
+        'Cristal',
+        'Carte cristallisée',
+        'Ingrédient alchimique'
+      ]);
+      // every consumable template carries at least an effect and a quantity
+      for (const item of EQUIPMENT_CATALOG[idxConso].items) {
+        expect(item.effet).toBeTruthy();
+        expect(item.quantite).toBe(1);
+      }
+      const potion = findEquipmentTemplate('Potion de soin');
+      expect(potion).toMatchObject({ effet: 'Soigne 4d10 PV', quantite: 1, kind: 'consommable' });
+    });
   });
 
   describe('suitColorBySymbol', () => {

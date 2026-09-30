@@ -315,6 +315,26 @@ export const EQUIPMENT_CATALOG = [
       { nom: 'Amulette', de: '', degats: '', slot: 'amulette', proprietes: 'Enchantement (amulette)' },
       { nom: 'Anneau', de: '', degats: '', slot: 'anneau', proprietes: 'Enchantement (anneau)' }
     ]
+  },
+  {
+    group: '🧪 Consommables',
+    family: 'Consommables',
+    kind: 'consommable',
+    items: [
+      { nom: 'Potion de soin', effet: 'Soigne 4d10 PV', quantite: 1 },
+      { nom: 'Potion de buff', effet: 'Buff', quantite: 1 },
+      { nom: 'Huile d’imprégnation', effet: 'Effet d’imprégnation d’arme', quantite: 1 },
+      { nom: 'Parchemin', effet: 'Sort contenu dans le parchemin', quantite: 1 },
+      { nom: 'Nourriture', effet: 'Effet', quantite: 1 },
+      { nom: 'Poudre', effet: 'Effet', quantite: 1 },
+      { nom: 'Bombe à dégâts', effet: '8d10 dégâts', quantite: 1 },
+      { nom: 'Bombe à effet', effet: 'Effet', quantite: 1 },
+      { nom: 'Munition spéciale', effet: 'Effet appliqué à la munition', quantite: 1 },
+      { nom: 'Piège', effet: 'Effet du piège', quantite: 1 },
+      { nom: 'Cristal', effet: 'Piocher une carte', quantite: 1 },
+      { nom: 'Carte cristallisée', effet: 'Effet de la carte cristallisée', quantite: 1 },
+      { nom: 'Ingrédient alchimique', effet: 'Effet', quantite: 1 }
+    ]
   }
 ];
 
@@ -407,6 +427,7 @@ export const FAMILY_ICONS = {
   'Boucliers': '🛡️',
   'Armes uniques': '⚔️',
   'Équipement': '🛡️',
+  'Consommables': '🧪',
 };
 
 // Default icons for the Équipement slot pieces (more specific than the family icon)
@@ -418,6 +439,20 @@ export const ITEM_ICONS = {
   Cape: '🧥',
   Amulette: '◈',
   Anneau: '💍',
+  // Consumable templates
+  'Potion de soin': '🧪',
+  'Potion de buff': '✨',
+  'Huile d’imprégnation': '🛢️',
+  'Parchemin': '📜',
+  'Nourriture': '🍖',
+  'Poudre': '🌫️',
+  'Bombe à dégâts': '💥',
+  'Bombe à effet': '💣',
+  'Munition spéciale': '🎯',
+  'Piège': '🪤',
+  'Cristal': '💎',
+  'Carte cristallisée': '🃏',
+  'Ingrédient alchimique': '🌿',
 };
 
 /**

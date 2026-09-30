@@ -1750,7 +1750,7 @@
                         {#each EQUIPMENT_CATALOG.filter((grp) => grp.kind !== 'arme') as grp}
                           <optgroup label={grp.group}>
                             {#each grp.items as item}
-                              <option value={item.nom} title={item.proprietes}>{item.nom}{item.de ? ` — ${item.de}` : ''}</option>
+                              <option value={item.nom} title={item.proprietes || item.effet}>{item.nom}{item.de ? ` — ${item.de}` : ''}</option>
                             {/each}
                           </optgroup>
                         {/each}
@@ -1759,16 +1759,21 @@
                         onclick={() => {
                           const tpl = findEquipmentTemplate(itemTemplate);
                           const fam = tpl?.family ?? '';
+                          const consumable = tpl?.kind === 'consommable';
                           editSheet.inventoryItems = [{
-                            type: tpl ? 'Équipement' : 'Divers',
+                            type: tpl ? (consumable ? 'Consommable' : 'Équipement') : 'Divers',
                             icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
                             slot: tpl?.slot ?? '',
                             name: tpl?.nom ?? '',
-                            degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
-                            family: fam,
-                            familySummary: fam ? FAMILY_SUMMARIES[fam] ?? '' : '',
-                            ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),
-                            attributs: tpl?.proprietes ?? '',
+                            ...(consumable
+                              ? { quantite: tpl?.quantite ?? 1, attributs: tpl?.effet ?? '' }
+                              : {
+                                  degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
+                                  family: fam,
+                                  familySummary: fam ? FAMILY_SUMMARIES[fam] ?? '' : '',
+                                  ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),
+                                  attributs: tpl?.proprietes ?? ''
+                                }),
                             description: ''
                           }, ...(editSheet.inventoryItems || [])];
                           itemTemplate = '';
@@ -1892,7 +1897,7 @@
                         class="px-2 py-1 bg-[#242424] border border-[#374151] rounded text-[11px] focus:outline-none focus:border-indigo-500 max-w-[170px]"
                       >
                         <option value="">— Modèle —</option>
-                        {#each EQUIPMENT_CATALOG as grp}
+                        {#each EQUIPMENT_CATALOG.filter((grp) => grp.kind === 'arme') as grp}
                           <optgroup label={grp.group}>
                             {#each grp.items as item}
                               <option value={item.nom} title={item.proprietes}>{item.nom}{item.de ? ` — ${item.de}` : ''}</option>
