@@ -1221,6 +1221,21 @@ export function diceGemColor(sheet) {
 }
 
 /**
+ * Token counts derived from raw stats: stat modifier + 1 (min 0).
+ * These are the values a sheet import syncs into game state; the GM's
+ * REST resets tokens to them (maxTokens).
+ * @param {Object} [stats] - Raw stat scores ({ force, agilite, esprit, social })
+ * @returns {{force: number, agilite: number, esprit: number, social: number}}
+ */
+export function tokensFromStats(stats = {}) {
+  const out = {};
+  for (const key of ['force', 'agilite', 'esprit', 'social']) {
+    out[key] = Math.max(0, statModifier(Number(stats?.[key]) || 10) + 1);
+  }
+  return out;
+}
+
+/**
  * Compute a skill's modifier from its governing stat.
  * Falls back to `fallback` for unknown skills or missing scores.
  * @param {Object} [stats] - Raw stat scores ({ force, agilite, esprit, social })

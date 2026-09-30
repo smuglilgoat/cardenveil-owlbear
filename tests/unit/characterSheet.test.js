@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -764,6 +764,19 @@ describe('Character Sheet dice helpers', () => {
       expect(isImageUrl('⚔️')).toBe(false);
       expect(isImageUrl('')).toBe(false);
       expect(isImageUrl(null)).toBe(false);
+    });
+  });
+
+  describe('tokensFromStats', () => {
+    it('derives token counts from stat mods + 1 (min 0)', () => {
+      // mods +2/+3/+4/0 → 3/4/5/1 tokens (user example)
+      expect(tokensFromStats({ force: 14, agilite: 16, esprit: 18, social: 10 }))
+        .toEqual({ force: 3, agilite: 4, esprit: 5, social: 1 });
+      // negative mod floors at 0 tokens
+      expect(tokensFromStats({ force: 8, agilite: 6, esprit: 10, social: 1 }))
+        .toEqual({ force: 0, agilite: 0, esprit: 1, social: 0 });
+      // missing stats treated as 10 → 1 token
+      expect(tokensFromStats({})).toEqual({ force: 1, agilite: 1, esprit: 1, social: 1 });
     });
   });
 

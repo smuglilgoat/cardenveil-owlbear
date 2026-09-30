@@ -232,6 +232,49 @@ describe('Game Logic', () => {
       });
     });
 
+    describe('SYNC_TOKENS', () => {
+      it('lets a player sync their own tokens on sheet import (tokens = maxTokens = stat mods + 1)', () => {
+        const { state } = applyAction(initialState, {
+          type: 'SYNC_TOKENS',
+          playerId: 'player-1',
+          targetId: 'player-1',
+          tokens: { force: 3, agilite: 4, esprit: 5, social: 1 },
+        });
+        expect(state.players['player-1'].tokens).toEqual({ force: 3, agilite: 4, esprit: 5, social: 1 });
+        expect(state.players['player-1'].maxTokens).toEqual({ force: 3, agilite: 4, esprit: 5, social: 1 });
+      });
+
+      it('lets the GM sync any player (GM character imports)', () => {
+        const { state } = applyAction(initialState, {
+          type: 'SYNC_TOKENS',
+          playerId: 'gm-player',
+          targetId: 'player-1',
+          tokens: { force: 2, agilite: 2, esprit: 2, social: 2 },
+        });
+        expect(state.players['player-1'].tokens).toEqual({ force: 2, agilite: 2, esprit: 2, social: 2 });
+      });
+
+      it('rejects a player syncing someone else', () => {
+        const { state } = applyAction(initialState, {
+          type: 'SYNC_TOKENS',
+          playerId: 'player-1',
+          targetId: 'player-2',
+          tokens: { force: 9, agilite: 9, esprit: 9, social: 9 },
+        });
+        expect(state.players['player-2'].tokens).toEqual({ force: 3, agilite: 3, esprit: 3, social: 3 });
+      });
+
+      it('clamps negatives, junk and oversized values', () => {
+        const { state } = applyAction(initialState, {
+          type: 'SYNC_TOKENS',
+          playerId: 'player-1',
+          targetId: 'player-1',
+          tokens: { force: -3, agilite: 'junk', esprit: 99, social: undefined },
+        });
+        expect(state.players['player-1'].tokens).toEqual({ force: 0, agilite: 0, esprit: 10, social: 0 });
+      });
+    });
+
     describe('SET_RACE', () => {
       it('should let the GM set any player race', () => {
         const { state } = applyAction(initialState, {

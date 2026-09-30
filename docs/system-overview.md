@@ -216,7 +216,7 @@ Cards have two shapes:
 - **Client (hydrated)**: `{ id, suit: '♠', value: '10', numericValue: 1..13,
   isRed }` (+ `_pending: true` for placeholders).
 
-### The 34 action types
+### The 35 action types
 
 Everything mutating game state must go through these; each validates its own
 prerequisites and is a no-op-if-invalid `{ state, log }` return:
@@ -233,7 +233,9 @@ free draw), `HALFLING_CHOOSE`, `SPORELIN_EXCHANGE`, `USE_CAPACITY`
 `SWAP_CARD`, `ADD_TOKEN`, `SET_MAX_HAND`, `SET_DRAW_RANGE`, `SET_MAX_TOKENS`,
 `REST_ALL` (tokens = max), `HARD_RESET` (fresh state, keep name+race),
 `IMPORT_STATE`, `CREATE_GM_CHAR`, `REMOVE_GM_CHAR`, `SET_FATIGUE`,
-`SET_RACE`, `CANCEL_EXCHANGE`.
+`SET_RACE`, `CANCEL_EXCHANGE`, `SYNC_TOKENS` (self or GM; sets tokens =
+maxTokens = values sent from the sheet — stat mods + 1, so the GM's
+`REST_ALL` restores stat-derived token counts).
 
 Rules baked into the reducer worth knowing:
 

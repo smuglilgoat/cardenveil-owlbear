@@ -695,6 +695,33 @@ export function applyAction(state, action) {
       return { state: addLog(s, 'gm', 'MJ', `race de ${p.name} → ${label}`), log: null };
     }
 
+    case 'SYNC_TOKENS': {
+      // Sheet import/edit sync: tokens (and their cap) = stat mods + 1.
+      // The client computes the values from the sheet's stats; the reducer
+      // clamps to sane ranges. GM may sync any player, a player their own.
+      const isSelf = action.playerId === action.targetId;
+      if (!isGM(state, action.playerId) && !isSelf) return { state, log: null };
+      const p = state.players[action.targetId];
+      if (!p) return { state, log: null };
+      const values = action.tokens ?? {};
+      const norm = (v) => clamp(Math.floor(Number(v) || 0), 0, 10);
+      const max = {
+        force: norm(values.force),
+        agilite: norm(values.agilite),
+        esprit: norm(values.esprit),
+        social: norm(values.social),
+      };
+      const s = {
+        ...state,
+        players: { ...state.players, [action.targetId]: {
+          ...p,
+          tokens: { ...max },
+          maxTokens: max,
+        }},
+      };
+      return { state: addLog(s, action.playerId, p.name, `tokens synchronisés (F ${max.force} · A ${max.agilite} · E ${max.esprit} · S ${max.social})`), log: null };
+    }
+
     case 'DRAW_SPADE': {
       const p = state.players[action.playerId];
       if (!p || p.race !== 'tieffelin' || !p.tieflingDrawEligible) return { state, log: null };

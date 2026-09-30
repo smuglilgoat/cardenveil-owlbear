@@ -38,6 +38,7 @@
     isDiceFormula,
     rollDice,
     skillModifier,
+    tokensFromStats,
     skillRollModifier,
     subscribeToCharacterSheet,
     onSheetBroadcast,
@@ -346,6 +347,14 @@
         isEditing = false;
         editSheet = null;
         syncRaceToGameState(sheet?.identity?.race);
+        // Import refreshes the player's tokens to stat mods + 1 — the values
+        // the GM's REST resets to (SYNC_TOKENS sets tokens = maxTokens).
+        onAction({
+          type: 'SYNC_TOKENS',
+          playerId,
+          targetId: playerId,
+          tokens: tokensFromStats(sheet.stats),
+        });
       } catch (err) {
         importError = err.message;
         console.error('Import failed:', err);
