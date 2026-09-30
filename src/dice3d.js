@@ -203,8 +203,21 @@ function createClackSound() {
   const buffer = context.createBuffer(1, context.sampleRate * 0.05, context.sampleRate);
   const noise = buffer.getChannelData(0);
   for (let i = 0; i < noise.length; i++) noise[i] = Math.random() * 2 - 1;
+  // autoplay policy: the roll gesture happens in ANOTHER frame (the sheet
+  // popover), never inside this popup — hook pointerdown on every reachable
+  // window so the context resumes on the user's click; self-removes once
+  // running
+  const hooked = [];
   const resume = () => context.state === 'suspended' && context.resume().catch(() => {});
-  window.addEventListener('pointerdown', resume, { once: true });
+  const hookResume = () => {
+    resume();
+    if (context.state === 'running') {
+      for (const w of hooked) { try { w.removeEventListener('pointerdown', hookResume); } catch {} }
+    }
+  };
+  for (const w of [window, window.parent, window.top]) {
+    try { w.addEventListener('pointerdown', hookResume); hooked.push(w); } catch { /* cross-origin */ }
+  }
   return (speed) => {
     resume();
     if (context.state !== 'running') return;
