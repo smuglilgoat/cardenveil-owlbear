@@ -1328,10 +1328,12 @@
                   </div>
                 {/each}
                 {#each [...bagItems, ...unequippedGear] as item}
+                  {@const consumable = !isEditing && item?.type === 'Consommable' && toNumber(item?.quantite ?? item?.quantity) !== 0}
+                  {@const depleted = item?.type === 'Consommable' && toNumber(item?.quantite ?? item?.quantity) === 0}
                   <div
                     use:tooltip={itemNotes(item) !== '—' ? itemNotes(item) : item?.name}
-                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 {!isEditing && item?.type === 'Consommable' ? 'cursor-pointer ring-1 ring-transparent hover:ring-[#4ade80]' : 'cursor-help'} hover:bg-[#374151] transition-colors"
-                    onclick={!isEditing && item?.type === 'Consommable' ? () => (consumeTarget = item) : undefined}
+                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 {consumable ? 'cursor-pointer ring-1 ring-transparent hover:ring-[#4ade80]' : depleted ? 'cursor-not-allowed opacity-40 grayscale' : 'cursor-help'} hover:bg-[#374151] transition-colors"
+                    onclick={consumable ? () => (consumeTarget = item) : undefined}
                     style="border-left-color: {itemTypeColor(item?.type)}"
                   >
                     {#if item?.icon && isImageUrl(item.icon)}
