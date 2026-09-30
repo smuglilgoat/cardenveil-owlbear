@@ -189,7 +189,7 @@ const MAX_ANGULAR_VELOCITY = 9;
 const MIN_ROLL_FINISHED_SPEED = 0.015;
 const SLOW_FRAMES_REQUIRED = 8;
 const HARD_STOP_MS = 9500; // absolute deadline: read the best face
-const SNAP_DURATION_MS = 250;
+const SNAP_DURATION_MS = 600; // slower face snap — readable toppling onto the final face
 
 // ponytail: one synthesized clack avoids audio assets; use recordings if it sounds too synthetic.
 function createClackSound() {
