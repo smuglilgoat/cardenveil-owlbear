@@ -803,7 +803,8 @@
               {#each ['force', 'agilite', 'esprit', 'social'] as s}
                 <button
                   onclick={() => pickCapStat(s)}
-                  class={`flex-1 px-1 py-0.5 rounded-md bg-[#111827] border text-[9px] font-bold transition-colors ${capStat === s ? 'border-indigo-400 text-indigo-300' : 'border-[#374151] text-[#9ca3af] hover:border-indigo-500 hover:bg-[#1f2937]'}`}
+                  class={`flex-1 px-1 py-0.5 rounded-md bg-[#111827] border text-[9px] font-bold transition-colors ${capStat === s ? '' : 'border-[#374151] text-[#9ca3af] hover:border-indigo-500 hover:bg-[#1f2937]'}`}
+                  style={capStat === s ? `border-color: ${STAT_COLORS[s]}; color: ${STAT_COLORS[s]}` : ''}
                 >
                   {STAT_LABELS[s]}
                 </button>
