@@ -553,6 +553,17 @@
     saveCharacterSheet(playerId, roomId, next).catch(console.error);
   }
 
+  // ─── Consume a consumable from the SAC view (−1 quantity) ──
+  let consumeTarget = $state(null);
+
+  function consumeItem(item) {
+    consumeTarget = null;
+    const items = (sheet?.inventoryItems ?? []).map((i) =>
+      i === item ? { ...i, quantite: Math.max(0, (toNumber(i?.quantite) || 1) - 1) } : i
+    );
+    saveSheet({ ...sheet, inventoryItems: items });
+  }
+
   // ─── Inline notes editing (NOTES tab, no ÉDITION needed) ───
   let notesDraft = $state('');
   let notesDraftDirty = $state(false);
@@ -1274,7 +1285,8 @@
                 {#each [...unequippedGear, ...bagItems] as item}
                   <div
                     use:tooltip={itemNotes(item) !== '—' ? itemNotes(item) : item?.name}
-                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 cursor-help hover:bg-[#374151] transition-colors"
+                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 {!isEditing && item?.type === 'Consommable' ? 'cursor-pointer ring-1 ring-transparent hover:ring-[#4ade80]' : 'cursor-help'} hover:bg-[#374151] transition-colors"
+                    onclick={!isEditing && item?.type === 'Consommable' ? () => (consumeTarget = item) : undefined}
                     style="border-left-color: {itemTypeColor(item?.type)}"
                   >
                     {#if item?.icon && isImageUrl(item.icon)}
@@ -2333,6 +2345,42 @@
   {/if}
 
   <!-- Delete Confirmation Modal -->
+  {#if consumeTarget}
+    <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-[60]">
+      <div class="bg-[#1f2937] border border-[#374151] rounded-lg p-6 w-[92%] max-w-sm">
+        <div class="flex items-center gap-2.5 mb-3">
+          {#if consumeTarget?.icon && isImageUrl(consumeTarget.icon)}
+            <img src={consumeTarget.icon} alt="" class="w-8 h-8 rounded object-cover shrink-0" />
+          {:else if consumeTarget?.icon}
+            <span class="text-xl leading-none shrink-0">{consumeTarget.icon}</span>
+          {:else}
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background: {itemTypeColor(consumeTarget?.type)}"></span>
+          {/if}
+          <div class="min-w-0">
+            <div class="text-[15px] font-bold truncate">{consumeTarget?.name}</div>
+            <div class="text-[11px] text-[#9ca3af]">Quantité : {toNumber(consumeTarget?.quantite) || 1}</div>
+          </div>
+        </div>
+        {#if itemNotes(consumeTarget) !== '—'}
+          <p class="text-[#9ca3af] text-[13px] mb-5">{itemNotes(consumeTarget)}</p>
+        {/if}
+        <div class="flex gap-3">
+          <button
+            onclick={() => (consumeTarget = null)}
+            class="flex-1 px-4 py-2 bg-[#111827] hover:bg-[#374151] text-[13px] font-semibold rounded-lg transition-colors"
+          >
+            Annuler
+          </button>
+          <button
+            onclick={() => consumeItem(consumeTarget)}
+            class="flex-1 px-4 py-2 bg-green-900 hover:bg-green-800 text-green-200 text-[13px] font-semibold rounded-lg transition-colors"
+          >
+            Consommer
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
   {#if showDeleteConfirm}
     <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-[60]">
       <div class="bg-[#1f2937] border border-[#374151] rounded-lg p-6 w-[92%] max-w-md">
