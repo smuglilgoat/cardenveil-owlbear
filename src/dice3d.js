@@ -641,8 +641,15 @@ async function startSim(spec, seed, modifier) {
       const crit = value === d.def.sides;
       const fail = value === 1;
       appendRollChip(value, d.def.sides, d.def.rollIndex, rollGroups.length);
-      if (crit) d.glow = '#fbbf24';
-      else if (fail) d.glow = '#dc2626';
+      if (crit) {
+        d.glow = '#fbbf24';
+        // covers cleanly-settled crits too — snapDie only fires for dice that
+        // were tip/edge-balanced, so a die landing flat on its max face never
+        // passed through it
+        if (!critZoom) {
+          critZoom = { pos: group[0].die.position.clone(), from: camera.position.clone(), start: now };
+        }
+      } else if (fail) d.glow = '#dc2626';
     }
     if (!reported && dice.every((d) => d.chipDone)) {
       reported = true;
