@@ -286,9 +286,9 @@
     }
   }
 
-  // ─── Attack panel (accordion): weapon + avantage/désavantage + engagement ───
+  // ─── Attack + capacity accordions ───
   let showAttack = $state(false);
-  let attackInFlight = false; // one attack at a time — stages are sequential
+  let attackInFlight = false; // one staged roll at a time — stages are sequential
   // single-slot resolver for the current staged throw (sequential by design)
   let pendingStage = null;
   const STAGE_TIMEOUT_MS = 10000;
@@ -297,6 +297,14 @@
   let attackWeaponName = $state('');
   let attackAdv = $state(0); // −7…+7 (− = désavantage, + = avantage)
   let attackEngagement = $state(0); // 0…7
+
+  // Capacity accordion (🪄): Valeur brute = Base × dX, × multiplicateur.
+  let showCapacity = $state(false);
+  let capacityInFlight = false;
+  let capMultiplier = $state(1); // ×0.5 … ×20
+  let capBase = $state(''); // '' = Mod Esprit (canalisation); max 99
+  let capDice = $state('d6'); // d4 … d100
+  const CAP_DICE = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
 
   let equippedWeapons = $derived(pickAttackWeapon(sheet?.weapons ?? []).equipped);
 
@@ -335,14 +343,25 @@
     attackCalc?.keep === 'max' ? 'garder le max' : attackCalc?.keep === 'min' ? 'garder le min' : ''
   );
 
-  function toggleAttack() {
-    showAttack = !showAttack;
-    resizeForAttack();
+  function accordionCount() {
+    return (showAttack ? 1 : 0) + (showCapacity ? 1 : 0);
   }
 
-  async function resizeForAttack() {
+  function toggleAttack() {
+    const before = accordionCount();
+    showAttack = !showAttack;
+    resizeAccordions(before);
+  }
+
+  function toggleCapacity() {
+    const before = accordionCount();
+    showCapacity = !showCapacity;
+    resizeAccordions(before);
+  }
+
+  async function resizeAccordions(before) {
     if (folded) return;
-    const delta = showAttack ? 190 : -190;
+    const delta = (accordionCount() - before) * 190;
     const target = Math.max(FOLDED_HEIGHT, expandedHeight + delta);
     try {
       await OBR.popover.setHeight(popoverId, target);
@@ -351,6 +370,61 @@
     } catch {
       /* popover resize not available — panel still opens */
     }
+  }
+
+  /** Valeur brute roll: Base dice of the chosen type, × multiplier. */
+  let capCount = $derived(
+    Math.max(1, Math.min(99, Math.round(Number(capBase)) || Math.max(1, calc.canalisation)))
+  );
+  let capMult = $derived(Math.min(20, Math.max(0.5, Number(capMultiplier) || 1)));
+
+  async function doCapacityRoll() {
+    if (attackInFlight || capacityInFlight) return;
+    const count = capCount;
+    const sides = parseInt(capDice.slice(1), 10);
+    const mult = capMult;
+    const label = `Valeur brute · ${count}d${sides}${mult !== 1 ? ` ×${mult}` : ''}`;
+    let rolls;
+    if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat' && SIDES_TO_TYPE[sides]) {
+      capacityInFlight = true;
+      try {
+        rolls = await throwAttackStage(label, count, sides, null);
+      } catch (err) {
+        console.warn('3D capacity roll failed, falling back to flat:', err);
+      } finally {
+        capacityInFlight = false;
+      }
+    }
+    if (!rolls) {
+      try {
+        rolls = rollDice(`${count}d${sides}`).rolls;
+      } catch (err) {
+        console.warn('Capacity roll failed:', err);
+        return;
+      }
+    }
+    const raw = rolls.reduce((a, b) => a + b, 0);
+    const total = Math.round(raw * mult * 100) / 100;
+    broadcastRoll({
+      label,
+      color: diceGemColor(sheet),
+      playerId,
+      portrait: sheet?.portrait || '',
+      portraitIsImage: isImageUrl(sheet?.portrait),
+      formula: `${count}d${sides}${mult !== 1 ? ` ×${mult}` : ''}`,
+      rolls,
+      diceTypes: rolls.map(() => sides),
+      total,
+      breakdown: [`Dé : ${count}d${sides} [${rolls.join(', ')}] = ${raw}`, ...(mult !== 1 ? [`× ${mult}`, ''] : []), `Total : ${total}`]
+    });
+    dispatch(roomId, {
+      type: 'USE_CAPACITY',
+      playerId,
+      capacityName: 'Valeur brute',
+      formula: `${count}d${sides}${mult !== 1 ? ` ×${mult}` : ''}`.slice(0, 32),
+      total,
+      rolls
+    }).catch((err) => console.error('Failed to dispatch capacity roll:', err));
   }
 
   function saveAttackSettings() {
@@ -586,7 +660,67 @@
           {/if}
         </div>
       </div>
-      <!-- Attack panel: weapon dropdown + avantage slider + engagement -->
+      <div class="flex items-center justify-center gap-1 mt-2 pt-2 border-t border-[#374151] flex-wrap">
+        {#each QUICK_DICE as d}
+          <button
+            onclick={() => addQuickDie(d.die)}
+            title={`Ajouter 1${d.die} à la formule`}
+            class="relative flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-[#111827] border {(quickCounts[d.die.slice(1)] ?? 0) > 0 ? 'border-indigo-400' : 'border-[#374151]'} hover:border-indigo-500 hover:bg-[#1f2937] transition-colors text-[9px] font-bold text-indigo-300"
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">{@html d.icon}</svg>
+            <span>{d.die}</span>
+            {#if (quickCounts[d.die.slice(1)] ?? 0) > 0}
+              <span class="absolute -top-1.5 -right-1.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-indigo-500 text-white text-[8px] font-bold leading-[14px]">{quickCounts[d.die.slice(1)]}</span>
+            {/if}
+          </button>
+        {/each}
+        <input
+          bind:value={quickFormula}
+          placeholder="1d20+1d6…"
+          class="w-24 min-w-0 px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
+        />
+        <button
+          onclick={() => { doRoll('Jet rapide', quickFormula); quickFormula = ''; }}
+          disabled={!quickFormula || !isDiceFormula(quickFormula, sheet?.stats ?? {})}
+          title="Lancer la formule"
+          class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-[10px] font-bold text-white"
+        >
+          🎲 Lancer
+        </button>
+      </div>
+      <!-- Per-turn action diamonds (long hover shows the combat actions reference) + Attaque/Magique/Notes on the right -->
+      <div class="flex items-center mt-2 pt-2 border-t border-[#374151]">
+        <ActionDiamonds
+          checks={sheet.actionChecks}
+          onToggle={toggleActionCheck}
+          compact
+          class="flex items-center gap-4 flex-1 justify-center"
+        />
+        <div class="flex items-center gap-1 shrink-0 pl-2 border-l border-[#4b5563]">
+          <button
+            onclick={toggleAttack}
+            title="Attaque (avantage / engagement)"
+            class={`w-6 h-6 rounded-md border text-[11px] flex items-center justify-center transition-colors ${showAttack ? 'bg-indigo-600 border-indigo-400' : 'bg-[#111827] border-[#374151] hover:bg-[#374151]'}`}
+          >
+            ⚔️
+          </button>
+          <button
+            onclick={toggleCapacity}
+            title="Valeur brute (multiplicateur / base / dés)"
+            class={`w-6 h-6 rounded-md border text-[11px] flex items-center justify-center transition-colors ${showCapacity ? 'bg-indigo-600 border-indigo-400' : 'bg-[#111827] border-[#374151] hover:bg-[#374151]'}`}
+          >
+            🪄
+          </button>
+          <button
+            onclick={() => (showNotes = !showNotes)}
+            title={showNotes ? 'Masquer les notes' : 'Voir les notes'}
+            class={`w-6 h-6 rounded-md border text-[11px] flex items-center justify-center transition-colors ${showNotes ? 'bg-indigo-600 border-indigo-400' : 'bg-[#111827] border-[#374151] hover:bg-[#374151]'}`}
+          >
+            📝
+          </button>
+        </div>
+      </div>
+      <!-- Attack accordion: weapon dropdown + avantage slider + engagement -->
       {#if showAttack}
         <div class="mt-2 pt-2 border-t border-[#374151] space-y-2">
           {#if equippedWeapons.length === 0}
@@ -648,67 +782,44 @@
           {/if}
         </div>
       {/if}
-      <!-- Quick dice row: click a die to add it to the formula, then Roll -->
-      <div class="flex items-center justify-center gap-1 mt-2 pt-2 border-t border-[#374151] flex-wrap">
-        {#each QUICK_DICE as d}
+      {#if showCapacity}
+        <div class="mt-2 pt-2 border-t border-[#374151] space-y-2">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[8px] font-bold text-[#9ca3af] shrink-0 w-20">MULTIPLICATEUR</span>
+            <input
+              type="number" min="0.5" max="20" step="0.5" bind:value={capMultiplier}
+              class="w-16 px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[8px] font-bold text-[#9ca3af] shrink-0 w-20">BASE</span>
+            <input
+              type="number" min="1" max="99" bind:value={capBase}
+              placeholder={`Mod Esprit (${Math.max(1, calc.canalisation)})`}
+              class="w-16 px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
+            />
+            <span class="text-[8px] text-[#9ca3af]">dés (vide = Mod Esprit)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[8px] font-bold text-[#9ca3af] shrink-0 w-20">DÉS</span>
+            <select
+              bind:value={capDice}
+              class="px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
+            >
+              {#each CAP_DICE as d}
+                <option value={d}>{d}</option>
+              {/each}
+            </select>
+          </div>
+          <div class="text-[9px] text-[#9ca3af]">Valeur brute : {capCount}d{capDice.slice(1)}{capMult !== 1 ? ` × ${capMult}` : ''}</div>
           <button
-            onclick={() => addQuickDie(d.die)}
-            title={`Ajouter 1${d.die} à la formule`}
-            class="relative flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-[#111827] border {(quickCounts[d.die.slice(1)] ?? 0) > 0 ? 'border-indigo-400' : 'border-[#374151]'} hover:border-indigo-500 hover:bg-[#1f2937] transition-colors text-[9px] font-bold text-indigo-300"
+            onclick={doCapacityRoll}
+            class="w-full py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 transition-colors text-[11px] font-bold text-white"
           >
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">{@html d.icon}</svg>
-            <span>{d.die}</span>
-            {#if (quickCounts[d.die.slice(1)] ?? 0) > 0}
-              <span class="absolute -top-1.5 -right-1.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-indigo-500 text-white text-[8px] font-bold leading-[14px]">{quickCounts[d.die.slice(1)]}</span>
-            {/if}
-          </button>
-        {/each}
-        <input
-          bind:value={quickFormula}
-          placeholder="1d20+1d6…"
-          class="w-24 min-w-0 px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
-        />
-        <button
-          onclick={() => { doRoll('Jet rapide', quickFormula); quickFormula = ''; }}
-          disabled={!quickFormula || !isDiceFormula(quickFormula, sheet?.stats ?? {})}
-          title="Lancer la formule"
-          class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-[10px] font-bold text-white"
-        >
-          🎲 Lancer
-        </button>
-      </div>
-      <!-- Per-turn action diamonds (long hover shows the combat actions reference) + Attaque/Magique/Notes on the right -->
-      <div class="flex items-center mt-2 pt-2 border-t border-[#374151]">
-        <ActionDiamonds
-          checks={sheet.actionChecks}
-          onToggle={toggleActionCheck}
-          compact
-          class="flex items-center gap-4 flex-1 justify-center"
-        />
-        <div class="flex items-center gap-1 shrink-0 pl-2 border-l border-[#4b5563]">
-          <button
-            onclick={toggleAttack}
-            title="Attaque (avantage / engagement)"
-            class={`w-6 h-6 rounded-md border text-[11px] flex items-center justify-center transition-colors ${showAttack ? 'bg-indigo-600 border-indigo-400' : 'bg-[#111827] border-[#374151] hover:bg-[#374151]'}`}
-          >
-            ⚔️
-          </button>
-          <button
-            onclick={() => doRoll('Mod Esprit D6', `${Math.max(1, calc.canalisation)}d6`)}
-            use:tooltip={`Mod Esprit × d6 (${Math.max(1, calc.canalisation)}d6)`}
-            class="w-6 h-6 rounded-md bg-[#111827] border border-[#374151] hover:bg-[#374151] text-[11px] flex items-center justify-center transition-colors"
-          >
-            🪄
-          </button>
-          <button
-            onclick={() => (showNotes = !showNotes)}
-            title={showNotes ? 'Masquer les notes' : 'Voir les notes'}
-            class={`w-6 h-6 rounded-md border text-[11px] flex items-center justify-center transition-colors ${showNotes ? 'bg-indigo-600 border-indigo-400' : 'bg-[#111827] border-[#374151] hover:bg-[#374151]'}`}
-          >
-            📝
+            🪄 LANCER
           </button>
         </div>
-      </div>
+      {/if}
     </div>
 
     {#if showNotes}
