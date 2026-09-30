@@ -26,6 +26,8 @@
     skillRollModifier,
     syncSkillBonuses,
     syncStatsFromEquipment,
+    subscribeToCharacterSheet,
+    ACTION_CHECKS,
     toNumber,
     normalizeRaceName,
     raceLabel,
@@ -178,6 +180,26 @@
       (id) => id !== myId && id !== GM_CHAR_ID && partyIds.has(id),
     ),
   );
+
+  // Live per-player action diamonds: mirrors each player's sheet
+  // actionChecks (saved immediately on toggle) via one sheet subscription
+  // per player. Stale entries for removed players are harmless (display
+  // only iterates playerIds) and keep this effect loop-free.
+  let playerChecks = $state({});
+  const checkUnsubs = new Map();
+  $effect(() => {
+    for (const id of playerIds) {
+      if (checkUnsubs.has(id)) continue;
+      const un = subscribeToCharacterSheet(id, OBR.room.id, (payload) => {
+        playerChecks = { ...playerChecks, [id]: payload?.data?.actionChecks ?? {} };
+      });
+      checkUnsubs.set(id, un);
+      fetchCharacterSheet(id, OBR.room.id)
+        .then((row) => { playerChecks = { ...playerChecks, [id]: row?.data?.actionChecks ?? {} }; })
+        .catch(() => {});
+    }
+  });
+  onDestroy(() => { for (const un of checkUnsubs.values()) un?.(); });
 
   const DRAW_VALUES = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 
@@ -1004,6 +1026,18 @@
             {/if}
           </span>
           <div class="flex items-center gap-3 text-xs text-gray-400">
+            <span
+              class="flex items-center gap-1.5"
+              title="Action · Bonus · Réaction (tour du joueur, depuis sa fiche)"
+            >
+              {#each ACTION_CHECKS as ac}
+                <span
+                  class="rotate-45 rounded-[2px] h-2.5 w-2.5 border-2 {playerChecks[id]?.[ac.key]
+                    ? 'bg-indigo-500 border-indigo-300'
+                    : 'bg-transparent border-[#4b5563]'}"
+                ></span>
+              {/each}
+            </span>
             <span
               >Main : <span class="text-white"
                 >{p.hand.length}/{handCap(p)}</span
