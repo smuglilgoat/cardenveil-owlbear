@@ -1515,7 +1515,7 @@ export function subscribeToCharacterSheet(playerId, roomId, callback) {
         event: '*',
         schema: 'public',
         table: 'character_sheets',
-        filter: `player_id=eq.${playerId}&room_id=eq.${roomId}`
+        filter: `player_id=eq.${playerId},room_id=eq.${roomId}`
       },
       (payload) => {
         callback(payload.new);

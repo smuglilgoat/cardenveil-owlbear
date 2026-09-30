@@ -27,6 +27,7 @@
     syncSkillBonuses,
     syncStatsFromEquipment,
     subscribeToCharacterSheet,
+    onSheetBroadcast,
     ACTION_CHECKS,
     toNumber,
     normalizeRaceName,
@@ -199,7 +200,16 @@
         .catch(() => {});
     }
   });
-  onDestroy(() => { for (const un of checkUnsubs.values()) un?.(); });
+  // same-browser fast path: sheet saves broadcast on cardenveil-sheet
+  const offChecksBroadcast = onSheetBroadcast((msg) => {
+    if (msg?.data?.actionChecks) {
+      playerChecks = { ...playerChecks, [msg.playerId]: msg.data.actionChecks };
+    }
+  });
+  onDestroy(() => {
+    for (const un of checkUnsubs.values()) un?.();
+    offChecksBroadcast();
+  });
 
   const DRAW_VALUES = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 
