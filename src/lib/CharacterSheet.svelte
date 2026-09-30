@@ -184,8 +184,11 @@
       });
       // Physics popups (3D mode) report the roll result back — log it once
       // per roll across all frames of this player (localStorage lock).
+      // Staged attack stages are skipped: the attack driver (compact
+      // popover) resolves them and logs the whole attack once.
       const offRollResult = onRollResult((msg) => {
         if (msg?.playerId !== playerId || !msg?.rollId || !msg?.rolls) return;
+        if (msg.staged) return;
         const lock = `cardenveil-roll-logged-${msg.rollId}`;
         if (localStorage.getItem(lock)) return;
         localStorage.setItem(lock, '1');

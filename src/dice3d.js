@@ -18,6 +18,7 @@ const rollsParam = (params.get('rolls') || '').split(',').filter(Boolean);
 const typesParam = (params.get('types') || '').split(',').filter(Number);
 const error = params.get('error');
 const color = params.get('color') || '#312e81';
+const stagedParam = params.get('staged') === '1';
 const isSelf = params.get('self') === '1';
 const specParam = params.get('diceSpec'); // JSON [{count, sides}...]
 const seedParam = params.get('seed');
@@ -140,7 +141,7 @@ function fallbackFromSpec(spec, modifier) {
       diceTypes.push(term.sides);
     }
   }
-  if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total: rolls.reduce((a, b) => a + b, 0) + modifier });
+  if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, staged: stagedParam, total: rolls.reduce((a, b) => a + b, 0) + modifier });
   const crit = rolls.some((r, i) => r === diceTypes[i]);
   const fail = rolls.some((r) => r === 1);
   rolls.forEach((r, i) => appendRollChip(r, diceTypes[i], i, rolls.length, i * 0.08));
@@ -635,7 +636,7 @@ async function startSim(spec, seed, modifier) {
       else if (fail) totalEl.classList.add('fail');
       const total = rolls.reduce((a, b) => a + b, 0) + modifier;
       totalEl.textContent = String(total);
-      if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, total });
+      if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, staged: stagedParam, total });
       eventQueue.free();
     }
     for (const d of dice) {

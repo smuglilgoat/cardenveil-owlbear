@@ -62,7 +62,10 @@ OBR.onReady(() => {
       plainLabel: data.label || 'Jet',
       self: isSelf ? '1' : '0',
       error: '',
-      breakdown: data.breakdown ? JSON.stringify(data.breakdown) : ''
+      breakdown: data.breakdown ? JSON.stringify(data.breakdown) : '',
+      // attack stage throws (3D): the popup reports each stage back to the
+      // roller, which applies the rules and throws the next stage
+      staged: data.staged ? '1' : '0'
     });
     if (data.rolls) {
       params.set('rolls', (data.rolls ?? []).join(','));

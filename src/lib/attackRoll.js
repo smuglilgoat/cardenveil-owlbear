@@ -105,26 +105,29 @@ export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 
 }
 
 /**
- * Resolve a full attack per the rules doc.
+ * Walk the attack stage-by-stage, taking dice from {@link rollStage}.
+ * The walk holds ALL rule logic (seuil miss, explosion decay, Hache
+ * doubles, Finesse repeats); {@link rollStage}(pool, sides, keep) supplies
+ * the dice for each stage — synchronously (rng) or as a Promise (3D
+ * physics driver). Returns the same result object as rollAttack.
  * @param {Object} weapon - Equipped weapon ({ de, bonus, proprietes, nom, seuilMiss })
  * @param {Object} [stats] - Raw stats
  * @param {{advantage?: number, engagement?: number, bonus?: number}} [opts]
  *   bonus: BONUS ATT. stat override (see attackPreview)
- * @returns {Object|null} { total (0 on miss), miss, critCount, kept,
- *   stages: [{label, pool, keep, dice, kept, sides}], breakdown (§20 lines),
- *   finesse, hache, level, sides, weaponBonus, engagementMod, engagementStat,
- *   advantage, engagement }
+ * @param {(pool: number, sides: number, keep: string|null) => number[]|Promise<number[]>} rollStage
+ * @returns {Promise<Object|null>} Same shape as rollAttack's result
  */
-export function rollAttack(weapon, stats = {}, { advantage = 0, engagement = 0, bonus, rng = Math.random } = {}) {
-  const p = attackPreview(weapon, stats, { advantage, engagement, bonus });
+export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
+  const p = attackPreview(weapon, stats, opts);
   if (!p) return null;
+  const optEngagement = opts.engagement ?? 0;
   const { sides, level, finesse, hache, weaponBonus, engagementMod, engagementStat: eStat, engagement: engLevel } = p;
   const keepMode = level > 0 ? 'max' : level < 0 ? 'min' : null;
   const stages = [];
   const breakdown = [];
 
-  const stage = (pool, keep) => {
-    const dice = rollDice(pool, sides, rng);
+  const stage = async (pool, keep) => {
+    const dice = await rollStage(pool, sides, keep);
     const kept = keepValue(dice, keep);
     stages.push({ label: `${pool}d${sides} · garder ${keep ?? 'seul'}`, pool, keep, dice, kept, sides });
     return kept;
@@ -133,7 +136,7 @@ export function rollAttack(weapon, stats = {}, { advantage = 0, engagement = 0, 
   const levelNote = level === 0 ? '' : ` (${level > 0 ? '+' : '−'}${Math.abs(level)} ${Math.abs(level) === 1 ? 'niveau' : 'niveaux'})`;
   const keepNote = keepMode ? ` · garder ${keepMode}` : '';
 
-  const initial = stage(p.diceCount, keepMode);
+  const initial = await stage(p.diceCount, keepMode);
   breakdown[0] = `Jet : ${p.diceCount}d${sides}${levelNote}${keepNote} [${stages[0].dice.join(', ')}] — gardé ${initial}`;
   let critCount = 0;
   const seuilMiss = toNumber(weapon?.seuilMiss);
@@ -150,9 +153,10 @@ export function rollAttack(weapon, stats = {}, { advantage = 0, engagement = 0, 
     // explosion is 2dX summed, a double chains a new crit (§17-18).
     while (kept === sides) {
       critCount++;
-      const pair = rollDice(2, sides, rng);
+      await stage(2, 'somme');
+      const pair = stages[stages.length - 1].dice;
       const sum = pair[0] + pair[1];
-      stages.push({ label: `Explosion : 2d${sides} · somme`, pool: 2, keep: 'somme', dice: pair, kept: sum, sides });
+      stages[stages.length - 1].kept = sum;
       breakdown.push(`Explosion : 2d${sides} [${pair[0]}, ${pair[1]}] = ${sum}${pair[0] === pair[1] ? ' → CRIT (double)' : ''}`);
       kept = pair[0] === pair[1] ? sides : 0;
     }
@@ -164,10 +168,8 @@ export function rollAttack(weapon, stats = {}, { advantage = 0, engagement = 0, 
       // are always a plain 1dX (§9).
       const keepNext = level > 0 && remainingLevel - 1 > 0 ? 'max' : null;
       const pool = keepNext ? 1 + 2 * (Math.abs(remainingLevel) - 1) : 1;
-      const dice = rollDice(pool, sides, rng);
-      const kept2 = Math.max(...dice);
-      stages.push({ label: `Explosion : ${pool}d${sides}${pool > 1 ? ' · garder max' : ''}`, pool, keep: pool > 1 ? 'max' : null, dice, kept: kept2, sides });
-      breakdown.push(`Explosion : ${pool}d${sides} [${dice.join(', ')}] — gardé ${kept2}${kept2 === sides ? ' → CRIT' : ''}`);
+      const kept2 = await stage(pool, keepNext);
+      breakdown.push(`Explosion : ${pool}d${sides} [${stages[stages.length - 1].dice.join(', ')}] — gardé ${kept2}${kept2 === sides ? ' → CRIT' : ''}`);
       kept = kept2;
       remainingLevel -= 1;
     }
@@ -205,8 +207,25 @@ export function rollAttack(weapon, stats = {}, { advantage = 0, engagement = 0, 
       weaponBonus,
       engagementMod,
       engagementStat: eStat,
-      advantage: level + engagement,
-      engagement
+      advantage: level + optEngagement,
+      engagement: optEngagement
     };
   }
+}
+
+/**
+ * Resolve a full attack locally with an rng — thin sync-style wrapper over
+ * {@link runAttack} (returns a Promise). The 3D pipeline drives runAttack
+ * itself, feeding physics-read dice per stage.
+ * @param {Object} weapon - Equipped weapon ({ de, bonus, proprietes, nom, seuilMiss })
+ * @param {Object} [stats] - Raw stats
+ * @param {{advantage?: number, engagement?: number, bonus?: number, rng?: Function}} [opts]
+ * @returns {Promise<Object|null>} { total (0 on miss), miss, critCount, kept,
+ *   stages: [{label, pool, keep, dice, kept, sides}], breakdown (§20 lines),
+ *   finesse, hache, level, sides, weaponBonus, engagementMod, engagementStat,
+ *   advantage, engagement }
+ */
+export function rollAttack(weapon, stats = {}, opts = {}) {
+  const rng = opts.rng ?? Math.random;
+  return runAttack(weapon, stats, opts, (pool, sides) => rollDice(pool, sides, rng));
 }

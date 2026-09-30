@@ -29,7 +29,8 @@
     parseDiceSpec
   } from './lib/characterSheet.js';
   import { broadcastRoll, onRollResult } from './lib/rollBroadcast.js';
-  import { rollAttack, attackPreview, pickAttackWeapon } from './lib/attackRoll.js';
+  import { rollAttack, runAttack, attackPreview, pickAttackWeapon } from './lib/attackRoll.js';
+  import { SIDES_TO_TYPE } from './lib/diceRoll.js';
 
   const params = new URLSearchParams(location.search);
   let playerId = params.get('playerId');
@@ -145,8 +146,19 @@
 
     // Physics popups (3D mode) report the roll result back — log it once
     // per roll across all frames of this player (localStorage lock).
+    // Staged attack stages are skipped here: the attack driver resolves
+    // them and logs the whole attack once at the end.
     const offRollResult = onRollResult((msg) => {
       if (msg?.playerId !== playerId || !msg?.rollId || !msg?.rolls) return;
+      if (msg.staged) {
+        if (pendingStage?.rollId === msg.rollId) {
+          const { resolve, timer } = pendingStage;
+          pendingStage = null;
+          clearTimeout(timer);
+          resolve(msg);
+        }
+        return;
+      }
       const lock = `cardenveil-roll-logged-${msg.rollId}`;
       if (localStorage.getItem(lock)) return;
       localStorage.setItem(lock, '1');
@@ -276,6 +288,10 @@
 
   // ─── Attack panel (accordion): weapon + avantage/désavantage + engagement ───
   let showAttack = $state(false);
+  let attackInFlight = false; // one attack at a time — stages are sequential
+  // single-slot resolver for the current staged throw (sequential by design)
+  let pendingStage = null;
+  const STAGE_TIMEOUT_MS = 10000;
   let attackWeaponName = $state('');
   let attackAdv = $state(0); // −7…+7 (− = désavantage, + = avantage)
   let attackEngagement = $state(0); // 0…7
@@ -346,23 +362,68 @@
     }
   }
 
+  /**
+   * Throw one attack stage as a seeded 3D intent; resolves with the dice
+   * read off the settled physics (reported back by the popup). Rejects on
+   * timeout — the caller falls back to the flat pre-rolled path.
+   */
+  async function throwAttackStage(baseLabel, pool, sides, keep) {
+    const rollId = await broadcastRoll({
+      label: `${baseLabel} — ${pool}d${sides}${keep === 'max' ? ' · garder le max' : keep === 'min' ? ' · garder le min' : ''}`,
+      color: diceGemColor(sheet),
+      playerId,
+      portrait: sheet?.portrait || '',
+      portraitIsImage: isImageUrl(sheet?.portrait),
+      formula: `${pool}d${sides}`,
+      diceSpec: [{ count: pool, sides }],
+      seed: Math.floor(Math.random() * 0xffffffff),
+      modifier: 0,
+      staged: true
+    });
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pendingStage = null;
+        reject(new Error('attack stage timeout'));
+      }, STAGE_TIMEOUT_MS);
+      pendingStage = { rollId, resolve, timer };
+    }).then((msg) => msg.rolls);
+  }
+
   async function doAttackRoll() {
     const weapon = selectedAttackWeapon;
-    if (!weapon || !sheet) return;
+    if (!weapon || !sheet || attackInFlight) return;
     saveAttackSettings();
+    const opts = { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque };
+    const baseLabel = `Attaque · ${weapon.nom || 'Sans nom'}`;
+
+    // 3D mode: staged physics throws — the driver walks runAttack, throwing
+    // each stage (initial pool, explosions) as a seeded intent and reading
+    // the dice off the settled physics. Any failure falls back to flat.
+    const preview = attackPreview(weapon, sheet.stats ?? {}, opts);
     let result;
-    try {
-      result = rollAttack(weapon, sheet.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque });
-    } catch (err) {
-      console.warn('Attack roll failed:', err);
-      return;
+    if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat' && preview && SIDES_TO_TYPE[preview.sides]) {
+      attackInFlight = true;
+      try {
+        result = await runAttack(weapon, sheet.stats ?? {}, opts, (pool, sides, keep) =>
+          throwAttackStage(baseLabel, pool, sides, keep)
+        );
+      } catch (err) {
+        console.warn('3D attack failed, falling back to flat:', err);
+      } finally {
+        attackInFlight = false;
+      }
+    }
+    if (!result) {
+      try {
+        result = await rollAttack(weapon, sheet.stats ?? {}, opts);
+      } catch (err) {
+        console.warn('Attack roll failed:', err);
+        return;
+      }
     }
     if (!result) return;
-    const label = `Attaque · ${weapon.nom || 'Sans nom'}`;
-    // ponytail: attacks are pre-rolled (flat pipeline) — the 3D intent flow can't
-    // replay reactive crit explosions; switch to a seeded server replay if needed.
     broadcastRoll({
-      label,
+      label: baseLabel,
       color: diceGemColor(sheet),
       playerId,
       portrait: sheet?.portrait || '',
@@ -379,7 +440,7 @@
     dispatch(roomId, {
       type: 'USE_CAPACITY',
       playerId,
-      capacityName: label.slice(0, 120),
+      capacityName: baseLabel.slice(0, 120),
       formula: `${result.stages[0]?.pool ?? 1}d${result.sides}${result.miss ? ' MISS' : result.critCount > 0 ? ` CRIT×${result.critCount}` : ''}`.slice(0, 32),
       total: result.total,
       rolls: result.stages.map((s) => s.kept)
