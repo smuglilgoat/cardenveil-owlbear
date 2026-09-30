@@ -273,6 +273,8 @@
       evolutions: (editSheet.evolutions ?? []).map(masteryLabel).join('\n')
     };
     isEditing = true;
+    // land directly on the edit section of the tab the user is viewing
+    editTab = activeTab;
   }
 
   function applyMasteryText(target) {
@@ -1316,7 +1318,7 @@
                     {#if weapon.de}<span class="text-[11px] font-bold text-[#9ca3af] shrink-0">{weapon.de}</span>{/if}
                   </div>
                 {/each}
-                {#each [...unequippedGear, ...bagItems] as item}
+                {#each [...bagItems, ...unequippedGear] as item}
                   <div
                     use:tooltip={itemNotes(item) !== '—' ? itemNotes(item) : item?.name}
                     class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 {!isEditing && item?.type === 'Consommable' ? 'cursor-pointer ring-1 ring-transparent hover:ring-[#4ade80]' : 'cursor-help'} hover:bg-[#374151] transition-colors"
