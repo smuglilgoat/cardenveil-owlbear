@@ -22,8 +22,8 @@
     {label} <span class="text-[8px] leading-none">▾</span>
   </button>
   {#if open}
-    <!-- click-away catcher -->
-    <button class="fixed inset-0 z-20 cursor-default" onclick={() => (open = false)} aria-label="Fermer le menu"></button>
+    <!-- click-away catcher: dims the page instead of an opaque overlay -->
+    <div class="fixed inset-0 z-20 bg-black/30" onclick={() => (open = false)} role="presentation"></div>
     <div class="absolute right-0 top-full mt-1 w-64 max-h-72 overflow-y-auto bg-[#111827] border border-[#374151] rounded-lg shadow-xl z-30 py-1">
       <button
         onclick={() => pick('')}
