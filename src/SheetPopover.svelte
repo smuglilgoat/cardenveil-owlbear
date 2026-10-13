@@ -310,13 +310,20 @@
 
   function pickCapStat(stat) {
     capStat = stat;
-    capMod = statMod(stat); // slider defaults to the selected stat's mod
+    capMod = capModFloor(stat); // slider defaults to the selected stat's mod
   }
+
+  /** Slider floor is 0 (a negative stat mod still allows a 0 pool). */
+  function capModFloor(stat) {
+    return Math.max(0, statMod(stat));
+  }
+
+  let capModValue = $derived(Math.max(0, capMod ?? statMod(capStat)));
 
   let capMult = $derived(Math.min(20, Math.max(0.5, Number(capMultiplier) || 1)));
   /** Valeur brute roll: the dice POOL is Multiplier × Mod, summed as-is. */
   let capCount = $derived(
-    Math.max(1, Math.min(999, Math.round(capMult * Number(capMod ?? statMod(capStat)))))
+    Math.max(1, Math.min(999, Math.round(capMult * capModValue)))
   );
   let equippedWeapons = $derived(pickAttackWeapon(sheet?.weapons ?? []).equipped);
 
@@ -367,6 +374,9 @@
 
   function toggleCapacity() {
     const before = accordionCount();
+    // Opening seeds the MOD slider at the selected stat's mod (Esprit by
+    // default) — the slider itself can then go down to 0.
+    if (!showCapacity && capMod == null) capMod = capModFloor(capStat);
     showCapacity = !showCapacity;
     resizeAccordions(before);
   }
@@ -818,16 +828,16 @@
           <div>
             <div class="flex items-center justify-between">
               <span class="text-[8px] font-bold text-[#9ca3af]">MOD · {STAT_LABELS[capStat]}</span>
-              <span class="text-[10px] font-bold text-indigo-300">{capMod ?? statMod(capStat)}</span>
+              <span class="text-[10px] font-bold text-indigo-300">{capModValue}</span>
             </div>
             <input
-              type="range" min={statMod(capStat)} max="20" step="1"
+              type="range" min="0" max="20" step="1"
               bind:value={capMod}
-              oninput={() => { if (capMod == null) capMod = statMod(capStat); }}
+              oninput={() => { if (capMod == null) capMod = capModFloor(capStat); }}
               class="w-full accent-indigo-500 h-1.5"
             />
           </div>
-          <div class="text-[9px] text-[#9ca3af]">Valeur brute : {capCount}d6 (×{capMult} · {capMod ?? statMod(capStat)} {STAT_LABELS[capStat]})</div>
+          <div class="text-[9px] text-[#9ca3af]">Valeur brute : {capCount}d6 (×{capMult} · {capModValue} {STAT_LABELS[capStat]})</div>
           <button
             onclick={doCapacityRoll}
             class="w-full py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 transition-colors text-[11px] font-bold text-white"

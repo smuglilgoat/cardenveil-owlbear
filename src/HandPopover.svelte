@@ -63,6 +63,20 @@
       party = await OBR.party.getPlayers();
       ready = true;
 
+      // Footprint data: where the interactive content starts inside the
+      // transparent popover (the dead space above it is what swallows clicks
+      // on the table). Dedupe in appLog caps this at one row per 30 s.
+      setTimeout(() => {
+        const rects = [...document.querySelectorAll('button')].map((el) => el.getBoundingClientRect());
+        const topMost = rects.length ? Math.round(Math.min(...rects.map((r) => r.top))) : null;
+        logEvent('info', 'hand_popover_geometry', {
+          detail: {
+            viewport: `${window.innerWidth}x${window.innerHeight}`,
+            topMostInteractive: topMost,
+          },
+        });
+      }, 400);
+
       if (popoverId) {
         try {
           expandedHeight = (await OBR.popover.getHeight(popoverId)) || expandedHeight;
@@ -423,11 +437,6 @@
       title={cardScheme === 'classic' ? 'Passer aux couleurs par famille (♥ rouge, ♦ or, ♣ vert, ♠ gris)' : "Repasser au schéma classique rouge/noir"}
       class="absolute top-1 right-[84px] z-[300] h-7 px-2.5 rounded-full flex items-center gap-1 text-[11px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors whitespace-nowrap"
     >🎨</button>
-    <button
-      onclick={toggleFold}
-      title="Replier la main"
-      class="absolute top-1 right-1 z-[300] h-7 px-2.5 rounded-full flex items-center gap-1 text-[11px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors whitespace-nowrap"
-    >▾ Replier</button>
   {/if}
   {#if folded}
     <div class="flex-1 flex items-center justify-center">
@@ -907,29 +916,37 @@
       {/if}
     </div>
     <div
-      class="shrink-0 flex items-center justify-center px-2 py-1.5 relative bottom-[-60px]"
+      class="shrink-0 flex flex-col items-center justify-center gap-1 px-2 py-1.5 relative bottom-[-40px]"
     >
       <!-- Token buttons -->
-      {#each TOKENS as tok}
-        {@const current = player.tokens[tok.key]}
-        {@const max = player.maxTokens?.[tok.key] ?? current}
-        {@const active_tok = action?.startsWith(tok.key)}
-        <button
-          onclick={() => { active = null; choosingToken = tok.key; }}
-          disabled={tok.disabled() || (action !== null && !active_tok) || choosingToken !== null}
-          use:tooltip={"Utiliser le token " + tok.label}
-          class="flex-1 flex flex-col items-center py-1 mx-1 border text-[9px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          style="
-            background: #213547;
-            border-color: {TOKEN_COLOR[tok.key] + (active_tok ? 'cc' : '50')};
-            color: {TOKEN_COLOR[tok.key]}
-          "
-        >
-          <span class="text-[11px] leading-none font-bold">{current}/{max}</span
+      <div class="flex items-center justify-center w-full">
+        {#each TOKENS as tok}
+          {@const current = player.tokens[tok.key]}
+          {@const max = player.maxTokens?.[tok.key] ?? current}
+          {@const active_tok = action?.startsWith(tok.key)}
+          <button
+            onclick={() => { active = null; choosingToken = tok.key; }}
+            disabled={tok.disabled() || (action !== null && !active_tok) || choosingToken !== null}
+            use:tooltip={"Utiliser le token " + tok.label}
+            class="flex-1 flex flex-col items-center py-1 mx-1 border text-[9px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            style="
+              background: #213547;
+              border-color: {TOKEN_COLOR[tok.key] + (active_tok ? 'cc' : '50')};
+              color: {TOKEN_COLOR[tok.key]}
+            "
           >
-          <span class="leading-none mt-0.5 opacity-80">{tok.label}</span>
-        </button>
-      {/each}
+            <span class="text-[11px] leading-none font-bold">{current}/{max}</span
+            >
+            <span class="leading-none mt-0.5 opacity-80">{tok.label}</span>
+          </button>
+        {/each}
+      </div>
+      <!-- Fold toggle, under the token buttons -->
+      <button
+        onclick={toggleFold}
+        title="Replier la main"
+        class="text-[10px] font-bold px-2.5 py-0.5 rounded-full text-gray-300 bg-[#213547] border border-gray-500 hover:text-white hover:border-indigo-400 transition-colors"
+      >▾ Replier</button>
     </div>
   {/if}
 </div>

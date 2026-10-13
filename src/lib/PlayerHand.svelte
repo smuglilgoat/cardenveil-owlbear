@@ -5,6 +5,7 @@
   import ActionLog from "./ActionLog.svelte";
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./deck.js";
   import { tooltip } from "./tooltip.js";
+  import { logEvent } from "./appLog.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY } from "./characterSheet.js";
 
   let { gameState, myId, myName, party, onAction } = $props();
@@ -275,14 +276,22 @@
     return (player?.hand.length ?? 0) + (player?.crystallized.length ?? 0);
   }
 
+  // Popover footprint hugs the card fan: HandPopover lays the fan out in
+  // `max(300, n*64 + 160)` px, so anything wider is transparent dead zone that
+  // swallows clicks on the table (OBR popovers are not click-through).
+  // The height stays 400: the fan/token offsets are hand-tuned against it and
+  // `hand_popover_metrics` logs the live geometry for a later tune.
+  const FAN_MIN_WIDTH = 300;
+  function popoverWidth() {
+    const base = player?.race === 'sporelin' ? 500 : FAN_MIN_WIDTH + 20;
+    return Math.max(base, cardCount() * 64 + 160);
+  }
+
   async function openPopover() {
     if (isOpeningPopover) return;
     isOpeningPopover = true;
     try {
-      const n = cardCount();
-      const isSporelin = player?.race === 'sporelin';
-      const baseWidth = isSporelin ? 500 : 400;
-      const width = Math.max(baseWidth, n * 64 + 160);
+      const width = popoverWidth();
       const height = 400;
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
@@ -299,6 +308,14 @@
       });
       popoverVisible = true;
       lastPopoverWidth = width;
+      Promise.all([
+        OBR.popover.getWidth(POPOVER_ID).catch(() => null),
+        OBR.popover.getHeight(POPOVER_ID).catch(() => null),
+      ]).then(([actualWidth, actualHeight]) =>
+        logEvent('info', 'hand_popover_metrics', {
+          detail: { requested: { width, height }, actual: { width: actualWidth, height: actualHeight } },
+        })
+      );
     } finally {
       isOpeningPopover = false;
     }
@@ -320,11 +337,8 @@
 
   // Reopen popover to resize when hand count or race changes while visible
   $effect(() => {
-    const n = cardCount();
-    const isSporelin = player?.race === 'sporelin';
-    const baseWidth = isSporelin ? 500 : 400;
-    const width = Math.max(baseWidth, n * 64 + 160);
-    
+    const width = popoverWidth();
+
     if (popoverVisible && width !== lastPopoverWidth) {
       openPopover();
     }
