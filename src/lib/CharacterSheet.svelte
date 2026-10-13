@@ -4,6 +4,7 @@
   import { tooltip } from './tooltip.js';
   import ActionDiamonds from './ActionDiamonds.svelte';
   import TemplateDropdown from './TemplateDropdown.svelte';
+  import ItemAddPopup from './ItemAddPopup.svelte';
   import { importSheetArchive } from './sheetAssets.js';
   import { RACES } from './deck.js';
   import { logError, setLogContext } from './appLog.js';
@@ -19,14 +20,12 @@
     equipWeapon,
     itemFields,
     itemFieldsFor,
-    FAMILY_ICONS,
-    ITEM_ICONS,
+    FAMILY_SUMMARIES,
     normalizeItemType,
     syncSlotsFromItems,
     slotDataFromItem,
     SUIT_LABELS,
     SUIT_SYMBOLS,
-    FAMILY_SUMMARIES,
     unequipHand,
     isTwoHanded,
     fetchCharacterSheet,
@@ -47,7 +46,8 @@
     suitSymbol,
     isImageUrl,
     EQUIPMENT_CATALOG,
-    findEquipmentTemplate,
+    withItemFromTemplate,
+    withWeaponFromTemplate,
     itemTypeColor,
     ITEM_TYPE_OPTIONS,
     raceLabel,
@@ -561,40 +561,24 @@
   ];
 
   // ─── Template add-buttons (ÉDITION INVENTAIRE) ──
-  // templateName '' = blank item (findEquipmentTemplate returns null).
+  // templateName '' = blank entry; the helpers live in characterSheet.js so the
+  // in-sheet add popup and the GM sheet modal share the exact same prefill.
   function addInventoryItem(templateName) {
-    const tpl = findEquipmentTemplate(templateName);
-    const fam = tpl?.family ?? '';
-    const consumable = tpl?.kind === 'consommable';
-    editSheet.inventoryItems = [{
-      type: tpl ? (consumable ? 'Consommable' : 'Équipement') : 'Divers',
-      icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
-      slot: tpl?.slot ?? '',
-      name: tpl?.nom ?? '',
-      ...(consumable
-        ? { quantite: tpl?.quantite ?? 1, attributs: tpl?.effet ?? '' }
-        : {
-            degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
-            family: fam,
-            familySummary: fam ? FAMILY_SUMMARIES[fam] ?? '' : '',
-            ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),
-            attributs: tpl?.proprietes ?? ''
-          }),
-      description: ''
-    }, ...(editSheet.inventoryItems || [])];
+    editSheet = withItemFromTemplate(editSheet, templateName);
   }
 
   function addWeaponFromTemplate(templateName) {
-    const tpl = findEquipmentTemplate(templateName);
-    editSheet.weapons = [{
-      icon: tpl ? FAMILY_ICONS[tpl.family] ?? '' : '',
-      nom: tpl?.nom ?? '',
-      de: tpl?.de ?? '',
-      degats: tpl?.degats ?? '',
-      proprietes: tpl?.proprietes ?? '',
-      forceAgi: '', critique: '', avantage: '',
-      bonus: '', perfection: '', notes: '', equipped: false
-    }, ...(editSheet.weapons || [])];
+    editSheet = withWeaponFromTemplate(editSheet, templateName);
+  }
+
+  // ─── In-sheet add popup (INVENTAIRE view, no ÉDITION needed) ──
+  let showItemAdd = $state(false);
+
+  /** @param {string|null} name @param {boolean} isWeapon */
+  function addFromPopup(name, isWeapon) {
+    showItemAdd = false;
+    if (name == null) return; // dismissed
+    saveSheet(isWeapon ? withWeaponFromTemplate(sheet, name) : withItemFromTemplate(sheet, name));
   }
 
   function saveSheet(next) {
@@ -1305,7 +1289,14 @@
           </div>
           {/if}
 
-          <h2 class="text-[15px] font-bold mt-4 mb-2">SAC</h2>
+          <div class="flex items-center justify-between mt-4 mb-2">
+            <h2 class="text-[15px] font-bold">SAC</h2>
+            <button
+              onclick={() => (showItemAdd = true)}
+              title="Ajouter un objet ou une arme sans passer par ÉDITION"
+              class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-full text-[11px] font-semibold text-white transition-colors whitespace-nowrap"
+            >＋ Ajouter</button>
+          </div>
           {#if view}
             <!-- Sac: free items + unequipped weapons + unequipped armor/equipment -->
             {@const unequippedWeapons = (view.weapons ?? []).filter((w) => w?.nom && !w?.equipped)}
@@ -2341,6 +2332,11 @@
         {/if}
       </div>
     </div>
+  {/if}
+
+  <!-- Item Add Popup (INVENTAIRE view) -->
+  {#if showItemAdd}
+    <ItemAddPopup onPick={addFromPopup} />
   {/if}
 
   <!-- Delete Confirmation Modal -->

@@ -471,6 +471,58 @@ export function findEquipmentTemplate(nom) {
 }
 
 /**
+ * Add a catalogue item to a sheet's inventory (prepended: newest first).
+ * `templateName` '' = blank Divers item. Returns a NEW sheet; shared by the
+ * ÉDITION add-buttons, the in-sheet add popup and the GM sheet modal.
+ * @param {Object} sheet - Character sheet
+ * @param {string} templateName - Catalogue name ('' for a blank item)
+ * @returns {Object} New sheet with the item added
+ */
+export function withItemFromTemplate(sheet, templateName) {
+  const tpl = findEquipmentTemplate(templateName);
+  const fam = tpl?.family ?? '';
+  const consumable = tpl?.kind === 'consommable';
+  const item = {
+    type: tpl ? (consumable ? 'Consommable' : 'Équipement') : 'Divers',
+    icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
+    slot: tpl?.slot ?? '',
+    name: tpl?.nom ?? '',
+    ...(consumable
+      ? { quantite: tpl?.quantite ?? 1, attributs: tpl?.effet ?? '' }
+      : {
+          degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
+          family: fam,
+          familySummary: fam ? FAMILY_SUMMARIES[fam] ?? '' : '',
+          ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),
+          attributs: tpl?.proprietes ?? ''
+        }),
+    description: ''
+  };
+  return { ...sheet, inventoryItems: [item, ...(sheet?.inventoryItems ?? [])] };
+}
+
+/**
+ * Add a catalogue weapon to a sheet (prepended, unequipped).
+ * `templateName` '' = blank weapon. Returns a NEW sheet.
+ * @param {Object} sheet - Character sheet
+ * @param {string} templateName - Catalogue name ('' for a blank weapon)
+ * @returns {Object} New sheet with the weapon added
+ */
+export function withWeaponFromTemplate(sheet, templateName) {
+  const tpl = findEquipmentTemplate(templateName);
+  const weapon = {
+    icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[tpl.family] ?? '') : '',
+    nom: tpl?.nom ?? '',
+    de: tpl?.de ?? '',
+    degats: tpl?.degats ?? '',
+    proprietes: tpl?.proprietes ?? '',
+    forceAgi: '', critique: '', avantage: '',
+    bonus: '', perfection: '', notes: '', equipped: false
+  };
+  return { ...sheet, weapons: [weapon, ...(sheet?.weapons ?? [])] };
+}
+
+/**
  * Detect the action type of a capacity from its free-text usage field.
  * "Bonus action" must be checked before "action"; "Réaction" before both.
  * @param {string} usage - Free-text usage (e.g. "Bonus action / Concentration")

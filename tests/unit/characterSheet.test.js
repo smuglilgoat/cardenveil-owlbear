@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -830,6 +830,37 @@ describe('Character Sheet dice helpers', () => {
       }
       const potion = findEquipmentTemplate('Potion de soin');
       expect(potion).toMatchObject({ effet: 'Soigne 4d10 PV', quantite: 1, kind: 'consommable' });
+    });
+  });
+
+  describe('withItemFromTemplate / withWeaponFromTemplate', () => {
+    const emptySheet = () => ({ inventoryItems: [], weapons: [] });
+
+    it('prepends a catalogue item with its icon, family summary and consumable fields', () => {
+      const sheet = withItemFromTemplate(withItemFromTemplate(emptySheet(), 'Bouclier'), 'Potion de soin');
+      expect(sheet.inventoryItems.map((i) => i.name)).toEqual(['Potion de soin', 'Bouclier']);
+      expect(sheet.inventoryItems[0]).toMatchObject({ type: 'Consommable', icon: '🧪', quantite: 1 });
+      expect(sheet.inventoryItems[1]).toMatchObject({ type: 'Équipement', icon: '🛡️' });
+      expect(sheet.inventoryItems[1].family).toBe('Boucliers');
+      expect(sheet.inventoryItems[1].familySummary).toBeTruthy();
+    });
+
+    it('creates a blank Divers item for the empty template and leaves the source sheet untouched', () => {
+      const source = emptySheet();
+      const sheet = withItemFromTemplate(source, '');
+      expect(sheet.inventoryItems).toHaveLength(1);
+      expect(sheet.inventoryItems[0]).toMatchObject({ type: 'Divers', name: '', icon: '' });
+      expect(source.inventoryItems).toHaveLength(0);
+    });
+
+    it('prepends weapons unequipped and prefers the per-item icon over the family icon', () => {
+      const sheet = withWeaponFromTemplate(emptySheet(), 'Katana (sabre long)');
+      expect(sheet.weapons).toHaveLength(1);
+      expect(sheet.weapons[0]).toMatchObject({ nom: 'Katana (sabre long)', de: '1d10', equipped: false });
+      expect(sheet.weapons[0].proprietes).toContain('Fluide');
+      expect(sheet.weapons[0].icon).toBe('🗡️');
+      const blank = withWeaponFromTemplate(emptySheet(), '');
+      expect(blank.weapons[0]).toMatchObject({ nom: '', de: '', equipped: false });
     });
   });
 

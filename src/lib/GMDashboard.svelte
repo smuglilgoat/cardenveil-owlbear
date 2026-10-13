@@ -32,8 +32,11 @@
     toNumber,
     normalizeRaceName,
     raceLabel,
-    sanitizeHtml
+    sanitizeHtml,
+    withItemFromTemplate,
+    withWeaponFromTemplate
   } from "./characterSheet.js";
+  import ItemAddPopup from "./ItemAddPopup.svelte";
   import { tooltip } from "./tooltip.js";
   import { logError, setLogContext } from "./appLog.js";
 
@@ -462,6 +465,21 @@
     } finally {
       sheetLoading = false;
     }
+  }
+
+  // ── In-sheet item add (GM writes straight into the player's sheet) ──
+  let showItemAdd = $state(false);
+  let gmWeapons = $derived(viewingSheet?.sheet?.weapons ?? []);
+  let gmItems = $derived(viewingSheet?.sheet?.inventoryItems ?? []);
+
+  /** @param {string|null} name @param {boolean} isWeapon */
+  async function addItemToViewingSheet(name, isWeapon) {
+    showItemAdd = false;
+    if (name == null || !viewingSheet) return;
+    viewingSheet.sheet = isWeapon
+      ? withWeaponFromTemplate(viewingSheet.sheet, name)
+      : withItemFromTemplate(viewingSheet.sheet, name);
+    await saveViewingSheet();
   }
 
   function closeCharacterSheet() {
@@ -1602,6 +1620,53 @@
             </div>
           </div>
 
+          <!-- Inventaire Section -->
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide">Inventaire</h3>
+              <button
+                onclick={() => (showItemAdd = true)}
+                use:tooltip={"Ajouter un objet ou une arme à la fiche (enregistré immédiatement)"}
+                class="px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+              >
+                ＋ Ajouter
+              </button>
+            </div>
+
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Armes</div>
+            {#if gmWeapons.length === 0}
+              <div class="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded-lg p-2.5 mb-3">Aucune arme.</div>
+            {:else}
+              <div class="space-y-1 mb-3">
+                {#each gmWeapons as weapon}
+                  <div class="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5">
+                    <span class="w-5 shrink-0 text-center text-base leading-none">{weapon.icon || '🗡'}</span>
+                    <span class="text-xs text-white font-semibold truncate flex-1">{weapon.nom || 'Sans nom'}</span>
+                    <span class="text-[11px] text-gray-400 shrink-0">{weapon.de || '—'}</span>
+                    {#if weapon.equipped}
+                      <span class="text-[10px] text-indigo-300 font-bold shrink-0">{weapon.hand === 'off' ? 'MAIN SEC.' : 'MAIN PRINC.'}</span>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Objets</div>
+            {#if gmItems.length === 0}
+              <div class="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded-lg p-2.5">Aucun objet.</div>
+            {:else}
+              <div class="space-y-1">
+                {#each gmItems as item}
+                  <div class="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5">
+                    <span class="w-5 shrink-0 text-center text-base leading-none">{item.icon || '🎒'}</span>
+                    <span class="text-xs text-white font-semibold truncate flex-1">{item.name || 'Sans nom'}</span>
+                    <span class="text-[11px] text-gray-400 shrink-0">{item.type || ''}{item.quantite != null ? ` · ×${item.quantite}` : ''}</span>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+
           <!-- Tokens Section -->
           <div>
             <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wide mb-3">Tokens</h3>
@@ -1805,6 +1870,10 @@
             </div>
           </div>
         </div>
+
+        {#if showItemAdd}
+          <ItemAddPopup onPick={addItemToViewingSheet} />
+        {/if}
       </div>
     </div>
   {/if}
