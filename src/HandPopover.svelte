@@ -32,6 +32,9 @@
   const EMPTY_FAN_H = 26;
   const MIN_H = 40;
   let barEl = $state(null);
+  let barLeftEl = $state(null);
+  let barCenterEl = $state(null);
+  let barRightEl = $state(null);
   let fanEl = $state(null);
   // Room viewport (NOT window.innerWidth/innerHeight: inside the popover frame
   // those ARE the popover, so clamping against them shrinks it on every fit).
@@ -47,16 +50,13 @@
   }
 
   /**
-   * Room the bar needs for what it currently shows: fold + colour + draw +
-   * 4 compact token chips (~360), plus whatever extra chip is displayed. Used
-   * as a width floor so a 2-card hand does not get a bar-sized popover.
+   * Width the bar actually needs: measured from its three groups' content
+   * (guessed constants either overlapped the groups or wasted table space).
+   * + gaps (2×4), padding (2×6) and border (2).
    */
   function barMinWidth() {
-    let w = 360;
-    if (pickHint) w += 130; // selection instruction
-    if (outgoingExchange) w += 80; // pending-exchange chip
-    if (player?.race === 'sporelin' && player.hand.length > 0) w += 34; // 🍄
-    return w;
+    const sum = (barLeftEl?.scrollWidth ?? 0) + (barCenterEl?.scrollWidth ?? 0) + (barRightEl?.scrollWidth ?? 0);
+    return Math.max(320, sum + 28);
   }
 
   function popoverWidth() {
@@ -82,7 +82,8 @@
     try {
       const panel = /** @type {HTMLElement|null} */ (document.querySelector('[data-modal-panel]'));
       const contentH = barEl.offsetHeight + (fanEl?.offsetHeight ?? 0);
-      const maxH = viewportH ? viewportH - 120 : Infinity;
+      // tall modals are allowed to grow the popover (no inner scrollbar)
+      const maxH = viewportH ? viewportH - 80 : Infinity;
       const height = Math.round(
         Math.max(MIN_H, Math.min(maxH, modal && panel ? Math.max(contentH, panel.offsetHeight + 20) : contentH))
       );
@@ -112,7 +113,7 @@
 
   // Re-fit after anything that changes a rendered band.
   $effect(() => {
-    void [folded, allCards.length, modal, ready, choosingToken, action];
+    void [folded, allCards.length, modal, ready, tokensOpen, action];
     requestAnimationFrame(() => fitPopover());
   });
 
@@ -151,7 +152,7 @@
       gameState = { ...createInitialGameState(), players: { 'demo-player': demo } };
       const state = params.get('state') || 'fanned';
       if (state === 'folded') folded = true;
-      if (state === 'token') choosingToken = 'agilite';
+      if (state === 'token') tokensOpen = true;
       if (state === 'tiefling') action = 'tiefling-choose';
       if (state === 'suit') { actionCard = demo.hand[0]; action = 'agilite-pick-suit'; }
       if (state === 'target') { actionCard = demo.hand[0]; action = 'social-pick-target'; }
@@ -279,14 +280,14 @@
   );
 
   let acceptingExchange = $state(null);
-  let choosingToken = /** @type {string | null} */ ($state(null)); // token key awaiting card/combat choice
+  let tokensOpen = $state(false); // the 🎟 Tokens modal is open
 
   let interactionFrozen = $derived(
     (player?.pendingHalfling != null) ||
     (incomingExchanges.length > 0 && action !== "accept-exchange") ||
     outgoingExchange !== null ||
     (action !== null && action !== "accept-exchange" && action !== "agilite-pick-card" && action !== "social-pick-card" && action !== "sporelin-pick-card" && action !== "sporelin-pick-target") ||
-    choosingToken !== null
+    tokensOpen
   );
 
   // A running action freezes the fan: drop the card selection with it.
@@ -297,7 +298,7 @@
   /** Open modal (null = none). The fan-pick flows are bar hints, not modals. */
   let modal = $derived(
     player?.pendingHalfling ? 'halfling'
-    : choosingToken ? 'token'
+    : tokensOpen ? 'tokens'
     : action === 'tiefling-choose' ? 'tiefling'
     : action === 'agilite-pick-suit' ? 'suit'
     : action === 'social-pick-target' ? 'social-target'
@@ -416,7 +417,7 @@
     action = null;
     actionCard = null;
     acceptingExchange = null;
-    choosingToken = null;
+    tokensOpen = false;
   }
 
   function useCombat(tokenKey, label) {
@@ -424,7 +425,7 @@
     const tokens = player.tokens;
     if (tokens[tokenKey] <= 0) return;
     onAction({ type: 'SPEND_TOKEN', playerId: myId, token: tokenKey });
-    choosingToken = null;
+    tokensOpen = false;
   }
 
   // ── Exchange acceptance ───────────────────────────────────────────────
@@ -709,25 +710,25 @@
     <div
       data-diag="bar"
       bind:this={barEl}
-      class="shrink-0 w-full grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 px-2 py-1.5 overflow-x-auto rounded-lg border border-[#374151]"
+      class="shrink-0 w-full grid grid-cols-[minmax(min-content,1fr)_auto_minmax(min-content,1fr)] items-center gap-1 px-1.5 py-1 overflow-x-auto rounded-lg border border-[#374151]"
       style="z-index: 100; background: rgba(17, 24, 39, 0.95); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);"
     >
       <!-- Left: fold toggle, colour (or the pick hint), exchange status -->
-      <div class="flex items-center gap-1.5 min-w-0">
+      <div bind:this={barLeftEl} class="flex items-center gap-1">
         <button
           onclick={toggleFold}
           use:tooltip={folded ? "Déplier la main sur la table" : "Replier la main (la barre reste)"}
-          class="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors whitespace-nowrap border {folded
+          class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold transition-colors whitespace-nowrap border {folded
             ? 'bg-[#213547] border-indigo-500 text-white'
             : 'bg-[#213547] border-gray-500 text-gray-200 hover:text-white'}"
         >{folded ? '🃏 Afficher' : '🃏 Replier'}</button>
 
         {#if pickHint}
           <div
-            class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-semibold text-white min-w-0"
+            class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-semibold text-white"
             style="background: rgba(30,30,50,0.92); border: 1px solid rgba(255,255,255,0.15);"
           >
-            <span class="truncate">{pickHint}</span>
+            <span class="whitespace-nowrap">{pickHint}</span>
             <button
               onclick={cancelAction}
               use:tooltip={"Annuler l'action en cours"}
@@ -738,7 +739,7 @@
           <button
             onclick={toggleCardScheme}
             title={cardScheme === 'classic' ? 'Passer aux couleurs par famille (♥ rouge, ♦ or, ♣ vert, ♠ gris)' : "Repasser au schéma classique rouge/noir"}
-            class="shrink-0 w-7 h-7 p-0 flex items-center justify-center rounded-full text-[12px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors"
+            class="shrink-0 w-6 h-6 p-0 flex items-center justify-center rounded-full text-[12px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors"
           >🎨</button>
         {/if}
 
@@ -752,12 +753,12 @@
       </div>
 
       <!-- Centre: draw (+ the sporelin exchange) -->
-      <div class="flex items-center gap-1.5 justify-center">
+      <div bind:this={barCenterEl} class="flex items-center gap-1 justify-center">
         <button
           onclick={drawCard}
           disabled={drawBlocked}
           use:tooltip={player.pendingHalfling ? "Choisissez d'abord une carte parmi les deux piochées" : mustCrystallize ? "Défaussez d'abord, le maximum de cartes en main est atteint" : handFull ? "Défaussez d'abord, le maximum de cartes en main est atteint" : "Piocher une carte"}
-          class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 whitespace-nowrap"
+          class="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 whitespace-nowrap"
           style="background: {mustCrystallize ? '#b45309' : '#4f46e5'};"
         >
           <span>{player.pendingHalfling
@@ -780,61 +781,62 @@
             onclick={() => { active = null; startSporelinExchange(); }}
             disabled={sporelinBlocked}
             use:tooltip={"Si vous avez Sporelin, vous pouvez échanger une carte avec chacun de vos alliés"}
-            class="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            class="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
             style="background: #7c3aed;"
           >🍄</button>
         {/if}
       </div>
 
-      <!-- Right: token chips -->
-      <div class="flex items-center gap-1.5 justify-end">
-        {#each TOKENS as tok}
-          {@const current = player.tokens[tok.key]}
-          {@const max = player.maxTokens?.[tok.key] ?? current}
-          {@const active_tok = action?.startsWith(tok.key)}
-          <button
-            onclick={() => { active = null; choosingToken = tok.key; }}
-            disabled={tok.disabled() || (action !== null && !active_tok) || choosingToken !== null}
-            use:tooltip={"Token " + tok.label + " — " + current + "/" + max + " · utiliser"}
-            class="shrink-0 flex items-center gap-1 px-1.5 py-1 rounded-md border text-[10px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
-            style="
-              background: #213547;
-              border-color: {STAT_COLORS[tok.key] + (active_tok ? 'cc' : '50')};
-              color: {STAT_COLORS[tok.key]};
-            "
-          >
-            <span class="leading-none">{tok.label.slice(0, 1)}</span>
-            <span class="leading-none">{current}</span>
-          </button>
-        {/each}
+      <!-- Right: single tokens chip (the four usages live in the modal) -->
+      <div bind:this={barRightEl} class="flex items-center gap-1 justify-end">
+        <button
+          onclick={() => { active = null; tokensOpen = true; }}
+          disabled={action !== null || tokensOpen}
+          use:tooltip={"Tokens — Force " + player.tokens.force + "/" + (player.maxTokens?.force ?? player.tokens.force) +
+            " · Agilité " + player.tokens.agilite + "/" + (player.maxTokens?.agilite ?? player.tokens.agilite) +
+            " · Esprit " + player.tokens.esprit + "/" + (player.maxTokens?.esprit ?? player.tokens.esprit) +
+            " · Social " + player.tokens.social + "/" + (player.maxTokens?.social ?? player.tokens.social)}
+          class="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
+          style="background: #213547; border-color: #4b5563;"
+        >
+          <span class="leading-none">🎟</span>
+          {#each TOKENS as tok}
+            <span class="leading-none" style="color: {STAT_COLORS[tok.key]}">{player.tokens[tok.key]}</span>
+          {/each}
+        </button>
       </div>
     </div>
 
     <!-- ── Modals (dark backdrop over the cards) ──────────────────────── -->
-    {#if modal === 'token'}
-      {@const ctok = TOKENS.find((t) => t.key === choosingToken)}
-      <HandModal
-        title={`Token ${ctok?.label ?? ''} — usage`}
-        accent={STAT_COLORS[choosingToken ?? ''] ?? '#6366f1'}
-        onClose={() => (choosingToken = null)}
-      >
-        <div class="flex gap-2">
-          <button
-            onclick={() => { ctok?.use(); choosingToken = null; }}
-            use:tooltip={TOKEN_CARTE_TIP[choosingToken ?? ''] ?? ''}
-            class="flex-1 py-2 rounded-lg text-[12px] font-bold text-white transition-colors"
-            style="background: {STAT_COLORS[choosingToken ?? '']}30; border: 1px solid {STAT_COLORS[choosingToken ?? '']};"
-          >Carte</button>
-          <button
-            onclick={() => useCombat(choosingToken ?? '', ctok?.label ?? choosingToken ?? '')}
-            use:tooltip={TOKEN_COMBAT_TIP[choosingToken ?? ''] ?? ''}
-            class="flex-1 py-2 rounded-lg text-[12px] font-bold text-gray-200 bg-gray-700 hover:bg-gray-600 border border-gray-600 transition-colors"
-          >Combat</button>
+    {#if modal === 'tokens'}
+      <HandModal title="Tokens — usage" accent="#6366f1" onClose={() => (tokensOpen = false)}>
+        <div class="flex flex-col gap-1.5">
+          {#each TOKENS as tok}
+            {@const current = player.tokens[tok.key]}
+            {@const max = player.maxTokens?.[tok.key] ?? current}
+            {@const active_tok = action?.startsWith(tok.key)}
+            <div class="flex items-center gap-1.5">
+              <span
+                class="w-14 shrink-0 text-[11px] font-bold"
+                style="color: {STAT_COLORS[tok.key]}"
+              >{tok.label}</span>
+              <span class="w-9 shrink-0 text-[11px] font-bold text-center" style="color: {STAT_COLORS[tok.key]}">{current}/{max}</span>
+              <button
+                onclick={() => { tokensOpen = false; tok.use(); }}
+                disabled={tok.disabled() || (action !== null && !active_tok)}
+                use:tooltip={TOKEN_CARTE_TIP[tok.key] ?? ''}
+                class="flex-1 py-1 rounded-md text-[11px] font-bold text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                style="background: {STAT_COLORS[tok.key]}30; border: 1px solid {STAT_COLORS[tok.key]};"
+              >Carte</button>
+              <button
+                onclick={() => useCombat(tok.key, tok.label)}
+                disabled={tok.disabled() || (action !== null && !active_tok)}
+                use:tooltip={TOKEN_COMBAT_TIP[tok.key] ?? ''}
+                class="flex-1 py-1 rounded-md text-[11px] font-bold text-gray-200 bg-gray-700 hover:bg-gray-600 border border-gray-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >Combat</button>
+            </div>
+          {/each}
         </div>
-        <p class="text-[10px] text-[#9ca3af] mt-2 text-center leading-snug">
-          Carte : {TOKEN_CARTE_TIP[choosingToken ?? ''] ?? ''}<br />
-          Combat : {TOKEN_COMBAT_TIP[choosingToken ?? ''] ?? ''}
-        </p>
       </HandModal>
 
     {:else if modal === 'halfling'}

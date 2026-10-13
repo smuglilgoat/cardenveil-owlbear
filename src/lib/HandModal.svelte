@@ -21,7 +21,7 @@
 >
   <div
     data-modal-panel
-    class="bg-[#1f2937] border border-[#374151] rounded-lg p-3 w-full max-w-[520px] max-h-[68vh] overflow-y-auto scrollbar-thin"
+    class="bg-[#1f2937] border border-[#374151] rounded-lg p-3 w-full max-w-[520px]"
     style="border-top: 2px solid {accent};"
     onclick={(e) => e.stopPropagation()}
     onkeydown={(e) => e.stopPropagation()}
