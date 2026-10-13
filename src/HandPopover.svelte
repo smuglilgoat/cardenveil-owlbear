@@ -700,8 +700,8 @@
     <div
       data-diag="bar"
       bind:this={barEl}
-      class="shrink-0 flex items-center gap-1.5 px-2 py-1.5 overflow-x-auto"
-      style="z-index: 100;"
+      class="shrink-0 flex items-center gap-1.5 px-2 py-1.5 overflow-x-auto rounded-lg border border-[#374151]"
+      style="z-index: 100; background: rgba(17, 24, 39, 0.95); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);"
     >
       <button
         onclick={toggleFold}
