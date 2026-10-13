@@ -879,6 +879,16 @@ describe('Character Sheet dice helpers', () => {
       expect(sheet.inventoryItems[1].familySummary).toBeTruthy();
     });
 
+    it('honours an explicit consumable quantity and clamps it', () => {
+      expect(withItemFromTemplate(emptySheet(), 'Potion de soin', 5).inventoryItems[0].quantite).toBe(5);
+      expect(withItemFromTemplate(emptySheet(), 'Potion de soin', 0).inventoryItems[0].quantite).toBe(1);
+      expect(withItemFromTemplate(emptySheet(), 'Potion de soin', 500).inventoryItems[0].quantite).toBe(99);
+      expect(withItemFromTemplate(emptySheet(), 'Potion de soin', 'abc').inventoryItems[0].quantite).toBe(1);
+      // no quantity on non-consumables (equipment keeps the template shape)
+      const armour = withItemFromTemplate(emptySheet(), 'Bouclier', 4).inventoryItems[0];
+      expect(armour.quantite).toBeUndefined();
+    });
+
     it('creates a blank Divers item for the empty template and leaves the source sheet untouched', () => {
       const source = emptySheet();
       const sheet = withItemFromTemplate(source, '');

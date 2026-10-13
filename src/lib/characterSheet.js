@@ -492,19 +492,21 @@ export function findEquipmentTemplate(nom) {
  * ÉDITION add-buttons, the in-sheet add popup and the GM sheet modal.
  * @param {Object} sheet - Character sheet
  * @param {string} templateName - Catalogue name ('' for a blank item)
+ * @param {number} [quantity] - Consumable quantity (1-99, defaults to the template)
  * @returns {Object} New sheet with the item added
  */
-export function withItemFromTemplate(sheet, templateName) {
+export function withItemFromTemplate(sheet, templateName, quantity) {
   const tpl = findEquipmentTemplate(templateName);
   const fam = tpl?.family ?? '';
   const consumable = tpl?.kind === 'consommable';
+  const qty = Math.max(1, Math.min(99, Math.round(Number(quantity) || tpl?.quantite || 1)));
   const item = {
     type: tpl ? (consumable ? 'Consommable' : 'Équipement') : 'Divers',
     icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
     slot: tpl?.slot ?? '',
     name: tpl?.nom ?? '',
     ...(consumable
-      ? { quantite: tpl?.quantite ?? 1, attributs: tpl?.effet ?? '' }
+      ? { quantite: qty, attributs: tpl?.effet ?? '' }
       : {
           degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
           family: fam,

@@ -585,8 +585,9 @@
   // ─── Template add-buttons (ÉDITION INVENTAIRE) ──
   // templateName '' = blank entry; the helpers live in characterSheet.js so the
   // in-sheet add popup and the GM sheet modal share the exact same prefill.
-  function addInventoryItem(templateName) {
-    editSheet = withItemFromTemplate(editSheet, templateName);
+  /** @param {string} templateName @param {number} [quantity] */
+  function addInventoryItem(templateName, quantity) {
+    editSheet = withItemFromTemplate(editSheet, templateName, quantity);
   }
 
   function addWeaponFromTemplate(templateName) {
@@ -601,17 +602,17 @@
     itemAddTarget = target;
   }
 
-  /** @param {string|null} name @param {boolean} isWeapon */
-  function addFromPopup(name, isWeapon) {
+  /** @param {string|null} name @param {boolean} isWeapon @param {number} [quantity] */
+  function addFromPopup(name, isWeapon, quantity) {
     const target = itemAddTarget;
     itemAddTarget = null;
     if (name == null) return; // dismissed
     if (target === 'sac') {
-      saveSheet(isWeapon ? withWeaponFromTemplate(sheet, name) : withItemFromTemplate(sheet, name));
+      saveSheet(isWeapon ? withWeaponFromTemplate(sheet, name) : withItemFromTemplate(sheet, name, quantity));
       return;
     }
     if (isWeapon) addWeaponFromTemplate(name);
-    else addInventoryItem(name);
+    else addInventoryItem(name, quantity);
   }
 
   function saveSheet(next) {
@@ -2377,7 +2378,7 @@
 
   <!-- Add popup: SAC view + ÉDITION INVENTAIRE / ARMES -->
   {#if itemAddTarget}
-    <ItemAddPopup mode={itemAddTarget === 'sac' ? 'all' : itemAddTarget} onPick={addFromPopup} />
+    <ItemAddPopup mode={itemAddTarget === 'sac' ? 'all' : itemAddTarget} askQuantity onPick={addFromPopup} />
   {/if}
 
   <!-- Delete Confirmation Modal -->

@@ -71,6 +71,16 @@ Correctif : hauteur demandée **380 px** pour les deux appelants, `expandedHeigh
 par défaut 380, et mesure de l'invite via les rectangles enfants (le
 `scrollHeight` d'un flex `overflow: visible` n'est pas fiable).
 
+## Addendum (2.6.2) — consumable quantity
+
+`ItemAddPopup` gained `askQuantity`: when a picked template is a consumable
+(`findEquipmentTemplate(name).kind === 'consommable'`) the list is replaced by a
+QUANTITÉ step (−/＋ buttons + numeric input clamped to 1–99, `Ajouter ×N`,
+`← Retour`), and `onPick(name, isWeapon, quantity)` forwards it to
+`withItemFromTemplate(sheet, name, quantity)`. Enabled for the GM modal **and**
+the player's SAC / ÉDITION popups; weapons and non-consumables skip the step.
+Test added (explicit quantity + clamping + no quantity on equipment). 220/220.
+
 ## Follow-up
 - After the next live session, read `app_logs` (`event = 'diag_snapshot'` and
   `hand_popover_metrics`/`hand_popover_geometry`) to confirm the popover bands

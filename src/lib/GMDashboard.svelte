@@ -505,13 +505,13 @@
   let gmWeapons = $derived(viewingSheet?.sheet?.weapons ?? []);
   let gmItems = $derived(viewingSheet?.sheet?.inventoryItems ?? []);
 
-  /** @param {string|null} name @param {boolean} isWeapon */
-  async function addItemToViewingSheet(name, isWeapon) {
+  /** @param {string|null} name @param {boolean} isWeapon @param {number} [quantity] */
+  async function addItemToViewingSheet(name, isWeapon, quantity) {
     showItemAdd = false;
     if (name == null || !viewingSheet) return;
     viewingSheet.sheet = isWeapon
       ? withWeaponFromTemplate(viewingSheet.sheet, name)
-      : withItemFromTemplate(viewingSheet.sheet, name);
+      : withItemFromTemplate(viewingSheet.sheet, name, quantity);
     await saveViewingSheet();
   }
 
@@ -1915,7 +1915,7 @@
         </div>
 
         {#if showItemAdd}
-          <ItemAddPopup onPick={addItemToViewingSheet} />
+          <ItemAddPopup onPick={addItemToViewingSheet} askQuantity />
         {/if}
       </div>
     </div>

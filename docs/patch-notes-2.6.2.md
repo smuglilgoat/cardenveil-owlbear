@@ -1,0 +1,15 @@
+# Cardenveil 2.6.2 — notes de version
+
+## Quantité des consommables à l'ajout
+
+- En ajoutant un **consommable** (potion, huile, nourriture, bombe, munition…)
+  depuis la fenêtre d'ajout, une étape **QUANTITÉ** apparaît : boutons −/＋ ou
+  saisie directe (1 à 99), puis « Ajouter ×N ». Fini les 12 clics pour
+  déposer 12 rations.
+- Valable **côté MJ** (fiche d'un joueur depuis le tableau MJ) **et côté
+  joueur** (bouton ＋ Ajouter du SAC, et les boutons d'ajout d'ÉDITION
+  INVENTAIRE / ARMES).
+- Les objets non consommables (armes, armures, équipement, objet vierge) ne
+  passent pas par l'étape ; toute quantité hors bornes est ramenée à 1–99.
+- Rappel 2.6.1 : la hauteur du popover de main est maintenant mesurée
+  (380 px) — le bouton Replier et les tokens ne sont plus coupés.
