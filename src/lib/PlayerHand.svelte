@@ -269,43 +269,25 @@
   );
 
   // ── Popover hand ─────────────────────────────────────────────────────
+  // The frame owns its footprint now (HandPopover.fitPopover sizes itself to
+  // the bar + fan + modal), so we only open it: provisional size = fanned
+  // 460x172, immediately corrected by the frame. No reopen-on-card-count
+  // effect anymore — the frame subscribes to the state itself.
   const POPOVER_ID = "com.cardenveil/hand";
   let popoverVisible = $state(false);
-  let lastPopoverWidth = $state(0);
   let isOpeningPopover = false;
-
-  function cardCount() {
-    return (player?.hand.length ?? 0) + (player?.crystallized.length ?? 0);
-  }
-
-  // Popover footprint hugs the card fan: HandPopover lays the fan out in
-  // `max(300, n*64 + 160)` px, so anything wider is transparent dead zone that
-  // swallows clicks on the table (OBR popovers are not click-through).
-  // The height stays 400: the fan/token offsets are hand-tuned against it and
-  // `hand_popover_metrics` logs the live geometry for a later tune.
-  const FAN_MIN_WIDTH = 300;
-  function popoverWidth() {
-    const base = player?.race === 'sporelin' ? 500 : FAN_MIN_WIDTH + 20;
-    return Math.max(base, cardCount() * 64 + 160);
-  }
 
   async function openPopover() {
     if (isOpeningPopover) return;
     isOpeningPopover = true;
     try {
-      const width = popoverWidth();
-      // Content is fan (200) + draw bar (~57) + token bar with the fold
-      // button (~112) = ~370 px. Measured live via 🔍 Diag: at 300 px the
-      // token bar and the fold button were laid out below the popover box
-      // (clippedBelow 67). The frame grows itself further for token prompts.
-      const height = 380;
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({
         id: POPOVER_ID,
         url: `${window.location.origin}/hand.html?popoverId=${encodeURIComponent(POPOVER_ID)}`,
-        width,
-        height,
+        width: 460,
+        height: 172,
         anchorPosition: { left: vw / 2, top: vh - 56 },
         anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
@@ -313,15 +295,6 @@
         hidePaper: true,
       });
       popoverVisible = true;
-      lastPopoverWidth = width;
-      Promise.all([
-        OBR.popover.getWidth(POPOVER_ID).catch(() => null),
-        OBR.popover.getHeight(POPOVER_ID).catch(() => null),
-      ]).then(([actualWidth, actualHeight]) =>
-        logEvent('info', 'hand_popover_metrics', {
-          detail: { requested: { width, height }, actual: { width: actualWidth, height: actualHeight } },
-        })
-      );
     } finally {
       isOpeningPopover = false;
     }
@@ -330,7 +303,6 @@
   async function closePopover() {
     await OBR.popover.close(POPOVER_ID);
     popoverVisible = false;
-    lastPopoverWidth = 0;
   }
 
   async function togglePopover() {
@@ -340,15 +312,6 @@
       await openPopover();
     }
   }
-
-  // Reopen popover to resize when hand count or race changes while visible
-  $effect(() => {
-    const width = popoverWidth();
-
-    if (popoverVisible && width !== lastPopoverWidth) {
-      openPopover();
-    }
-  });
 
   // ── Card color scheme ('color' = sheet schema, 'classic' = red/black) ──
   let cardScheme = $state(getCardScheme());

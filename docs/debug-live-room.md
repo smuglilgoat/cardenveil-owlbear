@@ -21,9 +21,11 @@ limit 20;
 ```
 
   Un snapshot contient : `viewport`, `dpr`, `visibility`, `bodyScrollHeight`,
-  les rectangles des bandes marquées `data-diag` (`root`, `prompts`, `fan`,
-  `drawbar`, `tokenbar`), leurs classes CSS, et les bornes des éléments
-  interactifs avec `clippedBelow` = nombre de pixels coupés en bas de l'écran.
+  les rectangles des bandes marquées `data-diag` (`root`, `bar`, `fan`), leurs
+  classes CSS, et les bornes des éléments interactifs avec `clippedBelow` =
+  nombre de pixels coupés en bas de l'écran. Depuis la refonte 2.7.0 le popover
+  se dimensionne lui-même : `hand_popover_metrics` (message `LxH`) montre la
+  taille demandée par état (replié / éventail / modale).
 - ⚠️ `appLog` déduplique : une même ligne ne peut être écrite qu'une fois
   toutes les 30 s par écran. Attendre ~30 s entre deux clics.
 
@@ -41,12 +43,13 @@ document.querySelector('[data-diag="fan"]').getBoundingClientRect();
 
 ## 3. Aperçu hors OBR (mise en page seulement)
 
-- `https://cardenveil.netlify.app/hand.html?cards=15&diag=1` rend un éventail
-  factice (7 cartes par défaut, `cards=0..40`) **sans contexte OBR** : pratique
-  pour vérifier hauteurs/positions au pixel près dans un navigateur normal.
-  `diag=1` imprime le snapshot dans la console (et tente `app_logs`).
-- `hand.html?cards=15` est aussi le moyen de reproduire le cas « main de MJ
-  15 cartes » sans room.
+- `hand.html?cards=15` rend un éventail factice (7 cartes par défaut,
+  `cards=0..40`) **sans contexte OBR**. `state=` choisit l'état affiché :
+  `fanned` (défaut), `folded`, `token`, `halfling`, `tiefling`, `suit`,
+  `target`, `accept`, `incoming`. Exemple :
+  `hand.html?cards=15&state=folded`.
+- Ajouter `diag=1` imprime le snapshot dans la console (et tente `app_logs`).
+- C'est aussi le moyen de reproduire le cas « main de MJ 15 cartes » sans room.
 
 ## 4. Ce qu'il me faut si un souci persiste
 

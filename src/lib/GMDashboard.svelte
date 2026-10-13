@@ -98,32 +98,23 @@
   );
 
   // ── GM Character Hand Popover ─────────────────────────────────────────
+  // Same as the player hand popover: the frame sizes itself (fitPopover), we
+  // just open it with the provisional fanned size.
   const GM_POPOVER_ID = "com.cardenveil/gm-hand";
   let gmPopoverVisible = $state(false);
-  let lastGmPopoverWidth = $state(0);
   let isOpeningGmPopover = false;
-
-  function gmCardCount() {
-    return (gmChar?.hand.length ?? 0) + (gmChar?.crystallized.length ?? 0);
-  }
 
   async function openGmPopover() {
     if (isOpeningGmPopover) return;
     isOpeningGmPopover = true;
     try {
-      const n = gmCardCount();
-      // Same geometry as the player hand popover: width hugs the fan, height
-      // fits the fan + token bars + fold button (~370 px, measured with 🔍 Diag
-      // — the old 320 px cut the token bar and the fold button off).
-      const width = Math.max(320, n * 64 + 160);
-      const height = 380;
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({
         id: GM_POPOVER_ID,
         url: `${window.location.origin}/hand.html?playerId=${GM_CHAR_ID}&popoverId=${encodeURIComponent(GM_POPOVER_ID)}`,
-        width,
-        height,
+        width: 460,
+        height: 172,
         anchorPosition: { left: vw / 2, top: vh - 56 },
         anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
@@ -131,7 +122,6 @@
         hidePaper: true,
       });
       gmPopoverVisible = true;
-      lastGmPopoverWidth = width;
     } finally {
       isOpeningGmPopover = false;
     }
@@ -140,7 +130,6 @@
   async function closeGmPopover() {
     await OBR.popover.close(GM_POPOVER_ID);
     gmPopoverVisible = false;
-    lastGmPopoverWidth = 0;
   }
 
   async function toggleGmPopover() {
@@ -150,15 +139,6 @@
       await openGmPopover();
     }
   }
-
-  // Reopen popover to resize when hand count changes while visible
-  $effect(() => {
-    const n = gmCardCount();
-    const width = Math.max(400, n * 64 + 160);
-    if (gmPopoverVisible && width !== lastGmPopoverWidth) {
-      openGmPopover();
-    }
-  });
 
   onDestroy(async () => {
     if (gmPopoverVisible) await OBR.popover.close(GM_POPOVER_ID).catch(() => {});
