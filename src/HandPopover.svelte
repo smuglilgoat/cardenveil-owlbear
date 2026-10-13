@@ -50,13 +50,22 @@
   }
 
   /**
-   * Width the bar actually needs: measured from its three groups' content
-   * (guessed constants either overlapped the groups or wasted table space).
-   * + gaps (2×4), padding (2×6) and border (2).
+   * Intrinsic width of a bar group = sum of its (non-shrinking) children.
+   * NOT `scrollWidth`: a group stretched by its grid track reports the TRACK
+   * width, which fed the previous popover width back into the next fit and grew
+   * it on every render. Children with `shrink-0` always report their natural
+   * size, whatever the popover width is.
    */
+  function groupWidth(el) {
+    if (!el) return 0;
+    const kids = [...el.children];
+    return kids.reduce((sum, k) => sum + k.offsetWidth, 0) + Math.max(0, kids.length - 1) * 4; // gap-1
+  }
+
+  /** Bar width needed = the three groups + grid gaps, padding and border. */
   function barMinWidth() {
-    const sum = (barLeftEl?.scrollWidth ?? 0) + (barCenterEl?.scrollWidth ?? 0) + (barRightEl?.scrollWidth ?? 0);
-    return Math.max(320, sum + 28);
+    const sum = groupWidth(barLeftEl) + groupWidth(barCenterEl) + groupWidth(barRightEl);
+    return Math.max(320, sum + 26);
   }
 
   function popoverWidth() {
@@ -725,7 +734,7 @@
 
         {#if pickHint}
           <div
-            class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-semibold text-white"
+            class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-semibold text-white"
             style="background: rgba(30,30,50,0.92); border: 1px solid rgba(255,255,255,0.15);"
           >
             <span class="whitespace-nowrap">{pickHint}</span>
