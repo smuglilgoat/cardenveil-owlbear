@@ -6,7 +6,7 @@
   import { tooltip } from "./lib/tooltip.js";
   import { logEvent, logError, setLogContext } from "./lib/appLog.js";
   import { collectDiag, initDiag } from "./lib/diag.js";
-  import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY } from "./lib/characterSheet.js";
+  import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY, STAT_COLORS } from "./lib/characterSheet.js";
   import HandModal from "./lib/HandModal.svelte";
 
   initDiag('hand');
@@ -466,12 +466,6 @@
     );
   }
 
-  const TOKEN_COLOR = /** @type {{ [key: string]: string }} */ ({
-    force: "#ef4444",
-    agilite: "#22c55e",
-    esprit: "#3b82f6",
-    social: "#eab308",
-  });
   const TOKENS = [
     {
       key: "force",
@@ -786,8 +780,8 @@
           class="shrink-0 flex items-center gap-1 px-1.5 py-1 rounded-md border text-[10px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
           style="
             background: #213547;
-            border-color: {TOKEN_COLOR[tok.key] + (active_tok ? 'cc' : '50')};
-            color: {TOKEN_COLOR[tok.key]};
+            border-color: {STAT_COLORS[tok.key] + (active_tok ? 'cc' : '50')};
+            color: {STAT_COLORS[tok.key]};
           "
         >
           <span class="leading-none">{tok.label.slice(0, 1)}</span>
@@ -801,7 +795,7 @@
       {@const ctok = TOKENS.find((t) => t.key === choosingToken)}
       <HandModal
         title={`Token ${ctok?.label ?? ''} — usage`}
-        accent={TOKEN_COLOR[choosingToken ?? ''] ?? '#6366f1'}
+        accent={STAT_COLORS[choosingToken ?? ''] ?? '#6366f1'}
         onClose={() => (choosingToken = null)}
       >
         <div class="flex gap-2">
@@ -809,7 +803,7 @@
             onclick={() => { ctok?.use(); choosingToken = null; }}
             use:tooltip={TOKEN_CARTE_TIP[choosingToken ?? ''] ?? ''}
             class="flex-1 py-2 rounded-lg text-[12px] font-bold text-white transition-colors"
-            style="background: {TOKEN_COLOR[choosingToken ?? '']}30; border: 1px solid {TOKEN_COLOR[choosingToken ?? '']};"
+            style="background: {STAT_COLORS[choosingToken ?? '']}30; border: 1px solid {STAT_COLORS[choosingToken ?? '']};"
           >Carte</button>
           <button
             onclick={() => useCombat(choosingToken ?? '', ctok?.label ?? choosingToken ?? '')}

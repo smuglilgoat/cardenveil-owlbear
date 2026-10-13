@@ -6,7 +6,7 @@
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./deck.js";
   import { tooltip } from "./tooltip.js";
   import { logEvent } from "./appLog.js";
-  import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY } from "./characterSheet.js";
+  import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY, STAT_COLORS } from "./characterSheet.js";
 
   let { gameState, myId, myName, party, onAction } = $props();
 
@@ -198,12 +198,6 @@
 
 
 
-  const TOKEN_COLOR = /** @type {{ [key: string]: string }} */ ({
-    force: "#ef4444",
-    agilite: "#22c55e",
-    esprit: "#3b82f6",
-    social: "#eab308",
-  });
   const TOKENS = [
     {
       key: "force",
@@ -482,8 +476,8 @@
     <!-- ── Token choice: Carte vs Combat ────────────────────────── -->
     {#if choosingToken !== null}
       {@const ctok = TOKENS.find(t => t.key === choosingToken)}
-      <div class="bg-gray-900/80 border rounded-xl p-3 space-y-2" style="border-color: {TOKEN_COLOR[choosingToken ?? '']}55;">
-        <p class="text-xs font-semibold" style="color: {TOKEN_COLOR[choosingToken ?? '']}">
+      <div class="bg-gray-900/80 border rounded-xl p-3 space-y-2" style="border-color: {STAT_COLORS[choosingToken ?? '']}55;">
+        <p class="text-xs font-semibold" style="color: {STAT_COLORS[choosingToken ?? '']}">
           Token {ctok?.label} — usage :
         </p>
         <div class="flex gap-2">
@@ -491,7 +485,7 @@
             onclick={() => { ctok?.use(); choosingToken = null; }}
             use:tooltip={TOKEN_CARTE_TIP[choosingToken ?? ''] ?? ''}
             class="flex-1 py-2 rounded-lg text-xs font-semibold text-white text-center"
-            style="background: {TOKEN_COLOR[choosingToken ?? '']}30; border: 1px solid {TOKEN_COLOR[choosingToken ?? '']};"
+            style="background: {STAT_COLORS[choosingToken ?? '']}30; border: 1px solid {STAT_COLORS[choosingToken ?? '']};"
           >
             <div>Carte</div>
             <div class="text-[10px] opacity-60 mt-0.5">{ctok?.desc ?? ''}</div>
@@ -779,7 +773,7 @@
                 <div
                   class="w-3.5 h-3.5 rounded-full border border-gray-600 transition-colors"
                   style={i < current
-                    ? `background:${TOKEN_COLOR[tok.key]};border-color:${TOKEN_COLOR[tok.key]}`
+                    ? `background:${STAT_COLORS[tok.key]};border-color:${STAT_COLORS[tok.key]}`
                     : "background:#1f2937"}
                 ></div>
               {/each}
@@ -800,9 +794,9 @@
               disabled={tok.disabled() || busy}
               use:tooltip={"Utiliser le token " + tok.label}
               class="text-[10px] px-2 py-1 rounded-lg font-semibold shrink-0 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              style="background:{TOKEN_COLOR[tok.key]}20;color:{TOKEN_COLOR[
+              style="background:{STAT_COLORS[tok.key]}20;color:{STAT_COLORS[
                 tok.key
-              ]};border:1px solid {TOKEN_COLOR[tok.key]}60"
+              ]};border:1px solid {STAT_COLORS[tok.key]}60"
             >
               {current}/{max}
             </button>

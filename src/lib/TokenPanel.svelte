@@ -1,5 +1,6 @@
 <script>
   import { tooltip } from './tooltip.js';
+  import { STAT_COLORS } from './characterSheet.js';
   /**
    * @type {{
    *   playerState: object,
@@ -12,10 +13,10 @@
   let { playerState, onSpendToken, onAddToken, onSetMax, isGM = false } = $props();
 
   const STATS = [
-    { key: 'force',   label: 'Force',   color: '#ef4444' },
-    { key: 'agilite', label: 'Agilité', color: '#22c55e' },
-    { key: 'esprit',  label: 'Esprit',  color: '#3b82f6' },
-    { key: 'social',  label: 'Social',  color: '#eab308' },
+    { key: 'force',   label: 'Force',   color: STAT_COLORS.force },
+    { key: 'agilite', label: 'Agilité', color: STAT_COLORS.agilite },
+    { key: 'esprit',  label: 'Esprit',  color: STAT_COLORS.esprit },
+    { key: 'social',  label: 'Social',  color: STAT_COLORS.social },
   ];
 </script>
 
