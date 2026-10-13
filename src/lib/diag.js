@@ -48,9 +48,18 @@ export function collectDiag(entry) {
     classes[name] = String(el.className ?? '').slice(0, 160);
   }
 
-  const interactive = [...document.querySelectorAll('button, select, input, [role="button"]')].map((el) =>
-    el.getBoundingClientRect()
-  );
+  // Elements inside a scroll container (sheet tabs, long lists) are reachable
+  // by scrolling — only report real clipping for the always-visible ones.
+  const inScrollContainer = (el) => {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const overflowY = getComputedStyle(p).overflowY;
+      if (overflowY === 'auto' || overflowY === 'scroll') return true;
+    }
+    return false;
+  };
+  const interactive = [...document.querySelectorAll('button, select, input, [role="button"]')]
+    .filter((el) => !inScrollContainer(el))
+    .map((el) => el.getBoundingClientRect());
   const bottom = interactive.length ? Math.round(Math.max(...interactive.map((r) => r.bottom))) : null;
   return {
     entry,

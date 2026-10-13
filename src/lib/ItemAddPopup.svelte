@@ -20,11 +20,14 @@
   // Consumable awaiting a quantity: { name } while the step is shown
   let qtyTarget = $state(/** @type {{name: string}|null} */ (null));
   let qty = $state(1);
+  let qtyInput = $state(/** @type {HTMLInputElement|null} */ (null));
   let qtyName = $derived(qtyTarget?.name ?? '');
   let qtyIcon = $derived(ITEM_ICONS[qtyName] ?? FAMILY_ICONS['Consommables'] ?? '🧪');
 
   function setQty(next) {
     qty = Math.max(1, Math.min(MAX_QTY, Math.round(Number(next) || 1)));
+    // keep the visible input in step with the clamped value (e.g. "150" → 99)
+    if (qtyInput && qtyInput.value !== String(qty)) qtyInput.value = String(qty);
   }
 
   let groups = $derived(
@@ -42,8 +45,10 @@
     return ITEM_ICONS[item.nom] ?? FAMILY_ICONS[group.family] ?? '';
   }
 
-  function pick(name, isWeapon) {
-    onPick?.(name, isWeapon);
+  /** Forward whatever the caller decided. Rest args on purpose: a positional
+   *  signature silently drops the quantity (that bug shipped once). */
+  function pick(...args) {
+    onPick?.(...args);
   }
 
   /** Catalogue rows: consumables go through the quantity step when asked. */
@@ -98,17 +103,18 @@
           <div class="flex items-center gap-1.5">
             <button
               onclick={() => setQty(qty - 1)}
-              class="w-7 h-7 rounded-md bg-[#242424] border border-[#374151] text-white font-bold hover:bg-[#374151] transition-colors"
+              class="w-7 h-7 p-0 flex items-center justify-center leading-none rounded-md bg-[#242424] border border-[#374151] text-white text-[15px] font-bold hover:bg-[#374151] transition-colors"
             >−</button>
             <input
               type="number" min="1" max={MAX_QTY} step="1"
+              bind:this={qtyInput}
               bind:value={qty}
               oninput={() => setQty(qty)}
               class="w-16 px-1.5 py-1 bg-[#242424] border border-[#374151] rounded-md text-center text-[13px] font-bold focus:outline-none focus:border-indigo-500"
             />
             <button
               onclick={() => setQty(qty + 1)}
-              class="w-7 h-7 rounded-md bg-[#242424] border border-[#374151] text-white font-bold hover:bg-[#374151] transition-colors"
+              class="w-7 h-7 p-0 flex items-center justify-center leading-none rounded-md bg-[#242424] border border-[#374151] text-white text-[15px] font-bold hover:bg-[#374151] transition-colors"
             >＋</button>
           </div>
         </div>
