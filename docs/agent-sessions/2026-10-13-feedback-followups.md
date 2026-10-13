@@ -54,6 +54,23 @@ clipping, grant the Khajeet claws reliably, and make the live room inspectable.
 - Not verifiable headlessly: the exact pixel result of the 300 px base +
   prompt growth (that is what 🔍 Diag / `hand.html?cards=15` are for now).
 
+## Live verification (🔍 Diag, 2026-10-13 19:08 UTC)
+
+Snapshot du cadre `hand.html` en room (viewport `1120x300`) :
+
+```
+rects: fan [4,204]  drawbar [204,261]  tokenbar [261,373]  prompts [0,4]
+interactive: bottom 367 → clippedBelow 67
+bodyScrollHeight: 373
+```
+
+→ le contenu réel fait **373 px** pour une hauteur demandée de 300 (joueur) /
+320 (MJ) : la colonne flex ne peut pas comprimer, la barre de tokens et le
+bouton Replier étaient donc posés **sous** la boîte du popover (donc invisibles).
+Correctif : hauteur demandée **380 px** pour les deux appelants, `expandedHeight`
+par défaut 380, et mesure de l'invite via les rectangles enfants (le
+`scrollHeight` d'un flex `overflow: visible` n'est pas fiable).
+
 ## Follow-up
 - After the next live session, read `app_logs` (`event = 'diag_snapshot'` and
   `hand_popover_metrics`/`hand_popover_geometry`) to confirm the popover bands

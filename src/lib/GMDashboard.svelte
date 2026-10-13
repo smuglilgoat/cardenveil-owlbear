@@ -113,9 +113,10 @@
     try {
       const n = gmCardCount();
       // Same geometry as the player hand popover: width hugs the fan, height
-      // fits the fan + token bars (the frame grows itself for token prompts).
+      // fits the fan + token bars + fold button (~370 px, measured with 🔍 Diag
+      // — the old 320 px cut the token bar and the fold button off).
       const width = Math.max(320, n * 64 + 160);
-      const height = 300;
+      const height = 380;
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({

@@ -294,9 +294,11 @@
     isOpeningPopover = true;
     try {
       const width = popoverWidth();
-      // Fits the fan (200) + draw bar + token bar + fold; the frame grows
-      // itself while a token prompt is displayed.
-      const height = 300;
+      // Content is fan (200) + draw bar (~57) + token bar with the fold
+      // button (~112) = ~370 px. Measured live via 🔍 Diag: at 300 px the
+      // token bar and the fold button were laid out below the popover box
+      // (clippedBelow 67). The frame grows itself further for token prompts.
+      const height = 380;
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({

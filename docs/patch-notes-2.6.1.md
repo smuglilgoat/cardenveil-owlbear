@@ -11,10 +11,17 @@ Correctifs suite aux retours de la 2.6.0.
 
 ## Éventail de main
 
-- **Plus de contenu coupé en bas** : les décalages négatifs qui poussaient
-  l'éventail, la barre de pioche et les boutons de token sous le bord du popover
-  sont supprimés — les tokens et le bouton **Replier** sont maintenant
-  entièrement visibles, et l'éventail remonte à l'écran.
+- **Plus de contenu coupé en bas.** Deux causes : les décalages négatifs qui
+  poussaient l'éventail, la barre de pioche et les boutons de token sous le bord
+  du popover, et une hauteur demandée trop petite. Mesures du 🔍 Diag en room :
+  contenu réel **373 px** (éventail 200 + pioche 57 + tokens/replier 112) pour un
+  popover de 300 px chez les joueurs et 320 px chez le MJ → tout ce qui dépassait
+  était coupé (`clippedBelow: 67`), le bouton **Replier** en premier.
+  Les popovers (joueur **et** MJ) demandent maintenant **380 px** : plus rien
+  n'est coupé, le bouton Replier est visible.
+- Les invites de token (choix Halfling, sélecteur de carte…) font **grandir le
+  popover** de la place manquante puis le rendent à sa taille : l'éventail reste
+  au plus juste le reste du temps.
 
 ## Khajeet
 

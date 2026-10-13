@@ -20,21 +20,32 @@
   // Fold/unfold: resize our own popover to just the pill
   let folded = $state(false);
   let popoverId = $state(null);
-  let expandedHeight = 300;
+  let expandedHeight = 380;
   const FOLDED_HEIGHT = 56;
 
   // The transparent popover is only as tall as the fan + bars (the caller
-  // requests BASE_HEIGHT). A token prompt (Halfling choice, card picker, …)
-  // needs more room: grow the popover by exactly the missing amount, then
-  // shrink back. The popover is bottom-anchored and the content is laid out
-  // from the top, so the extra room appears above the cards and nothing on
-  // the table moves.
+  // requests 380 px, measured live). A token prompt (Halfling choice, card
+  // picker, …) needs more room: grow the popover by exactly the missing
+  // amount, then shrink back. The popover is bottom-anchored and the content
+  // is laid out from the top, so the extra room appears above the cards and
+  // nothing on the table moves.
   let promptEl = $state(null);
   let fittedHeight = 0;
 
+  /** Height of the prompt content (children bounding boxes — scrollHeight is
+   *  unreliable for an `overflow: visible` flex box). */
+  function promptContentHeight() {
+    if (!promptEl) return 0;
+    const rects = [...promptEl.children].map((el) => el.getBoundingClientRect());
+    if (!rects.length) return 0;
+    return Math.round(
+      Math.max(...rects.map((r) => r.bottom)) - Math.min(...rects.map((r) => r.top))
+    );
+  }
+
   function fitPromptHeight() {
     if (folded || !popoverId || !promptEl) return;
-    const missing = Math.max(0, promptEl.scrollHeight - promptEl.clientHeight);
+    const missing = Math.max(0, promptContentHeight() + 4 - promptEl.clientHeight);
     const target = expandedHeight + missing;
     if (Math.abs(target - fittedHeight) < 8) return;
     fittedHeight = target;
