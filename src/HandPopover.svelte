@@ -690,104 +690,112 @@
       </div>
     {/if}
 
-    <!-- ── Bottom bar: controls left, draw + tokens right ─────────────── -->
+    <!-- ── Bottom bar: controls left, draw centred, tokens right ──────── -->
+    <!-- 3-column grid with two equal 1fr tracks so the draw button sits at
+         the exact centre of the bar (flex spacers would only balance the
+         remaining space, which shifts with the side contents). -->
     <div
       data-diag="bar"
       bind:this={barEl}
-      class="shrink-0 flex items-center gap-1.5 px-2 py-1.5 overflow-x-auto rounded-lg border border-[#374151]"
+      class="shrink-0 w-full grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 px-2 py-1.5 overflow-x-auto rounded-lg border border-[#374151]"
       style="z-index: 100; background: rgba(17, 24, 39, 0.95); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);"
     >
-      <button
-        onclick={toggleFold}
-        use:tooltip={folded ? "Déplier la main sur la table" : "Replier la main (la barre reste)"}
-        class="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors whitespace-nowrap border {folded
-          ? 'bg-[#213547] border-indigo-500 text-white'
-          : 'bg-[#213547] border-gray-500 text-gray-200 hover:text-white'}"
-      >{folded ? '🃏 Afficher' : '🃏 Replier'}</button>
+      <!-- Left: fold toggle, colour (or the pick hint), exchange status -->
+      <div class="flex items-center gap-1.5 min-w-0">
+        <button
+          onclick={toggleFold}
+          use:tooltip={folded ? "Déplier la main sur la table" : "Replier la main (la barre reste)"}
+          class="shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-colors whitespace-nowrap border {folded
+            ? 'bg-[#213547] border-indigo-500 text-white'
+            : 'bg-[#213547] border-gray-500 text-gray-200 hover:text-white'}"
+        >{folded ? '🃏 Afficher' : '🃏 Replier'}</button>
 
-      {#if pickHint}
-        <div
-          class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-semibold text-white min-w-0"
-          style="background: rgba(30,30,50,0.92); border: 1px solid rgba(255,255,255,0.15);"
-        >
-          <span class="truncate">{pickHint}</span>
-          <button
-            onclick={cancelAction}
-            use:tooltip={"Annuler l'action en cours"}
-            class="shrink-0 opacity-60 hover:opacity-100">✕</button
+        {#if pickHint}
+          <div
+            class="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-semibold text-white min-w-0"
+            style="background: rgba(30,30,50,0.92); border: 1px solid rgba(255,255,255,0.15);"
           >
-        </div>
-      {:else}
-        <button
-          onclick={toggleCardScheme}
-          title={cardScheme === 'classic' ? 'Passer aux couleurs par famille (♥ rouge, ♦ or, ♣ vert, ♠ gris)' : "Repasser au schéma classique rouge/noir"}
-          class="shrink-0 w-7 h-7 p-0 flex items-center justify-center rounded-full text-[12px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors"
-        >🎨</button>
-      {/if}
-
-      <div class="flex-1"></div>
-
-      {#if outgoingExchange}
-        <span
-          use:tooltip={"Échange en attente de réponse de " + getPlayerName(outgoingExchange.to) + " (" + outgoingExchange.fromCard.value + outgoingExchange.fromCard.suit + ")"}
-          class="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold text-amber-300 whitespace-nowrap"
-          style="background: rgba(120,53,15,0.4); border: 1px solid rgba(180,83,9,0.6);"
-        >⏳ {getPlayerName(outgoingExchange.to)}</span>
-      {/if}
-
-      <!-- Draw button -->
-      <button
-        onclick={drawCard}
-        disabled={drawBlocked}
-        use:tooltip={player.pendingHalfling ? "Choisissez d'abord une carte parmi les deux piochées" : mustCrystallize ? "Défaussez d'abord, le maximum de cartes en main est atteint" : handFull ? "Défaussez d'abord, le maximum de cartes en main est atteint" : "Piocher une carte"}
-        class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 whitespace-nowrap"
-        style="background: {mustCrystallize ? '#b45309' : '#4f46e5'};"
-      >
-        <span>{player.pendingHalfling
-          ? `Choix en cours…`
-          : mustCrystallize
-            ? `Défaussez d'abord !`
-            : handFull
-              ? `Pleine ${player.hand.length}/${handCap(player)}`
-              : `Piocher ${player.hand.length}/${handCap(player)}`}</span>
-        {#if (player.spiritBounds ?? 0) > 0}
-          <span class="text-blue-300 font-semibold" title="Spirit Bounds actifs">✦×{player.spiritBounds}</span>
+            <span class="truncate">{pickHint}</span>
+            <button
+              onclick={cancelAction}
+              use:tooltip={"Annuler l'action en cours"}
+              class="shrink-0 opacity-60 hover:opacity-100">✕</button
+            >
+          </div>
+        {:else}
+          <button
+            onclick={toggleCardScheme}
+            title={cardScheme === 'classic' ? 'Passer aux couleurs par famille (♥ rouge, ♦ or, ♣ vert, ♠ gris)' : "Repasser au schéma classique rouge/noir"}
+            class="shrink-0 w-7 h-7 p-0 flex items-center justify-center rounded-full text-[12px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors"
+          >🎨</button>
         {/if}
-        {#if player.race === 'tieffelin' && player.tieflingDrawEligible && !drawBlocked}
-          <span class="text-purple-300 text-[9px] font-bold">♠</span>
+
+        {#if outgoingExchange}
+          <span
+            use:tooltip={"Échange en attente de réponse de " + getPlayerName(outgoingExchange.to) + " (" + outgoingExchange.fromCard.value + outgoingExchange.fromCard.suit + ")"}
+            class="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold text-amber-300 whitespace-nowrap"
+            style="background: rgba(120,53,15,0.4); border: 1px solid rgba(180,83,9,0.6);"
+          >⏳ {getPlayerName(outgoingExchange.to)}</span>
         {/if}
-      </button>
+      </div>
 
-      {#if player.race === 'sporelin' && player.hand.length > 0}
+      <!-- Centre: draw (+ the sporelin exchange) -->
+      <div class="flex items-center gap-1.5 justify-center">
         <button
-          onclick={() => { active = null; startSporelinExchange(); }}
-          disabled={sporelinBlocked}
-          use:tooltip={"Si vous avez Sporelin, vous pouvez échanger une carte avec chacun de vos alliés"}
-          class="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-          style="background: #7c3aed;"
-        >🍄</button>
-      {/if}
-
-      <!-- Token chips -->
-      {#each TOKENS as tok}
-        {@const current = player.tokens[tok.key]}
-        {@const max = player.maxTokens?.[tok.key] ?? current}
-        {@const active_tok = action?.startsWith(tok.key)}
-        <button
-          onclick={() => { active = null; choosingToken = tok.key; }}
-          disabled={tok.disabled() || (action !== null && !active_tok) || choosingToken !== null}
-          use:tooltip={"Utiliser le token " + tok.label}
-          class="shrink-0 flex items-center gap-1 px-1.5 py-1 rounded-md border text-[10px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
-          style="
-            background: #213547;
-            border-color: {STAT_COLORS[tok.key] + (active_tok ? 'cc' : '50')};
-            color: {STAT_COLORS[tok.key]};
-          "
+          onclick={drawCard}
+          disabled={drawBlocked}
+          use:tooltip={player.pendingHalfling ? "Choisissez d'abord une carte parmi les deux piochées" : mustCrystallize ? "Défaussez d'abord, le maximum de cartes en main est atteint" : handFull ? "Défaussez d'abord, le maximum de cartes en main est atteint" : "Piocher une carte"}
+          class="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 whitespace-nowrap"
+          style="background: {mustCrystallize ? '#b45309' : '#4f46e5'};"
         >
-          <span class="leading-none">{tok.label.slice(0, 1)}</span>
-          <span class="leading-none">{current}/{max}</span>
+          <span>{player.pendingHalfling
+            ? `Choix en cours…`
+            : mustCrystallize
+              ? `Défaussez d'abord !`
+              : handFull
+                ? `Pleine ${player.hand.length}/${handCap(player)}`
+                : `Piocher ${player.hand.length}/${handCap(player)}`}</span>
+          {#if (player.spiritBounds ?? 0) > 0}
+            <span class="text-blue-300 font-semibold" title="Spirit Bounds actifs">✦×{player.spiritBounds}</span>
+          {/if}
+          {#if player.race === 'tieffelin' && player.tieflingDrawEligible && !drawBlocked}
+            <span class="text-purple-300 text-[9px] font-bold">♠</span>
+          {/if}
         </button>
-      {/each}
+
+        {#if player.race === 'sporelin' && player.hand.length > 0}
+          <button
+            onclick={() => { active = null; startSporelinExchange(); }}
+            disabled={sporelinBlocked}
+            use:tooltip={"Si vous avez Sporelin, vous pouvez échanger une carte avec chacun de vos alliés"}
+            class="shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            style="background: #7c3aed;"
+          >🍄</button>
+        {/if}
+      </div>
+
+      <!-- Right: token chips -->
+      <div class="flex items-center gap-1.5 justify-end">
+        {#each TOKENS as tok}
+          {@const current = player.tokens[tok.key]}
+          {@const max = player.maxTokens?.[tok.key] ?? current}
+          {@const active_tok = action?.startsWith(tok.key)}
+          <button
+            onclick={() => { active = null; choosingToken = tok.key; }}
+            disabled={tok.disabled() || (action !== null && !active_tok) || choosingToken !== null}
+            use:tooltip={"Utiliser le token " + tok.label}
+            class="shrink-0 flex items-center gap-1 px-1.5 py-1 rounded-md border text-[10px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
+            style="
+              background: #213547;
+              border-color: {STAT_COLORS[tok.key] + (active_tok ? 'cc' : '50')};
+              color: {STAT_COLORS[tok.key]};
+            "
+          >
+            <span class="leading-none">{tok.label.slice(0, 1)}</span>
+            <span class="leading-none">{current}/{max}</span>
+          </button>
+        {/each}
+      </div>
     </div>
 
     <!-- ── Modals (dark backdrop over the cards) ──────────────────────── -->
@@ -884,7 +892,7 @@
       {@const isSporelin = modal === 'sporelin-target'}
       <HandModal
         title={`${isSporelin ? 'Sporelin' : 'Social'} — offrir ${actionCard?.value ?? ''}${actionCard?.suit ?? ''} à`}
-        accent={isSporelin ? '#a855f7' : '#eab308'}
+        accent={isSporelin ? '#a855f7' : STAT_COLORS.social}
         onClose={cancelAction}
       >
         <div class="flex flex-wrap gap-1.5 justify-center">
@@ -924,7 +932,7 @@
       </HandModal>
 
     {:else if modal === 'incoming'}
-      <HandModal title="Échange proposé" accent="#eab308" closable={false}>
+      <HandModal title="Échange proposé" accent={STAT_COLORS.social} closable={false}>
         <div class="flex flex-col gap-2">
           {#each incomingExchanges as ex (ex.id)}
             <div
