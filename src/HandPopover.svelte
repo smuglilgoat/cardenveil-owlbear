@@ -1,9 +1,12 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
-  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./lib/deck.js";
+  import { GM_CHAR_ID, createEmptyPlayer, createInitialGameState, fullDeck, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./lib/deck.js";
   import { startRealtime, stopRealtime, dispatch, fetchState } from "./lib/api.js";
   import { logEvent, logError, setLogContext } from "./lib/appLog.js";
+  import { collectDiag, initDiag } from "./lib/diag.js";
+
+  initDiag('hand');
   import { tooltip } from "./lib/tooltip.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY } from "./lib/characterSheet.js";
 
@@ -17,12 +20,36 @@
   // Fold/unfold: resize our own popover to just the pill
   let folded = $state(false);
   let popoverId = $state(null);
-  let expandedHeight = 400;
+  let expandedHeight = 300;
   const FOLDED_HEIGHT = 56;
+
+  // The transparent popover is only as tall as the fan + bars (the caller
+  // requests BASE_HEIGHT). A token prompt (Halfling choice, card picker, …)
+  // needs more room: grow the popover by exactly the missing amount, then
+  // shrink back. The popover is bottom-anchored and the content is laid out
+  // from the top, so the extra room appears above the cards and nothing on
+  // the table moves.
+  let promptEl = $state(null);
+  let fittedHeight = 0;
+
+  function fitPromptHeight() {
+    if (folded || !popoverId || !promptEl) return;
+    const missing = Math.max(0, promptEl.scrollHeight - promptEl.clientHeight);
+    const target = expandedHeight + missing;
+    if (Math.abs(target - fittedHeight) < 8) return;
+    fittedHeight = target;
+    OBR.popover.setHeight(popoverId, target).catch((err) => logError('hand_popover_fit_failed', err));
+  }
+
+  // Measure after every render that can add/remove a prompt block.
+  $effect(() => {
+    void [player?.pendingHalfling, choosingToken, action, active, interactionFrozen, folded, expandedHeight];
+    requestAnimationFrame(() => fitPromptHeight());
+  });
 
   async function toggleFold() {
     if (!popoverId) return;
-    const target = folded ? expandedHeight : FOLDED_HEIGHT;
+    const target = folded ? (fittedHeight || expandedHeight) : FOLDED_HEIGHT;
     try {
       await OBR.popover.setHeight(popoverId, target);
       // Only fold the DOM if the resize actually took effect, otherwise
@@ -53,6 +80,29 @@
   }
 
   onMount(() => {
+    if (!OBR.isAvailable) {
+      // Standalone preview (no OBR context): open
+      //   hand.html?cards=12&diag=1
+      // in a normal browser to inspect the layout, and read the snapshot in
+      // the DevTools console (and in app_logs when Supabase is reachable).
+      const params = new URLSearchParams(window.location.search);
+      const count = Math.max(0, Math.min(40, parseInt(params.get('cards') || '7', 10) || 0));
+      const demo = createEmptyPlayer('Démo');
+      demo.hand = fullDeck().slice(0, count);
+      demo.tokens = { force: 3, agilite: 2, esprit: 1, social: 0 };
+      demo.maxTokens = { force: 5, agilite: 5, esprit: 5, social: 5 };
+      myId = 'demo-player';
+      roomId = 'demo-room';
+      gameState = { ...createInitialGameState(), players: { 'demo-player': demo } };
+      ready = true;
+      if (params.get('diag') === '1') {
+        setTimeout(
+          () => logEvent('info', 'diag_snapshot', { message: 'standalone', detail: collectDiag('hand') }),
+          400
+        );
+      }
+      return;
+    }
     OBR.onReady(async () => {
       const params = new URLSearchParams(window.location.search);
       const playerIdParam = params.get('playerId');
@@ -79,6 +129,8 @@
 
       if (popoverId) {
         try {
+          // Real popover height (the caller's requested size) — the prompt
+          // fitting measures against this base.
           expandedHeight = (await OBR.popover.getHeight(popoverId)) || expandedHeight;
         } catch (err) {
           /* popover resize not available */
@@ -428,6 +480,7 @@
 </script>
 
 <div
+  data-diag="root"
   class="magic-hand w-full h-full flex flex-col select-none overflow-visible flex-wrap relative"
   style="background: transparent;"
 >
@@ -453,7 +506,9 @@
   {:else}
     <!-- ── Popup area: token mechanic prompts above the cards ─────────── -->
     <div
-      class="flex-1 flex flex-col items-center justify-end pb-1 overflow-visible pointer-events-none relative bottom-[-70px]"
+      data-diag="prompts"
+      bind:this={promptEl}
+      class="flex-1 flex flex-col items-center justify-end pb-1 overflow-visible pointer-events-none"
     >
       {#if player.pendingHalfling}
         <div
@@ -734,7 +789,8 @@
 
     <!-- ── Card fan ────────────────────────────────────────────────────── -->
     <div
-      class="shrink-0 relative flex items-end justify-center overflow-visible bottom-[-40px]"
+      data-diag="fan"
+      class="shrink-0 relative flex items-end justify-center overflow-visible"
       style="height: 200px;"
     >
       {#if allCards.length === 0}
@@ -876,7 +932,8 @@
 
     <!-- ── Bottom bar: Draw + Token buttons ──────────────────────────── -->
     <div
-      class="shrink-0 flex items-center justify-center px-2 py-1.5 relative bottom-[-50px]"
+      data-diag="drawbar"
+      class="shrink-0 flex items-center justify-center px-2 py-1.5"
       style="z-index: 100;"
     >
       <!-- Draw button -->
@@ -916,7 +973,8 @@
       {/if}
     </div>
     <div
-      class="shrink-0 flex flex-col items-center justify-center gap-1 px-2 py-1.5 relative bottom-[-40px]"
+      data-diag="tokenbar"
+      class="shrink-0 flex flex-col items-center justify-center gap-1 px-2 py-1.5"
     >
       <!-- Token buttons -->
       <div class="flex items-center justify-center w-full">

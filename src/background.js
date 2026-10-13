@@ -2,8 +2,10 @@
 import OBR from '@owlbear-rodeo/sdk';
 import { ROLL_CHANNEL } from './lib/rollBroadcast.js';
 import { initLogging, setLogContext, logEvent, logError } from './lib/appLog.js';
+import { initDiag } from './lib/diag.js';
 
 initLogging('background', { sessionStart: true });
+initDiag('background');
 
 const DICE_POPOVER_ID = 'cardenveil-dice';
 const CLOSE_AFTER_MS = 6000;

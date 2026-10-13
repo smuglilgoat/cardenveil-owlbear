@@ -40,6 +40,7 @@
   import ItemAddPopup from "./ItemAddPopup.svelte";
   import { tooltip } from "./tooltip.js";
   import { logError, setLogContext } from "./appLog.js";
+  import { requestDiag } from "./diag.js";
 
   let { gameState, party, myId, onAction } = $props();
 
@@ -111,8 +112,10 @@
     isOpeningGmPopover = true;
     try {
       const n = gmCardCount();
-      const width = Math.max(400, n * 64 + 160);
-      const height = 320;
+      // Same geometry as the player hand popover: width hugs the fan, height
+      // fits the fan + token bars (the frame grows itself for token prompts).
+      const width = Math.max(320, n * 64 + 160);
+      const height = 300;
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({
@@ -265,6 +268,11 @@
   // ── Rest ─────────────────────────────────────────────────────────────
   function restAll() {
     onAction({ type: 'REST_ALL', playerId: myId });
+  }
+
+  /** Ask every Cardenveil frame to log a layout/state snapshot (app_logs). */
+  async function runDiag() {
+    await requestDiag();
   }
 
   // ── Per-player GM controls ───────────────────────────────────────────
@@ -581,6 +589,13 @@
         Classique
       </button>
     </div>
+    <button
+      onclick={runDiag}
+      use:tooltip={"Enregistrer un diagnostic de tous les écrans Cardenveil (table app_logs, événement diag_snapshot). Un clic toutes les 30 s suffit."}
+      class="ml-auto px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#111827] border border-[#374151] text-gray-300 hover:text-white hover:border-indigo-500 transition-colors"
+    >
+      🔍 Diag
+    </button>
   </div>
 
   <!-- ── Défausse ──────────────────────────────────────────────────── -->

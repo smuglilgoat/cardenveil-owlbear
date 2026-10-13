@@ -294,7 +294,9 @@
     isOpeningPopover = true;
     try {
       const width = popoverWidth();
-      const height = 400;
+      // Fits the fan (200) + draw bar + token bar + fold; the frame grows
+      // itself while a token prompt is displayed.
+      const height = 300;
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
       await OBR.popover.open({

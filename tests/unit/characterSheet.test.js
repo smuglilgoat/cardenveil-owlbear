@@ -840,6 +840,15 @@ describe('Character Sheet dice helpers', () => {
   });
 
   describe('ensureRacialWeapon', () => {
+    it('grants the griffe on import even when the sheet says "Khajit"', async () => {
+      const upsert = mockUpsertChain({ data: {}, error: null }).upsert;
+      await importCharacterSheet('p1', 'r1', JSON.stringify({ identity: { nom: 'Khajit', race: 'Khajit' }, stats: {}, weapons: [] }));
+      const saved = upsert.mock.calls[0][0];
+      expect(saved.data.identity.race).toBe('khajeet');
+      expect(saved.data.weapons.map((w) => w.nom)).toEqual(['Griffe']);
+      expect(saved.data.weapons[0].equipped).toBe(true);
+    });
+
     it('grants the Khajeet griffe once, equipped when both hands are free', () => {
       const base = { weapons: [], identity: { race: 'khajeet' } };
       const granted = ensureRacialWeapon(base, 'khajeet');
@@ -964,6 +973,15 @@ describe('Character Sheet dice helpers', () => {
       expect(normalizeRaceName('Aasimar')).toBe('aasimar');
       expect(normalizeRaceName('halfling')).toBe('halfling');
       expect(normalizeRaceName('Sporelin')).toBe('sporelin');
+      expect(normalizeRaceName('Khajeet')).toBe('khajeet');
+      expect(normalizeRaceName('Gobelin')).toBe('gobelin');
+    });
+
+    it('should accept the common Khajeet/Misspelled spellings and Goblin', () => {
+      expect(normalizeRaceName('Khajit')).toBe('khajeet');
+      expect(normalizeRaceName('khajiit')).toBe('khajeet');
+      expect(normalizeRaceName('Khajet')).toBe('khajeet');
+      expect(normalizeRaceName('Goblin')).toBe('gobelin');
     });
 
     it('should keep unrecognized races untouched', () => {

@@ -6,10 +6,23 @@
    * players never have to enter ÉDITION just to drop a potion in the bag.
    *
    * `onPick(name, isWeapon)` — name '' means a blank entry.
+   * `mode` narrows the list: 'all' (SAC), 'items' (ÉDITION INVENTAIRE),
+   * 'weapons' (ÉDITION ARMES).
    */
   import { EQUIPMENT_CATALOG, FAMILY_ICONS, ITEM_ICONS } from './characterSheet.js';
 
-  let { onPick } = $props();
+  let { onPick, mode = 'all' } = $props();
+
+  let groups = $derived(
+    mode === 'weapons'
+      ? EQUIPMENT_CATALOG.filter((grp) => grp.kind === 'arme')
+      : mode === 'items'
+        ? EQUIPMENT_CATALOG.filter((grp) => grp.kind !== 'arme')
+        : EQUIPMENT_CATALOG
+  );
+  let title = $derived(
+    mode === 'weapons' ? 'Ajouter une arme' : mode === 'items' ? 'Ajouter un objet' : 'Ajouter un objet ou une arme'
+  );
 
   function iconFor(item, group) {
     return ITEM_ICONS[item.nom] ?? FAMILY_ICONS[group.family] ?? '';
@@ -36,7 +49,7 @@
     <div class="flex items-start gap-3">
       <span class="text-[26px] leading-none shrink-0">🎒</span>
       <div class="flex-1 min-w-0">
-        <div class="text-[16px] font-bold">Ajouter un objet ou une arme</div>
+        <div class="text-[16px] font-bold">{title}</div>
         <div class="text-[11px] text-[#9ca3af] mt-0.5">Ajouté directement à la fiche (pas besoin d'ÉDITION)</div>
       </div>
       <button
@@ -49,22 +62,26 @@
     </div>
 
     <div class="mt-3 flex gap-1.5">
-      <button
-        onclick={() => pick('', false)}
-        class="flex-1 px-2 py-1.5 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-md text-[11px] font-semibold text-indigo-300 transition-colors"
-      >
-        ＋ Objet vierge
-      </button>
-      <button
-        onclick={() => pick('', true)}
-        class="flex-1 px-2 py-1.5 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-md text-[11px] font-semibold text-indigo-300 transition-colors"
-      >
-        🗡 Arme vierge
-      </button>
+      {#if mode !== 'weapons'}
+        <button
+          onclick={() => pick('', false)}
+          class="flex-1 px-2 py-1.5 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-md text-[11px] font-semibold text-indigo-300 transition-colors"
+        >
+          ＋ Objet vierge
+        </button>
+      {/if}
+      {#if mode !== 'items'}
+        <button
+          onclick={() => pick('', true)}
+          class="flex-1 px-2 py-1.5 bg-[#111827] border border-[#374151] hover:bg-[#374151] rounded-md text-[11px] font-semibold text-indigo-300 transition-colors"
+        >
+          🗡 Arme vierge
+        </button>
+      {/if}
     </div>
 
     <div class="mt-3 flex-1 overflow-y-auto scrollbar-thin pr-1">
-      {#each EQUIPMENT_CATALOG as group}
+      {#each groups as group}
         <div class="px-1 py-1 text-[9px] font-bold text-[#9ca3af] tracking-wide border-t border-[#374151] mt-1 pt-1.5 first:border-t-0 first:mt-0 first:pt-0">
           {group.group}
         </div>

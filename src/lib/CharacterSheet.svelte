@@ -3,7 +3,6 @@
   import OBR from '@owlbear-rodeo/sdk';
   import { tooltip } from './tooltip.js';
   import ActionDiamonds from './ActionDiamonds.svelte';
-  import TemplateDropdown from './TemplateDropdown.svelte';
   import ItemAddPopup from './ItemAddPopup.svelte';
   import { importSheetArchive } from './sheetAssets.js';
   import { RACES } from './deck.js';
@@ -45,7 +44,6 @@
     suitColor,
     suitSymbol,
     isImageUrl,
-    EQUIPMENT_CATALOG,
     withItemFromTemplate,
     withWeaponFromTemplate,
     ensureRacialWeapon,
@@ -164,11 +162,31 @@
   const SHEET_POPOVER_ID = 'cardenveil-sheet';
   let sheetPopoverOpen = $state(false);
 
+  /**
+   * Adopt the race text on load + grant the racial default weapon (Khajeet
+   * griffes). Self-heal: covers sheets imported before the rule existed, free
+   * text spellings ("Khajit"), and a race set from the GM dashboard while no
+   * sheet was there yet. One write, then idempotent.
+   */
+  function applyRaceDefaults(loaded) {
+    if (!loaded) return loaded;
+    const isKnown = (/** @type {unknown} */ id) => RACES.some((r) => r.id === id);
+    const sheetRace = normalizeRaceName(loaded.identity?.race);
+    const gameRace = normalizeRaceName(gameState?.players?.[playerId]?.race);
+    const race = isKnown(gameRace) ? gameRace : sheetRace;
+    const base = race && race !== loaded.identity?.race
+      ? { ...loaded, identity: { ...(loaded.identity ?? {}), race } }
+      : loaded;
+    const next = ensureRacialWeapon(base, race);
+    if (next !== loaded) saveSheet(next);
+    return next;
+  }
+
   onMount(async () => {
     try {
       const data = await fetchCharacterSheet(playerId, roomId);
       if (data) {
-        sheet = data.data;
+        sheet = applyRaceDefaults(data.data);
       } else {
         sheet = createEmptyCharacterSheet();
       }
@@ -575,14 +593,25 @@
     editSheet = withWeaponFromTemplate(editSheet, templateName);
   }
 
-  // ─── In-sheet add popup (INVENTAIRE view, no ÉDITION needed) ──
-  let showItemAdd = $state(false);
+  // ─── Add popup: the SAC view and both ÉDITION sections share it ──
+  // target: 'sac' (saves immediately) | 'items' | 'weapons' (edit buffer)
+  let itemAddTarget = $state(null);
+
+  function openItemAdd(target) {
+    itemAddTarget = target;
+  }
 
   /** @param {string|null} name @param {boolean} isWeapon */
   function addFromPopup(name, isWeapon) {
-    showItemAdd = false;
+    const target = itemAddTarget;
+    itemAddTarget = null;
     if (name == null) return; // dismissed
-    saveSheet(isWeapon ? withWeaponFromTemplate(sheet, name) : withItemFromTemplate(sheet, name));
+    if (target === 'sac') {
+      saveSheet(isWeapon ? withWeaponFromTemplate(sheet, name) : withItemFromTemplate(sheet, name));
+      return;
+    }
+    if (isWeapon) addWeaponFromTemplate(name);
+    else addInventoryItem(name);
   }
 
   function saveSheet(next) {
@@ -1296,7 +1325,7 @@
           <div class="flex items-center justify-between mt-4 mb-2">
             <h2 class="text-[15px] font-bold">SAC</h2>
             <button
-              onclick={() => (showItemAdd = true)}
+              onclick={() => openItemAdd('sac')}
               title="Ajouter un objet ou une arme sans passer par ÉDITION"
               class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-full text-[11px] font-semibold text-white transition-colors whitespace-nowrap"
             >＋ Ajouter</button>
@@ -1818,7 +1847,11 @@
                   <div class="flex items-center justify-between mb-1.5">
                     <h4 class="text-[11px] font-bold text-[#9ca3af]">INVENTAIRE</h4>
                     <div class="flex items-center gap-1.5">
-                      <TemplateDropdown label="+ Ajouter un objet" groups={EQUIPMENT_CATALOG.filter((grp) => grp.kind !== 'arme')} onPick={addInventoryItem} />
+                      <button
+                        onclick={() => openItemAdd('items')}
+                        title="Ajouter un objet du catalogue"
+                        class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-full text-[11px] font-semibold text-white transition-colors whitespace-nowrap"
+                      >＋ Ajouter un objet</button>
                     </div>
                   </div>
                   {#each editSheet.inventoryItems || [] as item, i}
@@ -1928,7 +1961,11 @@
                   <div class="flex items-center justify-between mb-1.5">
                     <h4 class="text-[11px] font-bold text-[#9ca3af]">ARMES</h4>
                     <div class="flex items-center gap-1.5">
-                      <TemplateDropdown label="+ Ajouter une arme" groups={EQUIPMENT_CATALOG.filter((grp) => grp.kind === 'arme')} onPick={addWeaponFromTemplate} />
+                      <button
+                        onclick={() => openItemAdd('weapons')}
+                        title="Ajouter une arme du catalogue"
+                        class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 rounded-full text-[11px] font-semibold text-white transition-colors whitespace-nowrap"
+                      >＋ Ajouter une arme</button>
                     </div>
                   </div>
                   {#each editSheet.weapons || [] as weapon, i}
@@ -2338,9 +2375,9 @@
     </div>
   {/if}
 
-  <!-- Item Add Popup (INVENTAIRE view) -->
-  {#if showItemAdd}
-    <ItemAddPopup onPick={addFromPopup} />
+  <!-- Add popup: SAC view + ÉDITION INVENTAIRE / ARMES -->
+  {#if itemAddTarget}
+    <ItemAddPopup mode={itemAddTarget === 'sac' ? 'all' : itemAddTarget} onPick={addFromPopup} />
   {/if}
 
   <!-- Delete Confirmation Modal -->

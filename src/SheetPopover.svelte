@@ -30,6 +30,9 @@
   } from './lib/characterSheet.js';
   import { broadcastRoll, onRollResult } from './lib/rollBroadcast.js';
   import { logEvent, logError, setLogContext } from './lib/appLog.js';
+  import { initDiag } from './lib/diag.js';
+
+  initDiag('sheet');
   import { rollAttack, runAttack, attackPreview, pickAttackWeapon, isGobelin } from './lib/attackRoll.js';
   import { SIDES_TO_TYPE } from './lib/diceRoll.js';
 

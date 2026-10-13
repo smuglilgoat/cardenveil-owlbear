@@ -165,9 +165,21 @@ function canonicalRace(value) {
 }
 
 /**
+ * Accepted spellings that are neither the id nor the label — imports and
+ * hand-typed sheets carry "Khajit", "Khajiit", "Goblin"…
+ */
+const RACE_ALIASES = {
+  khajiit: 'khajeet',
+  khajit: 'khajeet',
+  khajet: 'khajeet',
+  goblin: 'gobelin'
+};
+
+/**
  * Map a free-text race name to a canonical race id when recognizable
- * ("Haut Elfe" → "haut-elfe"). Unrecognized values pass through untouched
- * so manually typed races ("Humain", …) keep their text.
+ * ("Haut Elfe" → "haut-elfe", "Khajit" → "khajeet"). Unrecognized values
+ * pass through untouched so manually typed races ("Humain", …) keep their
+ * text.
  * @param {unknown} race - Raw race value
  * @returns {unknown} Race id when matched, otherwise the input unchanged
  */
@@ -177,7 +189,8 @@ export function normalizeRaceName(race) {
   if (!raw) return race;
   const canon = canonicalRace(raw);
   const hit = RACES.find((r) => canonicalRace(r.id) === canon || canonicalRace(r.label) === canon);
-  return hit ? hit.id : race;
+  if (hit) return hit.id;
+  return RACE_ALIASES[canon] ?? race;
 }
 
 /**

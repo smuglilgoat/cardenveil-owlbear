@@ -5,6 +5,9 @@
   import PlayerHand from './PlayerHand.svelte';
   import { startRealtime, stopRealtime, dispatch, fetchState, recoverConnection } from './api.js';
   import { logError, setLogContext } from './appLog.js';
+  import { initDiag } from './diag.js';
+
+  initDiag('main');
 
   let { onGameChange = null } = $props();
 
