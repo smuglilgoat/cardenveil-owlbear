@@ -31,9 +31,16 @@
   const MODAL_MIN_W = 380;
   const FAN_H = 120; // exactly the card height (no headroom)
   const EMPTY_FAN_H = 26;
+  const MIN_H = 40;
   let barEl = $state(null);
   let fanEl = $state(null);
+  // Room viewport (NOT window.innerWidth/innerHeight: inside the popover frame
+  // those ARE the popover, so clamping against them shrinks it on every fit).
+  let viewportW = $state(0);
+  let viewportH = $state(0);
   let fitted = { w: 0, h: 0 };
+  let fitting = false;
+  let refitQueued = false;
 
   /** Fan width for n cards (unchanged formula — no cap, user decision). */
   function fanWidth(n) {
@@ -41,8 +48,9 @@
   }
 
   function popoverWidth() {
+    const maxW = viewportW ? viewportW - 24 : Infinity;
     return Math.min(
-      window.innerWidth - 24,
+      maxW,
       Math.max(BAR_MIN_W, fanWidth(allCards.length), modal ? MODAL_MIN_W : 0)
     );
   }
@@ -53,17 +61,21 @@
    */
   async function fitPopover() {
     if (!popoverId || !barEl) return true;
-    const panel = /** @type {HTMLElement|null} */ (document.querySelector('[data-modal-panel]'));
-    const contentH = barEl.offsetHeight + (fanEl?.offsetHeight ?? 0);
-    const height = Math.round(
-      Math.min(
-        window.innerHeight - 120,
-        modal && panel ? Math.max(contentH, panel.offsetHeight + 20) : contentH
-      )
-    );
-    const width = Math.round(popoverWidth());
-    if (Math.abs(height - fitted.h) < 4 && Math.abs(width - fitted.w) < 4) return true;
+    // One resize at a time: OBR rejects overlapping setHeight/setWidth calls.
+    if (fitting) {
+      refitQueued = true;
+      return true;
+    }
+    fitting = true;
     try {
+      const panel = /** @type {HTMLElement|null} */ (document.querySelector('[data-modal-panel]'));
+      const contentH = barEl.offsetHeight + (fanEl?.offsetHeight ?? 0);
+      const maxH = viewportH ? viewportH - 120 : Infinity;
+      const height = Math.round(
+        Math.max(MIN_H, Math.min(maxH, modal && panel ? Math.max(contentH, panel.offsetHeight + 20) : contentH))
+      );
+      const width = Math.round(popoverWidth());
+      if (Math.abs(height - fitted.h) < 4 && Math.abs(width - fitted.w) < 4) return true;
       await OBR.popover.setHeight(popoverId, height);
       await OBR.popover.setWidth(popoverId, width);
       const actual = await OBR.popover.getHeight(popoverId);
@@ -77,6 +89,12 @@
     } catch (err) {
       logError('hand_popover_fit_failed', err);
       return false;
+    } finally {
+      fitting = false;
+      if (refitQueued) {
+        refitQueued = false;
+        requestAnimationFrame(() => fitPopover());
+      }
     }
   }
 
@@ -86,11 +104,10 @@
     requestAnimationFrame(() => fitPopover());
   });
 
-  async function toggleFold() {
+  function toggleFold() {
+    // Just flip: the sizing $effect re-fits after the DOM update (calling
+    // fitPopover here measured the pre-flush DOM, i.e. without the fan).
     folded = !folded;
-    // If OBR refuses the resize the fan would be clipped: revert.
-    const ok = await fitPopover();
-    if (!ok) folded = !folded;
   }
 
   let action = $state(null);
@@ -148,6 +165,9 @@
       roomId = OBR.room.id;
       setLogContext({ roomId, playerId: myId });
       party = await OBR.party.getPlayers();
+      // Room viewport for the size clamps (see viewportW/H comment).
+      viewportW = await OBR.viewport.getWidth();
+      viewportH = await OBR.viewport.getHeight();
       ready = true;
 
       // Footprint data: where the interactive content starts inside the
