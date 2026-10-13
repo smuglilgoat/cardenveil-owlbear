@@ -251,11 +251,12 @@ in `app_logs`.
 - `npm run build`: green; manifest version 2.6.0 from `src/version.js`.
 - Docs: `docs/Reglejetdattaque.md` §16 + summary table, `AGENTS.md` (logging/realtime/races/item add/version source), `docs/patch-notes-2.6.0.md`.
 
-## Required after deploy (cannot be done from the repo)
+## Deploy status — DONE and verified (2026-10-13 ~20:10)
 
-1. Apply `supabase/migrations/20261013_create_app_logs.sql` (log table). Until then `appLog` self-disables after the first failed insert.
-2. **Redeploy the Supabase Edge Function `action`** — `RACE_IDS` still rejects `khajeet`/`gobelin` server-side, so game state would revert the race via realtime (same trap as the stale `SYNC_TOKENS` deploy on 2026-09-30).
-3. Netlify deploy (manual `netlify deploy --build --prod` if the GitHub auto-deploy is still stalled).
+1. **`app_logs` migration applied** to project `ncisbwqsupywiicaycck` via the Management API: table + 2 indexes + `Allow all` policy + `app_logs_prune` trigger present, `anon`/`authenticated` have INSERT/SELECT, table deliberately **not** in the realtime publication. `notify pgrst, 'reload schema'` sent. An anon-key PostgREST insert (exactly the app path) returned 201; the smoke row was deleted.
+2. **Edge Function `action` redeployed** (`npx supabase functions deploy action --project-ref ncisbwqsupywiicaycck`, script 69 kB). Verified by downloading the deployed source: `_deck.js` contains `{ id: 'khajeet' }` / `{ id: 'gobelin' }` → server-side `RACE_IDS` accepts both.
+3. **Netlify deploy: automatic** — the GitHub integration is working again. Live site serves manifest **2.6.0**, `appLog-*.js` contains `app_logs`, the main chunk contains `khajeet` / `Griffe` / `hand_popover_metrics`, and the supabaseClient chunk has the Supabase URL injected → env vars are picked up by the Netlify build.
+4. End-to-end proof: `app_logs` received a real `session_start` row (`source: main`, `app_version: 2.6.0`) from the running plugin.
 
 ## Still unverified (needs a live OBR session)
 
