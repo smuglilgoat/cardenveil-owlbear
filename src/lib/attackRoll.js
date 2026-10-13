@@ -6,7 +6,7 @@
 // explosions are always plain 1dX; Hache/Brutalité explodes 2dX summed with
 // doubles chaining). Finesse repeats weapon + engagement bonuses once per
 // crit. Stat keys follow the sheet convention (agilite, unaccented).
-// Gobelin crit cap (3): deferred per doc §16 — no sheet uses it yet.
+// Gobelin: crit threshold dé − 1 and a 3-crit cap per basic attack (doc §16).
 import { statModifier, toNumber } from './characterSheet.js';
 
 const FINESS_RE = /finesse/i;

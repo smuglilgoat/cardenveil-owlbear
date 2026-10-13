@@ -541,14 +541,20 @@ Il faut donc prévoir une **race** dans les données du personnage.
 Pour un Gobelin :
 
 ```text
-Nombre maximum de critiques = 3
+Seuil de critique   = valeur maximale du dé − 1   (d6 → 5+, d12 → 11+)
+Nombre maximum de critiques = 3 (sur la même attaque de base)
 ```
 
-**Ne pas développer cette règle pour l'instant.**
+Le seuil s'applique au jet initial **et** aux explosions : une explosion qui
+atteint le seuil enchaîne une nouvelle explosion, jusqu'au plafond de
+3 critiques. Au-delà, la chaîne s'arrête — les dés conservés comptent quand
+même dans les dégâts (voir §20).
 
-Elle est plus complexe et aucun personnage Gobelin n'existe actuellement.
-
-Il faut simplement garder en tête que cette exception existera plus tard.
+Implémentation : `opts.race` dans `attackRoll.js` (`critFrom` / `maxCrits`
+exposés par `attackPreview`), chips du popup de dés colorées via le paramètre
+`critFrom` (`dice3d.js` / `visibleRollChip`). Seuls les jets d'attaque (⚔️)
+sont concernés — les jets de stat, de compétence et les capacités gardent le
+critique sur la valeur maximale du dé.
 
 ---
 
@@ -710,7 +716,7 @@ Double ?
 | Finesse + Engagement | utilise Agilité |
 | Catalyseur + Engagement | utilise Esprit |
 | Autre arme + Engagement | utilise Force |
-| Gobelin | Maximum 3 critiques, règle à développer plus tard |
+| Gobelin | Critique sur dé − 1 (d6 → 5+), maximum 3 critiques par attaque de base |
 | Hache : premier Crit | Valeur maximale normalement |
 | Hache : explosion | Lance 2 dés et additionne |
 | Hache : Crit suivant | Double sur les 2 dés |

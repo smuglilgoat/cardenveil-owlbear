@@ -1,6 +1,7 @@
 # Plan — 2026-10-13 — Feedback batch (10 items)
 
-Status: **plan only, nothing implemented.** Read-only audit + live docs research were done.
+Status: **IMPLEMENTED** (2026-10-13, commits `bae01ea`, `2ba4781`, `f847521`, `66b9314` + release).
+The plan below is kept as written; the implementation summary is at the end of this file.
 
 Goal: stop the reload-requiring failures, add Supabase-backed logging, then the UI,
 item-addition, GM and race items from the user's list.
@@ -228,3 +229,36 @@ in `app_logs`.
   + 30-day prune trigger.
 - Deliberately not done: GM log viewer UI, dice-popup frame reuse (only if logs prove it), action
   audit trail in logs (already covered by `game_rooms.logs`).
+
+
+---
+
+# Implementation summary (2026-10-13)
+
+## What shipped
+
+| Phase | Files | Notes |
+|---|---|---|
+| Stability | `src/lib/supabaseClient.js`, `src/lib/api.js`, `src/lib/CardGame.svelte`, `src/version.js`, `vite.config.js` | `worker: true` + `heartbeatCallback` + `onRealtimeHealth`; reconnect counters no longer reset (backoff 1→2→4→8→30 s, catch-up fetch after reconnects); 8–10 s abort timeouts on `fetchState` / `functions.invoke` / Netlify POST; first paint no longer gated on a fetch (retry button instead of an endless spinner); `visibilitychange`/`online` → `recoverConnection()` |
+| Logging | `src/lib/appLog.js`, `supabase/migrations/20261013_create_app_logs.sql`, all 5 entries + `characterSheet.js`, `rollBroadcast.js`, `sheetAssets.js`, `dice3d.js` | `app_logs` (level/source/event/message/detail/room/player/version/viewport), 2 indexes, permissive RLS, 30-day prune trigger; lazy supabase import so the dice popup does not pay for the client; dedupe (30 s) + 120 rows/session cap + self-disable when the table is missing |
+| UI | `TemplateDropdown.svelte`, `HandPopover.svelte`, `PlayerHand.svelte`, `SheetPopover.svelte` | Drop-up list with per-item icons; fold button under the token buttons (row shift 60→40 px so the visible band is unchanged); popover width hugs the fan (`max(300, n*64+160)`) + `hand_popover_metrics`/`hand_popover_geometry` logs for the height tune; 🪄 MOD slider floor 0, defaults to the stat mod |
+| Inventory | `ItemAddPopup.svelte` (new), `characterSheet.js`, `CharacterSheet.svelte`, `GMDashboard.svelte` | `withItemFromTemplate` / `withWeaponFromTemplate` (pure, prepend, '' = blank); « ＋ Ajouter » in the SAC header saves immediately; GM sheet modal gained an Inventaire section + the same popup (writes into the target sheet) |
+| Races | `deck.js`, `characterSheet.js`, `attackRoll.js`, `SheetPopover.svelte`, `dice3d.js`, `lib/diceRoll.js`, `background.js`, `PlayerHand.svelte`, `GMDashboard.svelte` | khajeet + gobelin in `RACES`; Griffe 🐾 1d6 Finesse in `Armes uniques`; `ensureRacialWeapon` on import / ÉDITION save / GM save / GM race dropdown (which now also writes the sheet race); Gobelin `critFrom = dé − 1`, `GOBELIN_MAX_CRITS = 3` (initial + explosions), `critFrom` → popup chips, attack panel shows the threshold |
+
+## Verification
+
+- `npm test`: **217/217 pass** (api reconnect/timeout regression tests, Gobelin threshold + 3-crit cap, `ensureRacialWeapon`, template helpers, SET_RACE new ids).
+- `npm run build`: green; manifest version 2.6.0 from `src/version.js`.
+- Docs: `docs/Reglejetdattaque.md` §16 + summary table, `AGENTS.md` (logging/realtime/races/item add/version source), `docs/patch-notes-2.6.0.md`.
+
+## Required after deploy (cannot be done from the repo)
+
+1. Apply `supabase/migrations/20261013_create_app_logs.sql` (log table). Until then `appLog` self-disables after the first failed insert.
+2. **Redeploy the Supabase Edge Function `action`** — `RACE_IDS` still rejects `khajeet`/`gobelin` server-side, so game state would revert the race via realtime (same trap as the stale `SYNC_TOKENS` deploy on 2026-09-30).
+3. Netlify deploy (manual `netlify deploy --build --prod` if the GitHub auto-deploy is still stalled).
+
+## Still unverified (needs a live OBR session)
+
+- Hand popover **height**: the negative `bottom-[-…]` offsets are hand-tuned and could not be measured headlessly. The width now hugs the fan; `hand_popover_metrics` + `hand_popover_geometry` rows in `app_logs` give `requested`/`actual` size and the topmost interactive pixel, which is exactly the number needed for the next height reduction.
+- The dice-popup churn theory: `dice_popup_opens` (1 row / 10 opens) will confirm or kill it before touching the hot path.
+- Whether `worker: true` actually keeps the heartbeat alive inside OBR's iframes (blob worker in a cross-origin frame) — `realtime_health_problem` rows will tell.
