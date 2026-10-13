@@ -1,4 +1,5 @@
 import OBR from '@owlbear-rodeo/sdk';
+import { logEvent } from './appLog.js';
 
 export const ROLL_CHANNEL = 'cardenveil-roll';
 // local (same-browser) channel the physics popup reports results on
@@ -25,7 +26,7 @@ export async function broadcastRoll(data) {
     // ALL so every client's background page opens its matching popup.
     await OBR.broadcast.sendMessage(ROLL_CHANNEL, { ...data, rollId, playerName }, { destination: 'ALL' });
   } catch (err) {
-    console.warn('Failed to broadcast roll:', err);
+    logEvent('warn', 'roll_broadcast_failed', { message: err?.message ?? String(err) });
   }
   return rollId;
 }
@@ -40,7 +41,7 @@ export function onRollResult(callback) {
     channel.onmessage = (event) => callback(event.data);
     return () => channel.close();
   } catch (err) {
-    console.warn('Roll result channel unavailable:', err);
+    logEvent('warn', 'roll_result_channel_unavailable', { message: err?.message ?? String(err) });
     return () => {};
   }
 }
@@ -52,6 +53,6 @@ export function reportRollResult(result) {
     channel.postMessage(JSON.parse(JSON.stringify(result)));
     channel.close();
   } catch (err) {
-    console.warn('Failed to report roll result:', err);
+    logEvent('warn', 'roll_report_failed', { message: err?.message ?? String(err) });
   }
 }

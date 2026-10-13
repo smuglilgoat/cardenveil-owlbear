@@ -1,5 +1,6 @@
 import { hydrateState, applyAction, createInitialGameState, makePendingCard } from './deck.js';
-import { supabase } from './supabaseClient.js';
+import { supabase, onRealtimeHealth, realtimeProblem } from './supabaseClient.js';
+import { logEvent, logError } from './appLog.js';
 
 let currentVersion = 0;
 let realtimeChannel = null;
@@ -11,6 +12,8 @@ let isSubscribed = false;
 let currentRoomId = null;
 let permanentlyDisconnected = false;
 let connectionGeneration = 0;
+let healthUnsub = null;
+let healthTimer = null;
 
 let lastServerState = null;
 let pendingActions = [];
@@ -18,17 +21,34 @@ let pendingActions = [];
 const BACKOFF_STEPS_MS = [1000, 2000, 4000, 8000];
 const MAX_BACKOFF_MS = 30000;
 const MAX_RECONNECT_ATTEMPTS = 30;
+const FETCH_TIMEOUT_MS = 8000;
+const INVOKE_TIMEOUT_MS = 10000;
+const HEALTH_CATCH_UP_MS = 2500;
 
 export function isConnected() {
   return isSubscribed;
 }
 
+/**
+ * Fetch the room state (GET /api/state, ETag-aware). Aborts after
+ * FETCH_TIMEOUT_MS so a cold or hung function can never freeze the UI.
+ */
 export async function fetchState(roomId) {
-  const res = await fetch(`/api/state?roomId=${encodeURIComponent(roomId)}`, {
-    headers: currentVersion ? { 'If-None-Match': String(currentVersion) } : {},
-  });
+  let res;
+  try {
+    res = await fetch(`/api/state?roomId=${encodeURIComponent(roomId)}`, {
+      headers: currentVersion ? { 'If-None-Match': String(currentVersion) } : {},
+      signal: timeoutSignal(FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    logEvent('warn', 'fetch_state_failed', { message: err?.message ?? String(err), detail: { timeoutMs: FETCH_TIMEOUT_MS } });
+    throw new Error('State fetch timed out');
+  }
   if (res.status === 304) return null;
-  if (!res.ok) throw new Error(`State fetch failed: ${res.status}`);
+  if (!res.ok) {
+    logEvent('warn', 'fetch_state_failed', { message: `HTTP ${res.status}` });
+    throw new Error(`State fetch failed: ${res.status}`);
+  }
   const data = await res.json();
   if (data.version != null) currentVersion = data.version;
   if (!data.state) return null;
@@ -50,13 +70,14 @@ function scheduleReconnect() {
   if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
     if (!permanentlyDisconnected) {
       permanentlyDisconnected = true;
+      logEvent('error', 'realtime_permanently_disconnected', { detail: { attempts: reconnectAttempt } });
       if (onConnectionCallback) onConnectionCallback('permanently_disconnected');
     }
     return;
   }
   const delay = nextBackoffMs();
   reconnectAttempt++;
-  console.log(`Realtime: scheduling reconnect in ${delay}ms (attempt ${reconnectAttempt})`);
+  logEvent('warn', 'realtime_reconnect_scheduled', { detail: { delay, attempt: reconnectAttempt } });
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     if (currentRoomId && onStateCallback) {
@@ -232,14 +253,94 @@ function markOptimisticDraws(prevState, optimisticState, action) {
   return optimisticState;
 }
 
+/**
+ * Tear down the channel and timers. `keepCounters` preserves the reconnect
+ * attempt count + optimistic state, so a retry driven by scheduleReconnect()
+ * keeps its backoff and pending actions (startRealtime used to reset them).
+ */
+function teardownRealtime(keepCounters = false) {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (realtimeChannel) {
+    supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  isSubscribed = false;
+  connectionGeneration++;
+  if (!keepCounters) {
+    currentRoomId = null;
+    reconnectAttempt = 0;
+    permanentlyDisconnected = false;
+    lastServerState = null;
+    pendingActions = [];
+  }
+}
+
+function clearHealthTimer() {
+  if (healthTimer) {
+    clearTimeout(healthTimer);
+    healthTimer = null;
+  }
+}
+
+/** Realtime transport problems (heartbeat error/timeout/disconnected) do not
+ *  fire a channel status event: resync from the server a moment later. */
+function watchRealtimeHealth() {
+  if (!healthUnsub) {
+    healthUnsub = onRealtimeHealth((status) => {
+      if (!currentRoomId) return;
+      logEvent('warn', 'realtime_health_problem', { message: status });
+      if (onConnectionCallback) onConnectionCallback('disconnected');
+      clearHealthTimer();
+      healthTimer = setTimeout(() => {
+        healthTimer = null;
+        recoverConnection();
+      }, HEALTH_CATCH_UP_MS);
+    });
+  }
+}
+
+/**
+ * Re-subscribe + resync after a silent drop (also used on tab refocus).
+ * Safe to call at any time: a no-op when the room was never started.
+ */
+export function recoverConnection() {
+  if (!currentRoomId || !onStateCallback) return;
+  logEvent('info', 'connection_recover', {
+    detail: { problem: realtimeProblem(), subscribed: isSubscribed },
+  });
+  if (!isSubscribed) {
+    startRealtime(currentRoomId, onStateCallback, onConnectionCallback);
+    return;
+  }
+  const gen = connectionGeneration;
+  return fetchState(currentRoomId)
+    .then((state) => {
+      if (gen !== connectionGeneration) return;
+      if (state && onStateCallback) onStateCallback(state);
+      if (onConnectionCallback) onConnectionCallback('connected');
+    })
+    .catch((err) => {
+      logError('connection_recover_failed', err);
+    });
+}
+
+export function stopRealtime() {
+  clearHealthTimer();
+  teardownRealtime(false);
+}
+
 export function startRealtime(roomId, onState, onConnectionChange) {
   onStateCallback = onState;
   onConnectionCallback = onConnectionChange || null;
-  stopRealtime();
+  teardownRealtime(true);
 
   currentRoomId = roomId;
   permanentlyDisconnected = false;
   const myGen = ++connectionGeneration;
+  watchRealtimeHealth();
 
   realtimeChannel = supabase
     .channel(`game:${roomId}`)
@@ -270,7 +371,9 @@ export function startRealtime(roomId, onState, onConnectionChange) {
 
       if (status === 'SUBSCRIBED') {
         const wasReconnect = reconnectAttempt > 0;
-        console.log(wasReconnect ? 'Realtime reconnected' : 'Realtime subscribed');
+        logEvent('info', wasReconnect ? 'realtime_reconnected' : 'realtime_subscribed', {
+          detail: { attempt: reconnectAttempt },
+        });
         isSubscribed = true;
         reconnectAttempt = 0;
         permanentlyDisconnected = false;
@@ -282,15 +385,15 @@ export function startRealtime(roomId, onState, onConnectionChange) {
               if (catchUpGen !== connectionGeneration) return;
               if (state && onStateCallback) onStateCallback(state);
             })
-            .catch((e) => console.warn('Realtime catch-up fetch failed:', e));
+            .catch((e) => logError('realtime_catchup_failed', e));
         }
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        console.error('Realtime channel error:', err);
+        logEvent('warn', 'realtime_channel_error', { message: status, detail: { error: err?.message } });
         isSubscribed = false;
         if (onConnectionCallback) onConnectionCallback('disconnected');
         scheduleReconnect();
       } else if (status === 'CLOSED') {
-        console.warn('Realtime channel closed');
+        logEvent('warn', 'realtime_channel_closed', {});
         isSubscribed = false;
         if (onConnectionCallback) onConnectionCallback('disconnected');
         scheduleReconnect();
@@ -298,22 +401,14 @@ export function startRealtime(roomId, onState, onConnectionChange) {
     });
 }
 
-export function stopRealtime() {
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
+/** AbortSignal.timeout when available, AbortController otherwise (jsdom). */
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ms);
   }
-  if (realtimeChannel) {
-    supabase.removeChannel(realtimeChannel);
-    realtimeChannel = null;
-  }
-  isSubscribed = false;
-  currentRoomId = null;
-  reconnectAttempt = 0;
-  permanentlyDisconnected = false;
-  connectionGeneration++;
-  lastServerState = null;
-  pendingActions = [];
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
 }
 
 const MAX_CLIENT_RETRIES = 3;
@@ -340,6 +435,7 @@ export async function dispatch(roomId, action) {
       try {
         const { data, error } = await supabase.functions.invoke('action', {
           body: { roomId, action },
+          timeout: INVOKE_TIMEOUT_MS,
         });
 
         if (error) {
@@ -364,13 +460,17 @@ export async function dispatch(roomId, action) {
     }
 
     if (useFallback) {
-      console.warn('Edge Function failed, falling back to Netlify:', lastError?.message);
+      logEvent('warn', 'dispatch_fallback_netlify', {
+        message: lastError?.message ?? String(lastError),
+        detail: { action: action?.type },
+      });
       for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
         try {
           const res = await fetch('/api/state', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ roomId, action }),
+            signal: timeoutSignal(FETCH_TIMEOUT_MS),
           });
 
           if (res.ok) {
@@ -399,14 +499,17 @@ export async function dispatch(roomId, action) {
       }
     }
 
-    console.error('Dispatch failed after retries:', lastError);
+    logEvent('error', 'dispatch_failed', {
+      message: lastError?.message ?? String(lastError),
+      detail: { action: action?.type, roomId },
+    });
     pendingActions = pendingActions.filter(a => a !== pendingEntry);
     if (currentRoomId) {
       try {
         const state = await fetchState(currentRoomId);
         if (state && onStateCallback) onStateCallback(state);
       } catch (e) {
-        console.error('Recovery fetch failed:', e);
+        logError('dispatch_recovery_fetch_failed', e);
       }
     }
   })();

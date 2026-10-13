@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'child_process'
 import { writeFileSync } from 'fs'
 import path from 'path'
+import { APP_VERSION } from './src/version.js'
 
 function generateCards() {
   return {
@@ -36,7 +37,7 @@ function buildManifest(mode) {
   const isDev = mode === 'development';
   return {
     name: isDev ? 'Cardenveil (Dev)' : 'Cardenveil',
-    version: '2.5.1',
+    version: APP_VERSION,
     manifest_version: 1,
     author: "Ahmed MOUSSAOUI",
     homepage_url: "https://github.com/smuglilgoat/cardenveil-owlbear",

@@ -6,6 +6,7 @@
   import TemplateDropdown from './TemplateDropdown.svelte';
   import { importSheetArchive } from './sheetAssets.js';
   import { RACES } from './deck.js';
+  import { logError, setLogContext } from './appLog.js';
   import {
     STAT_COLORS,
     STAT_LABELS,
@@ -62,6 +63,8 @@
   import { broadcastRoll, onRollResult } from './rollBroadcast.js';
 
   let { playerId, roomId, gameState = null, onAction = () => {} } = $props();
+
+  setLogContext({ roomId, playerId });
 
   let sheet = $state(null);
   let editSheet = $state(null);
@@ -747,7 +750,7 @@
       });
       sheetPopoverOpen = true;
     } catch (err) {
-      console.error('Failed to toggle compact sheet popover:', err);
+      logError('sheet_popover_toggle_failed', err);
     }
   }
 

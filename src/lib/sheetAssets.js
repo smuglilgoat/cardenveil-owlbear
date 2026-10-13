@@ -1,6 +1,7 @@
 import { unzipSync } from 'fflate';
 import { strFromU8 } from 'fflate';
 import { supabase } from './supabaseClient.js';
+import { logEvent, logError } from './appLog.js';
 import { importCharacterSheet } from './characterSheet.js';
 
 /**
@@ -96,13 +97,13 @@ export async function importSheetArchive(playerId, roomId, buffer) {
     for (const ref of refs) {
       const entryName = resolveAssetFile(files, ref.zipPath);
       if (!entryName) {
-        console.warn(`Asset introuvable dans l'archive : ${ref.zipPath}`);
+        logEvent('warn', 'sheet_asset_missing', { message: `Asset introuvable dans l'archive : ${ref.zipPath}` });
         continue;
       }
       urlByZipPath.set(ref.zipPath, await uploadAsset(playerId, roomId, ref.zipPath, files[entryName]));
     }
     const { sheet, rewritten } = rewriteImagePaths(parsed, urlByZipPath);
-    console.warn(`Uploaded ${urlByZipPath.size} asset(s), rewrote ${rewritten} image field(s)`);
+    logEvent('info', 'sheet_assets_uploaded', { message: `${urlByZipPath.size} asset(s), ${rewritten} image field(s)` });
     parsed = sheet;
   }
 

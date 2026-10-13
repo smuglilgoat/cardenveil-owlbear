@@ -35,8 +35,11 @@
     sanitizeHtml
   } from "./characterSheet.js";
   import { tooltip } from "./tooltip.js";
+  import { logError, setLogContext } from "./appLog.js";
 
   let { gameState, party, myId, onAction } = $props();
+
+  setLogContext({ roomId: OBR.room.id, playerId: myId });
 
   let anyPlayerFull = $derived(
     Object.entries(gameState.players).some(
@@ -397,7 +400,7 @@
         const importedState = hydrateState(raw);
         onAction({ type: 'IMPORT_STATE', playerId: myId, state: importedState });
       } catch (err) {
-        console.error("Import failed:", err);
+        logError('gm_state_import_failed', err);
       }
     };
     reader.readAsText(file);

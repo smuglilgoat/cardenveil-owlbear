@@ -3,6 +3,7 @@
   import OBR from "@owlbear-rodeo/sdk";
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./lib/deck.js";
   import { startRealtime, stopRealtime, dispatch, fetchState } from "./lib/api.js";
+  import { logEvent, logError, setLogContext } from "./lib/appLog.js";
   import { tooltip } from "./lib/tooltip.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY } from "./lib/characterSheet.js";
 
@@ -28,12 +29,12 @@
       // the content would collapse while the popover keeps its old size.
       const actual = await OBR.popover.getHeight(popoverId);
       if (actual != null && Math.abs(actual - target) > 4) {
-        console.warn('Hand popover resize did not apply; keeping unfolded');
+        logEvent('warn', 'hand_popover_resize_ignored', { message: 'keeping unfolded' });
         return;
       }
       folded = !folded;
     } catch (err) {
-      console.warn('Failed to resize hand popover:', err);
+      logError('hand_popover_resize_failed', err);
     }
   }
 
@@ -47,7 +48,7 @@
       const newState = await dispatch(roomId, actionObj);
       if (newState) gameState = newState;
     } catch (e) {
-      console.error('Dispatch failed:', e);
+      logError('hand_dispatch_failed', e);
     }
   }
 
@@ -58,6 +59,7 @@
       popoverId = params.get('popoverId');
       myId = playerIdParam || await OBR.player.getId();
       roomId = OBR.room.id;
+      setLogContext({ roomId, playerId: myId });
       party = await OBR.party.getPlayers();
       ready = true;
 

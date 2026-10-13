@@ -1,12 +1,16 @@
 // Persistent page that opens each client's dice popup when a roll starts.
 import OBR from '@owlbear-rodeo/sdk';
 import { ROLL_CHANNEL } from './lib/rollBroadcast.js';
+import { initLogging, setLogContext, logEvent, logError } from './lib/appLog.js';
+
+initLogging('background', { sessionStart: true });
 
 const DICE_POPOVER_ID = 'cardenveil-dice';
 const CLOSE_AFTER_MS = 6000;
 let closeTimer;
 let lastRollId = null;
 let diceStyle = localStorage.getItem('cardenveil-dice-style') || '';
+let diceOpenCount = 0;
 
 async function anchorFor(isSelf) {
   try {
@@ -37,6 +41,7 @@ function openDicePopover(params, anchor) {
 }
 
 OBR.onReady(() => {
+  setLogContext({ roomId: OBR.room.id });
   OBR.broadcast.onMessage('cardenveil-prefs', ({ data }) => {
     if (data?.diceStyle !== undefined) {
       diceStyle = data.diceStyle;
@@ -81,9 +86,12 @@ OBR.onReady(() => {
     try {
       await openDicePopover(params, await anchorFor(isSelf));
       clearTimeout(closeTimer);
-      closeTimer = setTimeout(() => OBR.popover.close(DICE_POPOVER_ID).catch(() => {}), CLOSE_AFTER_MS);
+      closeTimer = setTimeout(() => OBR.popover.close(DICE_POPOVER_ID).catch((err) => logError('dice_popup_close_failed', err)), CLOSE_AFTER_MS);
+      // Heavy-popup churn watch: one row every 10 opens, not one per roll.
+      diceOpenCount++;
+      if (diceOpenCount % 10 === 0) logEvent('info', 'dice_popup_opens', { detail: { count: diceOpenCount } });
     } catch (err) {
-      console.warn('Failed to show dice popup:', err);
+      logError('dice_popup_open_failed', err);
     }
   });
 });

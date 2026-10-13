@@ -3,6 +3,7 @@
  * Handles CRUD operations for character sheets stored in Supabase
  */
 import { supabase } from './supabaseClient.js';
+import { logError, logEvent } from './appLog.js';
 import { RACES } from './deck.js';
 
 // ─── Shared UI constants (used by CharacterSheet + SheetPopover) ───
@@ -665,7 +666,7 @@ export async function fetchCharacterSheet(playerId, roomId) {
 
     return data;
   } catch (err) {
-    console.error('Failed to fetch character sheet:', err);
+    logError('sheet_fetch_failed', err, { roomId, playerId });
     throw err;
   }
 }
@@ -701,7 +702,7 @@ export async function saveCharacterSheet(playerId, roomId, sheetData) {
 
     return data;
   } catch (err) {
-    console.error('Failed to save character sheet:', err);
+    logError('sheet_save_failed', err, { roomId, playerId });
     throw err;
   }
 }
@@ -721,7 +722,7 @@ export async function deleteCharacterSheet(playerId, roomId) {
 
     if (error) throw error;
   } catch (err) {
-    console.error('Failed to delete character sheet:', err);
+    logError('sheet_delete_failed', err, { roomId, playerId });
     throw err;
   }
 }
@@ -787,7 +788,7 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
     // and make Supabase time out. External URLs are preserved.
     const strippedImages = stripBase64Images(parsed);
     if (strippedImages > 0) {
-      console.warn(`Stripped ${strippedImages} embedded image(s) from character sheet import`);
+      logEvent('info', 'sheet_import_images_stripped', { message: `${strippedImages} embedded image(s)` });
     }
 
     // Merge with empty template to ensure all fields exist
@@ -839,7 +840,7 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
 
     return await saveCharacterSheet(playerId, roomId, synced);
   } catch (err) {
-    console.error('Failed to import character sheet:', err);
+    logError('sheet_import_failed', err, { roomId, playerId });
     throw err;
   }
 }
@@ -1488,7 +1489,7 @@ export function broadcastSheet(message) {
   try {
     sheetChannelInstance()?.postMessage(JSON.parse(JSON.stringify(message)));
   } catch (err) {
-    console.warn('Failed to broadcast sheet update:', err);
+    logEvent('warn', 'sheet_broadcast_failed', { message: err?.message ?? String(err) });
   }
 }
 

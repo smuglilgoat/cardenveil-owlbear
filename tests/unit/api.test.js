@@ -6,7 +6,10 @@ global.fetch = jest.fn();
 // Mock Supabase
 const mockChannel = {
   on: jest.fn(() => mockChannel),
-  subscribe: jest.fn(() => mockChannel),
+  subscribe: jest.fn((cb) => {
+    mockChannel.emitStatus = cb;
+    return mockChannel;
+  }),
 };
 
 const mockSupabase = {
@@ -15,19 +18,32 @@ const mockSupabase = {
   functions: {
     invoke: jest.fn(),
   },
+  // appLog sink: assert-free no-op so logging paths never throw in tests
+  from: jest.fn(() => ({ insert: jest.fn(() => Promise.resolve({ error: null })) })),
 };
 
 jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
   supabase: mockSupabase,
+  onRealtimeHealth: () => () => {},
+  realtimeProblem: () => '',
 }));
 
 // Import after mocking
-const { fetchState, startRealtime, stopRealtime, dispatch } = await import('../../src/lib/api.js');
+const { fetchState, startRealtime, stopRealtime, dispatch, isConnected } = await import('../../src/lib/api.js');
 
 describe('API Client', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch.mockClear();
+    // reset (not just clear): a leftover mockResolvedValueOnce from a previous
+    // test would otherwise satisfy this test's first fetch with the wrong body
+    global.fetch.mockReset();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('fetchState', () => {
@@ -139,6 +155,7 @@ describe('API Client', () => {
         'action',
         expect.objectContaining({
           body: { roomId: 'test-room', action },
+          timeout: expect.any(Number),
         })
       );
     });
@@ -179,6 +196,64 @@ describe('API Client', () => {
           body: expect.any(String),
         })
       );
+    });
+  });
+
+  describe('realtime reconnect', () => {
+    it('marks the connection live once the channel subscribes', () => {
+      startRealtime('test-room', jest.fn());
+      expect(isConnected()).toBe(false);
+      mockChannel.emitStatus('SUBSCRIBED');
+      expect(isConnected()).toBe(true);
+      stopRealtime();
+    });
+
+    it('runs the catch-up fetch after a reconnection, not on the first subscribe', async () => {
+      jest.useFakeTimers();
+      global.fetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ version: 9, state: { players: {}, discard: [], pendingExchanges: [], logs: [] } }),
+      });
+      const onState = jest.fn();
+
+      startRealtime('test-room', onState);
+      mockChannel.emitStatus('SUBSCRIBED');
+      expect(global.fetch).not.toHaveBeenCalled();
+
+      // Channel drops → backoff timer → startRealtime() from scheduleReconnect
+      mockChannel.emitStatus('CHANNEL_ERROR');
+      jest.advanceTimersByTime(1000);
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      jest.useRealTimers();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/state?roomId=test-room'),
+        expect.any(Object)
+      );
+      expect(onState).toHaveBeenCalled();
+
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
+    it('keeps growing the reconnect backoff instead of resetting it', () => {
+      jest.useFakeTimers();
+      startRealtime('test-room', jest.fn());
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      mockChannel.emitStatus('CHANNEL_ERROR');
+      jest.advanceTimersByTime(1000); // attempt 1 → 1 s
+      mockChannel.emitStatus('CHANNEL_ERROR');
+      const channelsAfterFirstRetry = mockSupabase.channel.mock.calls.length;
+      jest.advanceTimersByTime(1000); // 2 s backoff: not elapsed yet
+      expect(mockSupabase.channel.mock.calls.length).toBe(channelsAfterFirstRetry);
+      jest.advanceTimersByTime(1000); // now 2 s elapsed → retry
+      expect(mockSupabase.channel.mock.calls.length).toBe(channelsAfterFirstRetry + 1);
+
+      stopRealtime();
+      jest.useRealTimers();
     });
   });
 });

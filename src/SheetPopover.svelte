@@ -29,6 +29,7 @@
     parseDiceSpec
   } from './lib/characterSheet.js';
   import { broadcastRoll, onRollResult } from './lib/rollBroadcast.js';
+  import { logEvent, logError, setLogContext } from './lib/appLog.js';
   import { rollAttack, runAttack, attackPreview, pickAttackWeapon } from './lib/attackRoll.js';
   import { SIDES_TO_TYPE } from './lib/diceRoll.js';
 
@@ -54,7 +55,7 @@
     sheet = { ...sheet, notes: notesDraft };
     saveInFlight = true;
     saveCharacterSheet(playerId, roomId, sheet)
-      .catch(console.error)
+      .catch((err) => logError('sheet_popover_save_failed', err))
       .finally(() => {
         saveInFlight = false;
       });
@@ -95,18 +96,19 @@
       // Only fold the DOM if the resize actually took effect.
       const actual = await OBR.popover.getHeight(popoverId);
       if (actual != null && Math.abs(actual - target) > 4) {
-        console.warn('Sheet popover resize did not apply; keeping unfolded');
+        logEvent('warn', 'sheet_popover_resize_ignored', { message: 'keeping unfolded' });
         return;
       }
       folded = !folded;
     } catch (err) {
-      console.warn('Failed to resize sheet popover:', err);
+      logError('sheet_popover_resize_failed', err);
     }
   }
 
   onMount(() => {
     // Register subscriptions synchronously so they exist even if the first
     // fetch hangs (e.g. a paused Supabase project).
+    setLogContext({ roomId, playerId });
     const unsubscribe = subscribeToCharacterSheet(playerId, roomId, (newData) => {
       if (newData) sheet = newData.data;
     });
@@ -115,7 +117,7 @@
       .then((data) => {
         sheet = data?.data ?? null;
       })
-      .catch((err) => console.error('Failed to load character sheet (compact):', err));
+      .catch((err) => logError('sheet_popover_fetch_failed', err));
 
     // Same-origin instant sync: the main sheet (or this frame) broadcasts on
     // every save (pins, diamonds, imports…). saveInFlight guards our own echo.
@@ -169,7 +171,7 @@
         formula: msg.formula || '',
         total: msg.total,
         rolls: msg.rolls
-      }).catch((err) => console.error('Failed to dispatch roll:', err));
+      }).catch((err) => logError('sheet_popover_roll_dispatch_failed', err));
     });
 
     OBR.onReady(async () => {
@@ -206,7 +208,7 @@
     if (raw === '' || raw == null || Number.isNaN(Number(raw))) delete overrides.bonusAttaque;
     else overrides.bonusAttaque = Number(raw);
     sheet = { ...sheet, derived: { ...(sheet.derived ?? {}), overrides } };
-    saveCharacterSheet(playerId, roomId, sheet).catch(console.error);
+    saveCharacterSheet(playerId, roomId, sheet).catch((err) => logError('sheet_popover_save_failed', err));
   }
 
   function stripHtml(text) {
@@ -235,7 +237,7 @@
     sheet = next;
     saveInFlight = true;
     saveCharacterSheet(playerId, roomId, next)
-      .catch(console.error)
+      .catch((err) => logError('sheet_popover_save_failed', err))
       .finally(() => {
         saveInFlight = false;
       });
@@ -281,9 +283,9 @@
         formula: result.formula,
         total: result.total,
         rolls: result.rolls
-      }).catch((err) => console.error('Failed to dispatch roll:', err));
+      }).catch((err) => logError('sheet_popover_roll_dispatch_failed', err));
     } catch (err) {
-      console.warn('Roll failed:', err);
+      logError('sheet_popover_roll_failed', err);
     }
   }
 
@@ -395,7 +397,7 @@
       try {
         rolls = await throwAttackStage(label, count, sides, null);
       } catch (err) {
-        console.warn('3D capacity roll failed, falling back to flat:', err);
+        logEvent('warn', 'roll_3d_fallback', { message: err?.message ?? String(err), detail: { kind: 'capacity' } });
       } finally {
         capacityInFlight = false;
       }
@@ -404,7 +406,7 @@
       try {
         rolls = rollDice(`${count}d${sides}`).rolls;
       } catch (err) {
-        console.warn('Capacity roll failed:', err);
+        logError('sheet_popover_capacity_roll_failed', err);
         return;
       }
     }
@@ -428,7 +430,7 @@
       formula: `${count}d6`.slice(0, 32),
       total,
       rolls
-    }).catch((err) => console.error('Failed to dispatch capacity roll:', err));
+    }).catch((err) => logError('sheet_popover_capacity_dispatch_failed', err));
   }
 
   function saveAttackSettings() {
@@ -491,7 +493,7 @@
           throwAttackStage(baseLabel, pool, sides, keep)
         );
       } catch (err) {
-        console.warn('3D attack failed, falling back to flat:', err);
+        logEvent('warn', 'roll_3d_fallback', { message: err?.message ?? String(err), detail: { kind: 'attack' } });
       } finally {
         attackInFlight = false;
       }
@@ -500,7 +502,7 @@
       try {
         result = await rollAttack(weapon, sheet.stats ?? {}, opts);
       } catch (err) {
-        console.warn('Attack roll failed:', err);
+        logError('sheet_popover_attack_roll_failed', err);
         return;
       }
     }
@@ -527,7 +529,7 @@
       formula: `${result.stages[0]?.pool ?? 1}d${result.sides}${result.miss ? ' MISS' : result.critCount > 0 ? ` CRIT×${result.critCount}` : ''}`.slice(0, 32),
       total: result.total,
       rolls: result.stages.map((s) => s.kept)
-    }).catch((err) => console.error('Failed to dispatch attack roll:', err));
+    }).catch((err) => logError('sheet_popover_attack_dispatch_failed', err));
   }
   // Rule-derived combat values (parade, initiative, armure, vitesse)
   let calc = $derived(computeDerived(sheet ?? {}));

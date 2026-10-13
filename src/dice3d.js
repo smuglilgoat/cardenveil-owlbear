@@ -6,6 +6,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { groupDiceByRoll, meshDefsFor, rollValueForGroup, SIDES_TO_TYPE, MAX_VISIBLE_DICE, visibleRollChip } from './lib/diceRoll.js';
 import { reportRollResult } from './lib/rollBroadcast.js';
+import { initLogging, logEvent, logError } from './lib/appLog.js';
+
+initLogging('dice');
 
 const params = new URLSearchParams(location.search);
 const label = params.get('label') || 'Lancer de dés';
@@ -111,7 +114,7 @@ if (error) {
   } else {
     formulaEl.textContent = formula;
     startSim(spec, parseInt(seedParam, 10), modifierParam).catch((err) => {
-      console.warn('Dice simulation failed:', err);
+      logError('dice_sim_failed', err);
       fallbackFromSpec(spec, modifierParam);
     });
   }
@@ -381,7 +384,7 @@ async function startSim(spec, seed, modifier) {
   try {
     stage = buildStage(canvas, width, height, color);
   } catch (err) {
-    console.warn('WebGL unavailable:', err);
+    logEvent('warn', 'dice_webgl_unavailable', { message: err?.message ?? String(err) });
     host.remove();
     fallbackFromSpec(spec, modifier);
     return;
@@ -391,7 +394,7 @@ async function startSim(spec, seed, modifier) {
   try {
     await RAPIER.init();
   } catch (err) {
-    console.warn('Rapier init failed:', err);
+    logError('dice_rapier_init_failed', err);
     host.remove();
     fallbackFromSpec(spec, modifier);
     return;

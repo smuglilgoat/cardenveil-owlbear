@@ -3,7 +3,8 @@
   import OBR from '@owlbear-rodeo/sdk';
   import GMDashboard from './GMDashboard.svelte';
   import PlayerHand from './PlayerHand.svelte';
-  import { startRealtime, stopRealtime, dispatch, fetchState } from './api.js';
+  import { startRealtime, stopRealtime, dispatch, fetchState, recoverConnection } from './api.js';
+  import { logError, setLogContext } from './appLog.js';
 
   let { onGameChange = null } = $props();
 
@@ -69,8 +70,55 @@
   });
 
   let unsubParty = null;
+  let loadError = $state('');
+
+  /**
+   * Load (and register into) the room state. Never blocks the first paint:
+   * a cold or unreachable function shows the retry UI instead of a spinner
+   * that only a page reload could clear.
+   */
+  async function loadGame() {
+    loadError = '';
+    try {
+      let state = await fetchState(roomId);
+
+      if (!state && myRole === 'GM') {
+        state = await dispatch(roomId, { type: 'INIT_GAME', playerId: myId });
+      }
+
+      if (state && myRole === 'GM' && state.gmId !== myId) {
+        state = await dispatch(roomId, { type: 'INIT_GAME', playerId: myId });
+      }
+
+      if (state && myRole !== 'GM' && !state.players[myId]) {
+        state = await dispatch(roomId, { type: 'REGISTER_PLAYER', playerId: myId, name: myName });
+      }
+
+      if (state && myRole === 'GM') {
+        const missingPlayers = party.filter(p => p.id !== myId && !state.players[p.id]);
+        if (missingPlayers.length > 0) {
+          state = await dispatch(roomId, { type: 'REGISTER_PARTY', playerId: myId, players: missingPlayers });
+        }
+      }
+
+      gameState = state;
+      startRealtime(roomId, (newState) => {
+        gameState = newState;
+      }, handleConnectionChange);
+    } catch (e) {
+      loadError = e?.message ?? String(e);
+      logError('game_load_failed', e, { roomId });
+    }
+  }
+
+  /** Coming back from a hidden tab / offline: resubscribe + resync. */
+  function onVisibilityChange() {
+    if (document.visibilityState === 'visible') recoverConnection();
+  }
 
   onMount(() => {
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', recoverConnection);
     OBR.onReady(async () => {
       try {
         myId   = await OBR.player.getId();
@@ -78,37 +126,13 @@
         myRole = await OBR.player.getRole();
         party  = await OBR.party.getPlayers();
         roomId = OBR.room.id;
+        setLogContext({ roomId, playerId: myId, playerName: myName });
 
-        let state = await fetchState(roomId);
-
-        if (!state && myRole === 'GM') {
-          state = await dispatch(roomId, { type: 'INIT_GAME', playerId: myId });
-        }
-
-        if (state && myRole === 'GM' && state.gmId !== myId) {
-          state = await dispatch(roomId, { type: 'INIT_GAME', playerId: myId });
-        }
-
-        if (state && myRole !== 'GM' && !state.players[myId]) {
-          state = await dispatch(roomId, { type: 'REGISTER_PLAYER', playerId: myId, name: myName });
-        }
-
-        if (state && myRole === 'GM') {
-          const missingPlayers = party.filter(p => p.id !== myId && !state.players[p.id]);
-          if (missingPlayers.length > 0) {
-            state = await dispatch(roomId, { type: 'REGISTER_PARTY', playerId: myId, players: missingPlayers });
-          }
-        }
-
-        gameState = state;
         ready = true;
-
-        startRealtime(roomId, (newState) => {
-          gameState = newState;
-        }, handleConnectionChange);
-
+        await loadGame();
       } catch (e) {
         addToast(e?.message ?? String(e));
+        logError('game_init_failed', e);
         ready = true;
       }
 
@@ -127,6 +151,8 @@
   onDestroy(() => {
     stopRealtime();
     unsubParty?.();
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('online', recoverConnection);
   });
 </script>
 
@@ -161,16 +187,27 @@
 
 {:else if !gameState}
   <div class="flex flex-col items-center justify-center h-full gap-4 p-4">
-    <p class="text-gray-400 text-sm text-center">
-      {myRole === 'GM' ? 'Aucune partie initialisée.' : 'En attente que le MJ initialise la partie...'}
-    </p>
-    {#if myRole === 'GM'}
+    {#if loadError}
+      <p class="text-red-400 text-sm text-center">Impossible de charger l'état de la partie.</p>
+      <p class="text-gray-500 text-xs text-center font-mono">{loadError}</p>
       <button
-        onclick={() => onAction({ type: 'INIT_GAME', playerId: myId })}
+        onclick={loadGame}
         class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg"
       >
-        Initialiser la partie
+        Réessayer
       </button>
+    {:else}
+      <p class="text-gray-400 text-sm text-center">
+        {myRole === 'GM' ? 'Aucune partie initialisée.' : 'En attente que le MJ initialise la partie...'}
+      </p>
+      {#if myRole === 'GM'}
+        <button
+          onclick={() => onAction({ type: 'INIT_GAME', playerId: myId })}
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg"
+        >
+          Initialiser la partie
+        </button>
+      {/if}
     {/if}
   </div>
 
