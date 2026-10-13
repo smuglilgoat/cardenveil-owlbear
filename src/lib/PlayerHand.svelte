@@ -241,6 +241,8 @@
     'aasimar':   'Passif : Quand vous utilisez un token, vous créez automatiquement une carte cristallisée Cœur',
     'halfling':  'Passif : À chaque pioche, piochez 2 cartes puis choisissez-en 1',
     'sporelin':  'Passif : Vous pouvez échanger une carte gratuitement avec un allié',
+    'khajeet':   'Passif : Griffes (🐾 1d6, Finesse) — arme naturelle par défaut',
+    'gobelin':   'Passif : Critique sur dé − 1 (5+ sur d6) mais maximum 3 critiques par attaque de base',
   });
 
   const TOKEN_CARTE_TIP = /** @type {{ [key: string]: string }} */ ({

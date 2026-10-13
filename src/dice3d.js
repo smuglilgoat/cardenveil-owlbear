@@ -23,6 +23,9 @@ const error = params.get('error');
 const color = params.get('color') || '#312e81';
 const stagedParam = params.get('staged') === '1';
 const zoomCritParam = params.get('zoomCrit') === '1'; // crit camera punch-in allowed (attack/stat/skill rolls)
+// Explicit crit threshold (Gobelin: dé − 1); absent = the die's max face
+const critFromParam = parseInt(params.get('critFrom') || '', 10);
+const critAt = (sides) => (Number.isFinite(critFromParam) ? Math.min(critFromParam, sides) : sides);
 const isSelf = params.get('self') === '1';
 const specParam = params.get('diceSpec'); // JSON [{count, sides}...]
 const seedParam = params.get('seed');
@@ -62,7 +65,7 @@ const totalEl = document.getElementById('total');
 const formulaEl = document.getElementById('formula');
 
 function appendRollChip(value, sides, index, count, delay = 0) {
-  const result = visibleRollChip(value, sides, index, count);
+  const result = visibleRollChip(value, sides, index, count, critAt(sides));
   if (!result) return;
   const chip = document.createElement('div');
   if (result.more != null) {
@@ -89,7 +92,7 @@ COLLIDER_VERTICES.d8 = COLLIDER_VERTICES.d10;
 COLLIDER_VERTICES.d12 = COLLIDER_VERTICES.d20;
 COLLIDER_VERTICES.d100 = COLLIDER_VERTICES.d10;
 
-const critPre = rollsParam.some((r, i) => parseInt(r, 10) === parseInt(typesParam[i], 10));
+const critPre = rollsParam.some((r, i) => parseInt(r, 10) >= critAt(parseInt(typesParam[i], 10)));
 const failPre = rollsParam.some((r) => parseInt(r, 10) === 1);
 
 if (error) {
@@ -146,7 +149,7 @@ function fallbackFromSpec(spec, modifier) {
     }
   }
   if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, staged: stagedParam, total: rolls.reduce((a, b) => a + b, 0) + modifier });
-  const crit = rolls.some((r, i) => r === diceTypes[i]);
+  const crit = rolls.some((r, i) => r >= critAt(diceTypes[i]));
   const fail = rolls.some((r) => r === 1);
   rolls.forEach((r, i) => appendRollChip(r, diceTypes[i], i, rolls.length, i * 0.08));
   totalEl.style.animationDelay = `${0.45 + Math.min(rolls.length, MAX_VISIBLE_DICE + 1) * 0.08}s`;
@@ -570,7 +573,7 @@ async function startSim(spec, seed, modifier) {
     const face = d.geom.faces.get(readFace(d));
     if (!face) return lockDie(d);
     // drama: a die snapping onto its max face zooms the camera onto it
-    if (!critZoom && zoomCritParam && rollValueForGroup(rollGroups[d.def.rollIndex], readFace) === d.def.sides) {
+    if (!critZoom && zoomCritParam && rollValueForGroup(rollGroups[d.def.rollIndex], readFace) >= critAt(d.def.sides)) {
       critZoom = { pos: d.die.position.clone(), from: camera.position.clone(), start: now };
     }
     const from = d.die.quaternion.clone();
@@ -642,7 +645,7 @@ async function startSim(spec, seed, modifier) {
         die.rollValue = value;
         die.chipDone = true;
       }
-      const crit = value === d.def.sides;
+      const crit = value >= critAt(d.def.sides);
       const fail = value === 1;
       appendRollChip(value, d.def.sides, d.def.rollIndex, rollGroups.length);
       if (crit) {
@@ -659,7 +662,7 @@ async function startSim(spec, seed, modifier) {
       reported = true;
       const rolls = rollGroups.map((group) => group[0].rollValue ?? 1);
       const diceTypes = rollGroups.map((group) => group[0].def.sides);
-      const crit = diceTypes.some((s, i) => rolls[i] === s);
+      const crit = diceTypes.some((s, i) => rolls[i] >= critAt(s));
       const fail = rolls.some((r) => r === 1);
       if (crit) totalEl.classList.add('crit');
       else if (fail) totalEl.classList.add('fail');

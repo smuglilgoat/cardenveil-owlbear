@@ -48,6 +48,7 @@
     EQUIPMENT_CATALOG,
     withItemFromTemplate,
     withWeaponFromTemplate,
+    ensureRacialWeapon,
     itemTypeColor,
     ITEM_TYPE_OPTIONS,
     raceLabel,
@@ -309,7 +310,10 @@
     isSaving = true;
     try {
       applyMasteryText(editSheet);
-      editSheet = syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(editSheet)));
+      editSheet = ensureRacialWeapon(
+        syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(editSheet))),
+        editSheet.identity?.race
+      );
       await saveCharacterSheet(playerId, roomId, editSheet);
       sheet = editSheet;
       editSheet = null;

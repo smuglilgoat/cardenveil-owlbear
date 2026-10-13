@@ -30,7 +30,7 @@
   } from './lib/characterSheet.js';
   import { broadcastRoll, onRollResult } from './lib/rollBroadcast.js';
   import { logEvent, logError, setLogContext } from './lib/appLog.js';
-  import { rollAttack, runAttack, attackPreview, pickAttackWeapon } from './lib/attackRoll.js';
+  import { rollAttack, runAttack, attackPreview, pickAttackWeapon, isGobelin } from './lib/attackRoll.js';
   import { SIDES_TO_TYPE } from './lib/diceRoll.js';
 
   const params = new URLSearchParams(location.search);
@@ -347,7 +347,7 @@
   let selectedAttackWeapon = $derived(pickAttackWeapon(sheet?.weapons ?? [], attackWeaponName).weapon);
   let attackCalc = $derived(
     selectedAttackWeapon
-      ? attackPreview(selectedAttackWeapon, sheet?.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque })
+      ? attackPreview(selectedAttackWeapon, sheet?.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race })
       : null
   );
 
@@ -473,7 +473,9 @@
       zoomCrit: true,
       seed: Math.floor(Math.random() * 0xffffffff),
       modifier: 0,
-      staged: true
+      staged: true,
+      // Gobelin crits on dé − 1: let the popup chips glow on a 5+ (d6)
+      critFrom: isGobelin(sheet?.identity?.race) ? Math.max(2, sides - 1) : sides
     });
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -488,7 +490,7 @@
     const weapon = selectedAttackWeapon;
     if (!weapon || !sheet || attackInFlight) return;
     saveAttackSettings();
-    const opts = { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque };
+    const opts = { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race };
     const baseLabel = `Attaque · ${weapon.nom || 'Sans nom'}`;
 
     // 3D mode: staged physics throws — the driver walks runAttack, throwing
@@ -529,7 +531,8 @@
       total: result.total,
       breakdown: result.breakdown,
       critCount: result.critCount,
-      miss: result.miss
+      miss: result.miss,
+      critFrom: result.critFrom
     });
     // Action log: same USE_CAPACITY channel, breakdown folded into the formula string (32 chars max).
     dispatch(roomId, {
@@ -787,7 +790,7 @@
               />
             </div>
             <div class="text-[9px] text-[#9ca3af] leading-snug">
-              <div>Jet : {attackCalc.diceCount}d{attackCalc.sides}{attackKeepLabel ? ` · ${attackKeepLabel}` : ''}</div>
+              <div>Jet : {attackCalc.diceCount}d{attackCalc.sides}{attackKeepLabel ? ` · ${attackKeepLabel}` : ''} · crit {attackCalc.critFrom}+{attackCalc.gobelin ? ` (max ${attackCalc.maxCrits} critiques)` : ''}</div>
               <div>Dégâts : {attackCalc.keep ? `${attackCalc.keep} + ` : 'dé + '}{attackCalc.weaponBonus ? `${fmt(attackCalc.weaponBonus)} arme` : ''}{attackEngagement > 0 ? `${attackCalc.weaponBonus ? ' ' : ''}${fmt(attackCalc.engagementMod * attackEngagement)} ${STAT_LABELS[attackCalc.engagementStat]}` : ''}{attackCalc.finesse ? ' (répété ×crits)' : ''}{attackCalc.hache ? ' (Brutalité : explosion 2d, doubles)' : ''}</div>
             </div>
             <button

@@ -72,7 +72,9 @@ OBR.onReady(() => {
       // roller, which applies the rules and throws the next stage
       staged: data.staged ? '1' : '0',
       // crit camera punch-in is allowed only for attack/stat/skill rolls
-      zoomCrit: data.zoomCrit ? '1' : '0'
+      zoomCrit: data.zoomCrit ? '1' : '0',
+      // explicit crit threshold (Gobelin: dé − 1); absent = die max face
+      critFrom: data.critFrom != null ? String(data.critFrom) : ''
     });
     if (data.rolls) {
       params.set('rolls', (data.rolls ?? []).join(','));

@@ -116,6 +116,8 @@ export const RACES = [
   { id: 'aasimar',   label: 'Aasimar' },
   { id: 'halfling',  label: 'Halfling' },
   { id: 'sporelin',  label: 'Sporelin' },
+  { id: 'khajeet',   label: 'Khajeet' },
+  { id: 'gobelin',   label: 'Gobelin' },
 ];
 
 const RACE_IDS = new Set(RACES.map(r => r.id));

@@ -295,6 +295,8 @@ export const EQUIPMENT_CATALOG = [
     family: 'Armes uniques',
     kind: 'arme',
     items: [
+      // Racial weapon of the Khajeet (griffes) — épée courte d6 profile
+      { nom: 'Griffe', de: '1d6', degats: 'tranchant', proprietes: 'Finesse, Légère, Naturelle' },
       { nom: 'Faux', de: '1d10', degats: 'tranchant', proprietes: 'Deux mains, Fluide, Allonge' },
       { nom: 'Twinblade', de: '1d8', degats: 'tranchant', proprietes: 'Deux mains, Double Frappe' },
       { nom: 'Rapière', de: '1d8', degats: 'perçant', proprietes: 'Finesse, Contre d’Estoc' },
@@ -441,8 +443,7 @@ export const ITEM_ICONS = {
   Amulette: '◈',
   Anneau: '💍',
   // Consumable templates
-  'Potion de soin': '🧪',
-  'Potion de buff': '✨',
+  'Potion de soin': '🧪',  'Potion de buff': '✨',
   'Huile d’imprégnation': '🛢️',
   'Parchemin': '📜',
   'Nourriture': '🍖',
@@ -454,6 +455,8 @@ export const ITEM_ICONS = {
   'Cristal': '💎',
   'Carte cristallisée': '🃏',
   'Ingrédient alchimique': '🌿',
+  // Natural/racial weapons
+  'Griffe': '🐾',
 };
 
 /**
@@ -520,6 +523,28 @@ export function withWeaponFromTemplate(sheet, templateName) {
     bonus: '', perfection: '', notes: '', equipped: false
   };
   return { ...sheet, weapons: [weapon, ...(sheet?.weapons ?? [])] };
+}
+
+/** Default weapon granted by a race (id → catalogue weapon name). */
+const RACIAL_WEAPONS = {
+  khajeet: 'Griffe'
+};
+
+/**
+ * Grant a race's default weapon when it is missing: added to the sheet and
+ * equipped in the main hand when both hands are free. Idempotent, pure.
+ * @param {Object} sheet - Character sheet
+ * @param {unknown} race - Race id (or free text)
+ * @returns {Object} The same sheet, or a new one with the weapon added
+ */
+export function ensureRacialWeapon(sheet, race) {
+  const weaponName = RACIAL_WEAPONS[normalizeRaceName(race)];
+  if (!weaponName || !sheet) return sheet;
+  if ((sheet.weapons ?? []).some((w) => w?.nom === weaponName)) return sheet;
+  const next = withWeaponFromTemplate(sheet, weaponName);
+  const hands = handSlots(next);
+  if (hands.main || hands.off) return next;
+  return equipWeapon(next, next.weapons[0], 'main');
 }
 
 /**
@@ -881,7 +906,8 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
     // the race id so game-side race lookups keep working.
     merged.identity.race = normalizeRaceName(merged.identity.race);
 
-    const synced = syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(merged)));
+    // Racial default weapon (e.g. Khajeet griffes) comes with the race
+    const synced = ensureRacialWeapon(syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(merged))), merged.identity.race);
 
     const payloadBytes = JSON.stringify(synced).length;
     if (payloadBytes > MAX_SHEET_BYTES) {

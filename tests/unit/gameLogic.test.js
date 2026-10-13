@@ -306,6 +306,23 @@ describe('Game Logic', () => {
         expect(state.players['player-2'].race).toBeNull();
       });
 
+      it('should accept the Khajeet and Gobelin race ids', () => {
+        const khajeet = applyAction(initialState, {
+          type: 'SET_RACE',
+          playerId: 'gm-player',
+          targetId: 'player-1',
+          race: 'khajeet',
+        }).state;
+        expect(khajeet.players['player-1'].race).toBe('khajeet');
+        const gobelin = applyAction(khajeet, {
+          type: 'SET_RACE',
+          playerId: 'gm-player',
+          targetId: 'player-2',
+          race: 'gobelin',
+        }).state;
+        expect(gobelin.players['player-2'].race).toBe('gobelin');
+      });
+
       it('should reject unknown race ids', () => {
         const { state } = applyAction(initialState, {
           type: 'SET_RACE',

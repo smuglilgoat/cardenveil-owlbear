@@ -4,7 +4,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
   supabase: { from: jest.fn(), channel: jest.fn(), removeChannel: jest.fn() }
 }));
 
-const { rollAttack, runAttack, attackPreview, pickAttackWeapon, weaponFlags, engagementStat } = await import('../../src/lib/attackRoll.js');
+const { rollAttack, runAttack, attackPreview, pickAttackWeapon, weaponFlags, engagementStat, isGobelin, GOBELIN_MAX_CRITS } = await import('../../src/lib/attackRoll.js');
 
 // Deterministic RNG: `rolls` is the list of die outcomes consumed in order
 // across the whole attack (initial pool, then each explosion). Uniform in
@@ -168,6 +168,31 @@ describe('rollAttack — basic resolution', () => {
     expect(r.stages[1].pool).toBe(3);
     expect(r.stages[2].pool).toBe(1);
     expect(r.critCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('Gobelin: crits from dé − 1 and chains from there (doc §16 + user rule)', async () => {
+    const w = noMiss({ de: '1d6', bonus: 0, proprietes: '' });
+    // 5 on a d6 is a crit for a Gobelin → explosion rolls 5 again → 3 ends it
+    const r = await withRolls([5, 5, 3], 6, (rng) => rollAttack(w, stats, { race: 'gobelin', rng }));
+    expect(r.critCount).toBe(2);
+    expect(r.total).toBe(5 + 5 + 3);
+    expect(r.critFrom).toBe(5);
+    expect(r.maxCrits).toBe(3);
+    expect(r.breakdown.join('\n')).toContain('seuil 5+');
+    // a non-Gobelin attacker with the same dice gets nothing
+    const plain = await withRolls([5, 3], 6, (rng) => rollAttack(w, stats, { rng }));
+    expect(plain.critCount).toBe(0);
+    expect(plain.critFrom).toBe(6);
+    expect(plain.maxCrits).toBeNull();
+  });
+
+  it('Gobelin: caps the crit chain at 3 on a basic attack', async () => {
+    const w = noMiss({ de: '1d6', bonus: 0, proprietes: '' });
+    // every explosion crits (5, 5, 5, 5…) — the chain must stop after 3
+    const r = await withRolls([5, 5, 5, 5, 5, 5], 6, (rng) => rollAttack(w, stats, { race: 'Gobelin', rng }));
+    expect(r.critCount).toBe(3);
+    expect(r.stages).toHaveLength(4); // initial + 3 explosions
+    expect(r.total).toBe(20); // 4 kept dice of 5, both chains capped
   });
 
   it('repeats the bonus once per crit only for Finesse (doc §10: 46 total)', async () => {

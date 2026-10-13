@@ -34,7 +34,8 @@
     raceLabel,
     sanitizeHtml,
     withItemFromTemplate,
-    withWeaponFromTemplate
+    withWeaponFromTemplate,
+    ensureRacialWeapon
   } from "./characterSheet.js";
   import ItemAddPopup from "./ItemAddPopup.svelte";
   import { tooltip } from "./tooltip.js";
@@ -281,6 +282,29 @@
 
   function setRace(playerId, race) {
     onAction({ type: 'SET_RACE', playerId: myId, targetId: playerId, race: race || null });
+    // The sheet is what the attack engine reads (Gobelin crits, Khajeet
+    // griffes): keep it in step with the game-state race.
+    syncRaceToSheet(playerId, race);
+  }
+
+  /** Write the race into the player's sheet + grant its default weapon. */
+  async function syncRaceToSheet(playerId, race) {
+    try {
+      const row = await fetchCharacterSheet(playerId, OBR.room.id);
+      if (!row?.data) return; // no sheet yet — don't create one just for the race
+      const sheet = row.data;
+      const raceId = normalizeRaceName(race) ?? '';
+      const next = ensureRacialWeapon(
+        { ...sheet, identity: { ...(sheet.identity ?? {}), race: raceId } },
+        raceId
+      );
+      await saveCharacterSheet(playerId, OBR.room.id, next);
+      if (viewingSheet?.playerId === playerId) {
+        viewingSheet.sheet = next;
+      }
+    } catch (err) {
+      logError('gm_race_sheet_sync_failed', err, { playerId });
+    }
   }
 
   function setMaxToken(playerId, stat, val) {
@@ -491,7 +515,10 @@
     if (!viewingSheet) return;
     sheetLoading = true;
     try {
-      viewingSheet.sheet = syncStatsFromEquipment(syncSkillBonuses(viewingSheet.sheet));
+      viewingSheet.sheet = ensureRacialWeapon(
+        syncStatsFromEquipment(syncSkillBonuses(viewingSheet.sheet)),
+        viewingSheet.sheet.identity?.race
+      );
       await saveCharacterSheet(viewingSheet.playerId, OBR.room.id, viewingSheet.sheet);
       viewingSheet.exists = true;
       viewingSheet.isEditing = false;

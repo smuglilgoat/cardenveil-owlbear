@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, ensureRacialWeapon, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -830,6 +830,31 @@ describe('Character Sheet dice helpers', () => {
       }
       const potion = findEquipmentTemplate('Potion de soin');
       expect(potion).toMatchObject({ effet: 'Soigne 4d10 PV', quantite: 1, kind: 'consommable' });
+    });
+
+    it('should expose the Khajeet griffe (épée courte d6 profile)', () => {
+      const griffe = findEquipmentTemplate('Griffe');
+      expect(griffe).toMatchObject({ de: '1d6', kind: 'arme', family: 'Armes uniques' });
+      expect(griffe.proprietes).toContain('Finesse');
+    });
+  });
+
+  describe('ensureRacialWeapon', () => {
+    it('grants the Khajeet griffe once, equipped when both hands are free', () => {
+      const base = { weapons: [], identity: { race: 'khajeet' } };
+      const granted = ensureRacialWeapon(base, 'khajeet');
+      expect(granted.weapons).toHaveLength(1);
+      expect(granted.weapons[0]).toMatchObject({ nom: 'Griffe', de: '1d6', icon: '🐾', equipped: true, hand: 'main' });
+      // idempotent + no re-equip on a second call
+      expect(ensureRacialWeapon(granted, 'khajeet')).toBe(granted);
+      // leaves both hands alone when the character already wields something
+      const armed = { weapons: [{ nom: 'Dague', de: '1d4', equipped: true, hand: 'main' }] };
+      const withClaws = ensureRacialWeapon(armed, 'Khajeet');
+      expect(withClaws.weapons.map((w) => w.nom)).toEqual(['Griffe', 'Dague']);
+      expect(withClaws.weapons[0].equipped).toBe(false);
+      // other races get nothing
+      expect(ensureRacialWeapon(base, 'gobelin').weapons).toHaveLength(0);
+      expect(ensureRacialWeapon(base, '')).toBe(base);
     });
   });
 

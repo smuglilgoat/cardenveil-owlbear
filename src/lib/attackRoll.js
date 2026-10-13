@@ -14,6 +14,14 @@ const CATALYSEUR_RE = /catalyseur/i;
 const HACHE_RE = /brutalité|hache/i;
 const STAT_LABELS_FR = { force: 'Force', agilite: 'Agilité', esprit: 'Esprit' };
 
+/** Gobelin racial cap (doc §16): at most 3 crits on a basic (⚔️) attack. */
+export const GOBELIN_MAX_CRITS = 3;
+
+/** Race check tolerant to id/label/accent casing ('Gobelin', 'gobelin'). */
+export function isGobelin(race) {
+  return /gobelin/i.test(String(race ?? ''));
+}
+
 /** Weapon flags from the free-text `proprietes` field (+ name fallback).
  *  Reads both spellings — older sheets store it as `propriétés` (accented).
  */
@@ -79,11 +87,12 @@ export function pickAttackWeapon(weapons = [], preferredName = '') {
  * @returns {null|{level, diceCount, keep, sides, weaponBonus, engagementMod,
  *   engagementStat, finesse, hache}}
  */
-export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 0, bonus } = {}) {
+export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 0, bonus, race } = {}) {
   const match = String(weapon?.de ?? '').match(/(\d*)\s*d\s*(\d+)/i);
   if (!match) return null;
   const sides = parseInt(match[2], 10);
   if (!(sides >= 2)) return null;
+  const gobelin = isGobelin(race);
   const eStat = engagementStat(weapon);
   const eng = Math.max(0, Math.round(Number(engagement) || 0));
   const adv = Math.round(Number(advantage) || 0);
@@ -95,6 +104,10 @@ export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 
     diceCount: 1 + 2 * Math.abs(level),
     keep: kept,
     sides,
+    // Gobelin (doc §16): crit from dé − 1, capped at 3 crits per basic attack
+    critFrom: gobelin ? Math.max(2, sides - 1) : sides,
+    maxCrits: gobelin ? GOBELIN_MAX_CRITS : null,
+    gobelin,
     weaponBonus: bonus === undefined || bonus === null || bonus === '' ? toNumber(weapon?.bonus) : toNumber(bonus),
     engagementMod: statMod(stats, eStat),
     engagementStat: eStat,
@@ -121,7 +134,10 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
   const p = attackPreview(weapon, stats, opts);
   if (!p) return null;
   const optEngagement = opts.engagement ?? 0;
-  const { sides, level, finesse, hache, weaponBonus, engagementMod, engagementStat: eStat, engagement: engLevel } = p;
+  const { sides, level, finesse, hache, weaponBonus, engagementMod, engagementStat: eStat, engagement: engLevel, critFrom, maxCrits, gobelin } = p;
+  // null = no racial cap (Infinity would break JSON payloads)
+  const critCap = maxCrits ?? Infinity;
+  const critNote = gobelin ? ` (seuil ${critFrom}+, max ${maxCrits})` : '';
   const keepMode = level > 0 ? 'max' : level < 0 ? 'min' : null;
   const stages = [];
   const breakdown = [];
@@ -148,10 +164,10 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
 
   let kept = initial;
   if (hache) {
-    if (initial === sides) breakdown[0] += ' → CRIT';
+    if (initial >= critFrom) breakdown[0] += ' → CRIT';
     // Hache: advantage applies only to the initial roll (doc §18); each
     // explosion is 2dX summed, a double chains a new crit (§17-18).
-    while (kept === sides) {
+    while (kept >= critFrom && critCount < critCap) {
       critCount++;
       await stage(2, 'somme');
       const pair = stages[stages.length - 1].dice;
@@ -162,7 +178,7 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
     }
   } else {
     let remainingLevel = level;
-    while (kept === sides) {
+    while (kept >= critFrom && critCount < critCap) {
       critCount++;
       // Advantage decays one level per explosion (§8); désavantage explosions
       // are always a plain 1dX (§9).
@@ -173,7 +189,7 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
       kept = kept2;
       remainingLevel -= 1;
     }
-    breakdown.push(`Critiques : ${critCount}`);
+    breakdown.push(`Critiques : ${critCount}${critNote}`);
   }
 
   // Bonuses. Finesse: (weapon bonus + engagement mods) × (1 + crit count)
@@ -208,7 +224,10 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
       engagementMod,
       engagementStat: eStat,
       advantage: level + optEngagement,
-      engagement: optEngagement
+      engagement: optEngagement,
+      critFrom,
+      maxCrits,
+      gobelin
     };
   }
 }

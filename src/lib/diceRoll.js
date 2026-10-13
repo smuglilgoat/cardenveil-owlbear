@@ -36,9 +36,9 @@ export function rollValueForGroup(group, readFace) {
 
 export const MAX_VISIBLE_DICE = 15;
 
-export function visibleRollChip(value, sides, index, count) {
+export function visibleRollChip(value, sides, index, count, critFrom = sides) {
   if (index < MAX_VISIBLE_DICE) {
-    return { value, crit: Number(value) === sides, fail: Number(value) === 1 };
+    return { value, crit: Number(value) >= critFrom, fail: Number(value) === 1 };
   }
   if (index === MAX_VISIBLE_DICE && count > MAX_VISIBLE_DICE) {
     return { more: count - MAX_VISIBLE_DICE };
