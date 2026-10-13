@@ -27,7 +27,6 @@
   // adds room ABOVE and nothing moves on the table: height = the rendered
   // bands (bar + fan + modal panel), width = max(bar, fan, modal) clamped to
   // the viewport. Replaces the old fixed 380 px / prompt-fitting dance.
-  const BAR_MIN_W = 560; // fold + colour + draw + 4 token chips (worst case ~550)
   const MODAL_MIN_W = 380;
   const FAN_H = 120; // exactly the card height (no headroom)
   const EMPTY_FAN_H = 26;
@@ -47,11 +46,24 @@
     return Math.max(320, n * SPREAD_X + 160);
   }
 
+  /**
+   * Room the bar needs for what it currently shows: fold + colour + draw +
+   * 4 compact token chips (~360), plus whatever extra chip is displayed. Used
+   * as a width floor so a 2-card hand does not get a bar-sized popover.
+   */
+  function barMinWidth() {
+    let w = 360;
+    if (pickHint) w += 130; // selection instruction
+    if (outgoingExchange) w += 80; // pending-exchange chip
+    if (player?.race === 'sporelin' && player.hand.length > 0) w += 34; // 🍄
+    return w;
+  }
+
   function popoverWidth() {
     const maxW = viewportW ? viewportW - 24 : Infinity;
     return Math.min(
       maxW,
-      Math.max(BAR_MIN_W, fanWidth(allCards.length), modal ? MODAL_MIN_W : 0)
+      Math.max(barMinWidth(), fanWidth(allCards.length), modal ? MODAL_MIN_W : 0)
     );
   }
 
@@ -783,7 +795,7 @@
           <button
             onclick={() => { active = null; choosingToken = tok.key; }}
             disabled={tok.disabled() || (action !== null && !active_tok) || choosingToken !== null}
-            use:tooltip={"Utiliser le token " + tok.label}
+            use:tooltip={"Token " + tok.label + " — " + current + "/" + max + " · utiliser"}
             class="shrink-0 flex items-center gap-1 px-1.5 py-1 rounded-md border text-[10px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
             style="
               background: #213547;
@@ -792,7 +804,7 @@
             "
           >
             <span class="leading-none">{tok.label.slice(0, 1)}</span>
-            <span class="leading-none">{current}/{max}</span>
+            <span class="leading-none">{current}</span>
           </button>
         {/each}
       </div>

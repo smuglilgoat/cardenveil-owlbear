@@ -53,7 +53,9 @@ export function collectDiag(entry) {
   const inScrollContainer = (el) => {
     for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
       const overflowY = getComputedStyle(p).overflowY;
-      if (overflowY === 'auto' || overflowY === 'scroll') return true;
+      // `overflow-x: auto` computes overflow-y to auto too, so require that the
+      // box actually scrolls vertically (sheet tabs) before filtering.
+      if ((overflowY === 'auto' || overflowY === 'scroll') && p.scrollHeight > p.clientHeight + 1) return true;
     }
     return false;
   };
