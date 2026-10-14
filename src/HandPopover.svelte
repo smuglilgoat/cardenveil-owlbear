@@ -720,7 +720,7 @@
       data-diag="bar"
       bind:this={barEl}
       class="shrink-0 w-full grid grid-cols-[minmax(min-content,1fr)_auto_minmax(min-content,1fr)] items-center gap-1 px-1.5 py-1 overflow-x-auto rounded-lg border border-[#374151]"
-      style="z-index: 100; background: rgba(17, 24, 39, 0.95); box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);"
+      style="z-index: 100; background: rgba(17, 24, 39, 0.95);"
     >
       <!-- Left: fold toggle, colour (or the pick hint), exchange status -->
       <div bind:this={barLeftEl} class="flex items-center gap-1">
@@ -748,8 +748,8 @@
           <button
             onclick={toggleCardScheme}
             title={cardScheme === 'classic' ? 'Passer aux couleurs par famille (♥ rouge, ♦ or, ♣ vert, ♠ gris)' : "Repasser au schéma classique rouge/noir"}
-            class="shrink-0 w-6 h-6 p-0 flex items-center justify-center rounded-full text-[12px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors"
-          >🎨</button>
+            class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors border bg-[#213547] border-gray-500 text-gray-200 hover:text-white"
+          >🎨 Couleur</button>
         {/if}
 
         {#if outgoingExchange}
