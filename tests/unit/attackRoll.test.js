@@ -120,6 +120,14 @@ describe('attackPreview', () => {
     expect(attackPreview(w, stats, { engagement: 1 })).toMatchObject({ engagementStat: 'agilite', engagementMod: 2, finesse: true });
   });
 
+  it('Goliath treats a longsword as Finesse (Force colossale)', async () => {
+    const longsword = { de: '1d8', nom: 'Épée longue', proprietes: 'Garde' };
+    expect(attackPreview(longsword, stats, { engagement: 1 })).toMatchObject({ finesse: false, engagementStat: 'force' });
+    expect(attackPreview(longsword, stats, { engagement: 1, race: 'goliath' })).toMatchObject({ finesse: true, engagementStat: 'agilite' });
+    // Other weapons are unaffected
+    expect(attackPreview({ de: '1d10', nom: 'Hache', proprietes: 'Brutalité' }, stats, { engagement: 1, race: 'goliath' })).toMatchObject({ finesse: false });
+  });
+
   it('returns null for a weapon without a die', async () => {
     expect(attackPreview({ de: '' }, stats)).toBeNull();
   });

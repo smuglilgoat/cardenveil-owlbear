@@ -89,7 +89,9 @@ OBR.onReady(() => {
       // crit camera punch-in is allowed only for attack/stat/skill rolls
       zoomCrit: data.zoomCrit ? '1' : '0',
       // explicit crit threshold (Gobelin: dé − 1); absent = die max face
-      critFrom: data.critFrom != null ? String(data.critFrom) : ''
+      critFrom: data.critFrom != null ? String(data.critFrom) : '',
+      // avantage/désavantage d'un jet (traits de race): 'high' | 'low'
+      keep: data.keep || ''
     });
     if (data.rolls) {
       params.set('rolls', (data.rolls ?? []).join(','));

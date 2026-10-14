@@ -12,7 +12,7 @@
     GM_CHAR_ID,
     SUITS_INFO,
     sortCards,
-    FATIGUE_PENALTY,
+    fatiguePenaltyFor,
     RACES,
     handCap,
   } from "./deck.js";
@@ -889,7 +889,7 @@
                 <CardDisplay
                   {card}
                   faceDown={!!card._pending}
-                  fatiguePenalty={FATIGUE_PENALTY[gmChar.fatigue ?? 0]}
+                  fatiguePenalty={fatiguePenaltyFor(gmChar.race, gmChar.fatigue)}
                   actions={card._pending ? [] : [
                     {
                       icon: "▶️",
@@ -1262,7 +1262,7 @@
                     <CardDisplay
                       {card}
                       faceDown={!!card._pending}
-                      fatiguePenalty={FATIGUE_PENALTY[p.fatigue ?? 0]}
+                      fatiguePenalty={fatiguePenaltyFor(p.race, p.fatigue)}
                       actions={card._pending ? [] : [
                         {
                           icon: "▶️",

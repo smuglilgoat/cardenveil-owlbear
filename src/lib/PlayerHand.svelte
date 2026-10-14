@@ -3,7 +3,7 @@
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
   import ActionLog from "./ActionLog.svelte";
-  import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./deck.js";
+  import { GM_CHAR_ID, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
   import { tooltip } from "./tooltip.js";
   import { logEvent, logError } from "./appLog.js";
   import {
@@ -18,6 +18,7 @@
 
   let player = $derived(gameState.players[myId]);
   let sortedHand = $derived(player ? sortCards(player.hand) : []);
+  let giveTarget = $state(null); // Hobgoblin: ally picked in the tokens panel
   let sortedCrystallized = $derived(player ? sortCards(player.crystallized) : []);
   let handFull = $derived(
     player ? player.hand.length >= handCap(player) : false,
@@ -713,7 +714,7 @@
               <CardDisplay
                 {card}
                 faceDown={isPending}
-                fatiguePenalty={FATIGUE_PENALTY[player.fatigue ?? 0]}
+                fatiguePenalty={fatiguePenaltyFor(player.race, player.fatigue)}
                 actions={card._pending || interactionFrozen ? [] : [
                   ...(!spiritLocked && !isGrayed ? [{ icon: "▶️", label: "Défausser", onClick: () => discardCard(card) }] : []),
                   {
@@ -802,7 +803,7 @@
       <div class="space-y-2">
         {#each TOKENS as tok}
           {@const current = player.tokens[tok.key]}
-          {@const max = player.maxTokens[tok.key]}
+          {@const max = maxTokensFor(player)[tok.key]}
           {@const busy = action !== null || choosingToken !== null}
           <div class="flex items-center gap-2">
             <!-- Dots -->
@@ -841,6 +842,46 @@
           </div>
         {/each}
       </div>
+
+      {#if player.race === 'hobgoblin'}
+        <div class="mt-2 pt-2 border-t border-gray-700">
+          <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">🤝 Commandement tactique — donner 1 jeton à un allié</div>
+          <div class="flex flex-wrap gap-1 mb-1">
+            {#each otherPlayerIds as id}
+              <button
+                onclick={() => (giveTarget = id)}
+                class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors {giveTarget === id
+                  ? 'bg-indigo-600 border-indigo-400 text-white'
+                  : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'}"
+              >{getPlayerName(id)}</button>
+            {/each}
+            {#if !otherPlayerIds.length}
+              <span class="text-[10px] text-gray-500 italic">Aucun allié à table</span>
+            {/if}
+          </div>
+          <div class="flex gap-1">
+            {#each TOKENS as tok}
+              <button
+                onclick={() => onAction({ type: 'GIVE_TOKEN', playerId: myId, targetId: giveTarget, token: tok.key })}
+                disabled={!giveTarget || player.tokens[tok.key] <= 0}
+                use:tooltip={`Donner 1 jeton ${tok.label} à ${giveTarget ? getPlayerName(giveTarget) : 'un allié'}`}
+                class="flex-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                style="color:{STAT_COLORS[tok.key]};border-color:{STAT_COLORS[tok.key]};background:{STAT_COLORS[tok.key]}20"
+              >{tok.label} {player.tokens[tok.key]}</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#if player.race === 'illithid'}
+        {@const devourWait = Math.ceil((DEVOUR_COOLDOWN_MS - (Date.now() - (player.lastDevourAt ?? 0))) / 60000)}
+        <button
+          onclick={() => onAction({ type: 'DEVOUR_MIND', playerId: myId })}
+          disabled={devourWait > 0 || (player.tokens.esprit ?? 0) >= maxTokensFor(player).esprit}
+          use:tooltip={'Dévoration mentale : +1 jeton Esprit (une fois par combat ou toutes les 30 min)'}
+          class="mt-2 w-full py-1 rounded-lg text-[11px] font-bold text-white bg-purple-700 hover:bg-purple-600 border border-purple-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >🧠 Dévoration mentale — +1 Esprit{devourWait > 0 ? ` (dans ${devourWait} min)` : ''}</button>
+      {/if}
     </div>
 
     <!-- ── Action log ──────────────────────────────────────────────── -->

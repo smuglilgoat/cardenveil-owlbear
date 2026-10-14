@@ -43,6 +43,30 @@ const zoomCritParam = params.get('zoomCrit') === '1'; // crit camera punch-in al
 // Explicit crit threshold (Gobelin: dé − 1); absent = the die's max face
 const critFromParam = parseInt(params.get('critFrom') || '', 10);
 const critAt = (sides) => (Number.isFinite(critFromParam) ? Math.min(critFromParam, sides) : sides);
+// Avantage/désavantage racial d'un jet: 'high' | 'low' — total = meilleur/pire
+// dé + modificateur, et le crit ne regarde que le dé conservé.
+const keepParam = params.get('keep');
+const keptIndex = (rolls) => {
+  if (!keepParam || rolls.length < 2) return -1;
+  let idx = 0;
+  for (let i = 1; i < rolls.length; i++) {
+    if (keepParam === 'low' ? rolls[i] < rolls[idx] : rolls[i] > rolls[idx]) idx = i;
+  }
+  return idx;
+};
+const rollTotal = (rolls) => {
+  const idx = keptIndex(rolls);
+  return (idx >= 0 ? rolls[idx] : rolls.reduce((a, b) => a + b, 0)) + modifierParam;
+};
+const rollCrit = (rolls, types) => {
+  const idx = keptIndex(rolls);
+  if (idx >= 0) return rolls[idx] >= critAt(types[idx] ?? 20);
+  return rolls.some((r, i) => r >= critAt(types[i] ?? 20));
+};
+const rollFail = (rolls) => {
+  const idx = keptIndex(rolls);
+  return idx >= 0 ? rolls[idx] === 1 : rolls.some((r) => r === 1);
+};
 const isSelf = params.get('self') === '1';
 const specParam = params.get('diceSpec'); // JSON [{count, sides}...]
 const seedParam = params.get('seed');
@@ -165,14 +189,15 @@ function fallbackFromSpec(spec, modifier) {
       diceTypes.push(term.sides);
     }
   }
-  if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, staged: stagedParam, total: rolls.reduce((a, b) => a + b, 0) + modifier });
-  const crit = rolls.some((r, i) => r >= critAt(diceTypes[i]));
-  const fail = rolls.some((r) => r === 1);
+  const total = rollTotal(rolls);
+  if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, staged: stagedParam, total });
+  const crit = rollCrit(rolls, diceTypes);
+  const fail = rollFail(rolls);
   rolls.forEach((r, i) => appendRollChip(r, diceTypes[i], i, rolls.length, i * 0.08));
   totalEl.style.animationDelay = `${0.45 + Math.min(rolls.length, MAX_VISIBLE_DICE + 1) * 0.08}s`;
   if (crit) totalEl.classList.add('crit');
   else if (fail) totalEl.classList.add('fail');
-  totalEl.textContent = String(rolls.reduce((a, b) => a + b, 0) + modifier);
+  totalEl.textContent = String(total);
 }
 
 // ─── Seeded RNG (deterministic rotations across the roller's throws) ─────
@@ -679,11 +704,11 @@ async function startSim(spec, seed, modifier) {
       reported = true;
       const rolls = rollGroups.map((group) => group[0].rollValue ?? 1);
       const diceTypes = rollGroups.map((group) => group[0].def.sides);
-      const crit = diceTypes.some((s, i) => rolls[i] >= critAt(s));
-      const fail = rolls.some((r) => r === 1);
+      const crit = rollCrit(rolls, diceTypes);
+      const fail = rollFail(rolls);
       if (crit) totalEl.classList.add('crit');
       else if (fail) totalEl.classList.add('fail');
-      const total = rolls.reduce((a, b) => a + b, 0) + modifier;
+      const total = rollTotal(rolls);
       totalEl.textContent = String(total);
       if (isSelf) reportRollResult({ playerId, rollId, label: plainLabel(), formula, rolls, diceTypes, staged: stagedParam, total });
       eventQueue.free();

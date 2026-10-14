@@ -10,6 +10,7 @@
 import { statModifier, toNumber } from './characterSheet.js';
 
 const FINESS_RE = /finesse/i;
+const LONG_SWORD_RE = /épée\s*longue|epee\s*longue|longsword/i;
 const CATALYSEUR_RE = /catalyseur/i;
 const HACHE_RE = /brutalité|hache/i;
 const STAT_LABELS_FR = { force: 'Force', agilite: 'Agilité', esprit: 'Esprit' };
@@ -22,22 +23,28 @@ export function isGobelin(race) {
   return /gobelin/i.test(String(race ?? ''));
 }
 
+/** Goliath « Force colossale » : les épées longues comptent comme Finesse. */
+export function isGoliath(race) {
+  return /goliath/i.test(String(race ?? ''));
+}
+
 /** Weapon flags from the free-text `proprietes` field (+ name fallback).
  *  Reads both spellings — older sheets store it as `propriétés` (accented).
+ *  `race` adds the racial weapon rules (Goliath longsword = Finesse).
  */
-export function weaponFlags(weapon) {
+export function weaponFlags(weapon, race) {
   const props = weapon?.proprietes ?? weapon?.['propriétés'] ?? '';
   const text = `${weapon?.nom ?? ''} ${props}`;
   return {
-    finesse: FINESS_RE.test(text),
+    finesse: FINESS_RE.test(text) || (isGoliath(race) && LONG_SWORD_RE.test(text)),
     catalyseur: CATALYSEUR_RE.test(text),
     hache: HACHE_RE.test(text)
   };
 }
 
 /** Stat whose modifier engagement adds to damage (Finesse→agilite, Catalyseur→esprit, else force). */
-export function engagementStat(weapon) {
-  const { finesse, catalyseur } = weaponFlags(weapon);
+export function engagementStat(weapon, race) {
+  const { finesse, catalyseur } = weaponFlags(weapon, race);
   if (finesse) return 'agilite';
   if (catalyseur) return 'esprit';
   return 'force';
@@ -93,7 +100,7 @@ export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 
   const sides = parseInt(match[2], 10);
   if (!(sides >= 2)) return null;
   const gobelin = isGobelin(race);
-  const eStat = engagementStat(weapon);
+  const eStat = engagementStat(weapon, race);
   const eng = Math.max(0, Math.round(Number(engagement) || 0));
   const adv = Math.round(Number(advantage) || 0);
   // Avantage/désavantage cancel BEFORE engagement applies (patch §1).
@@ -111,7 +118,7 @@ export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 
     weaponBonus: bonus === undefined || bonus === null || bonus === '' ? toNumber(weapon?.bonus) : toNumber(bonus),
     engagementMod: statMod(stats, eStat),
     engagementStat: eStat,
-    ...weaponFlags(weapon),
+    ...weaponFlags(weapon, race),
     advantage: adv,
     engagement: eng
   };

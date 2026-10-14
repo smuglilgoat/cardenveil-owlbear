@@ -55,6 +55,10 @@ those are managed by the GM (optionally via an embedded initiative-tracker URL).
 | Esprit token: extend hand / crystallize; combat: Réverbération | `USE_ESPRIT` / `SPEND_TOKEN` |
 | Social token: propose card exchange; refund on decline; combat: Marque | `PROPOSE/ACCEPT/DECLINE_EXCHANGE`, `SPEND_TOKEN` |
 | Race (maison) draw effects | `RACES` + race branches in `DRAW`, `DRAW_SPADE`, `SPORELIN_EXCHANGE`, `HALFLING_CHOOSE` |
+| Humain +2 jetons de Social | `tokenCapBonus` / `maxTokensFor` (base `maxTokens` + racial cap; `SET_RACE` grants the delta) |
+| Hobgoblin donne ses jetons | `GIVE_TOKEN` (own pool → ally, target cap enforced) |
+| Illithid récupère un jeton d'Esprit | `DEVOUR_MIND` (`DEVOUR_COOLDOWN_MS`, `lastDevourAt`) |
+| Traits de race (référence) | `RACE_TRAITS` + `raceTraits()` in characterSheet.js (24 races; text-only for the untrackable ones) |
 | Fatigue level −1/−2/−4/−6 penalty | `FATIGUE_PENALTY` in `deck.js` (die-penalty constant used by the UI; level is set by the GM) |
 | GM deal / give / swap / rest / fatigue | `DEAL_ALL`, `GIVE_CARDS`, `SWAP_CARD`, `REST_ALL`, `SET_FATIGUE` |
 | Init tracker URL on all screens | `SET_INITIATIVE_URL` + `App.svelte` tab 3 |
@@ -201,7 +205,8 @@ Key files:
       minDrawValue: 1, maxDrawValue: 13,  // GM-set draw range 1–13 (A=1 or 1–13)
       grayedCards: [],   // card ids the player declined to use for tokens
       fatigue: 0..4,
-      race: null | 'haut-elfe' | 'tieffelin' | 'aasimar' | 'halfling' | 'sporelin',
+      race: null | <RACES id> (24 races, see `RACES` in deck.js),
+      lastDevourAt: 0,              // Illithid Dévoration mentale cooldown (ms epoch)
       tieflingDrawEligible: bool,     // one free ♠ draw per game until a ♠
       pendingHalfling: null | [cardA, cardB]  // draw 2, pick 1
     }
@@ -220,7 +225,7 @@ Cards have two shapes:
 - **Client (hydrated)**: `{ id, suit: '♠', value: '10', numericValue: 1..13,
   isRed }` (+ `_pending: true` for placeholders).
 
-### The 35 action types
+### The 37 action types
 
 Everything mutating game state must go through these; each validates its own
 prerequisites and is a no-op-if-invalid `{ state, log }` return:
@@ -230,7 +235,9 @@ prerequisites and is a no-op-if-invalid `{ state, log }` return:
 `USE_AGILITE`, `USE_ESPRIT`, `PROPOSE_EXCHANGE`, `ACCEPT_EXCHANGE`,
 `DECLINE_EXCHANGE`, `SPEND_TOKEN`, `TOGGLE_GRAY`, `DRAW_SPADE` (Tieffelin
 free draw), `HALFLING_CHOOSE`, `SPORELIN_EXCHANGE`, `USE_CAPACITY`
-(log-only), `SET_INITIATIVE_URL` (GM sets, everyone sees).
+(log-only), `SET_INITIATIVE_URL` (GM sets, everyone sees), `GIVE_TOKEN`
+(Hobgoblin — or GM — hands one of their own tokens to an ally),
+`DEVOUR_MIND` (Illithid: +1 Esprit, 30-min cooldown).
 
 **GM-only**: `GIVE_CARDS` (random count or exact cards, hand or crystallized),
 `DEAL_ALL` (skips players at cap, in exchange, or Halfling-pending),

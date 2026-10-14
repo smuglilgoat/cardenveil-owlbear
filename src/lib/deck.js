@@ -18,6 +18,18 @@ const SUIT_SORT_ORDER = { '♥': 0, '♣': 1, '♦': 2, '♠': 3 };
 /** Fatigue level → card penalty mapping: level 0=0, 1=-1, 2=-2, 3=-4, 4=-6 */
 export const FATIGUE_PENALTY = [0, 1, 2, 4, 6];
 
+/**
+ * Fatigue malus for a race: Mort-vivant « Fatigue » ignores it below level 5.
+ * @param {string|null|undefined} race - Race id
+ * @param {unknown} level - Fatigue level
+ * @returns {number} Penalty to display/apply
+ */
+export function fatiguePenaltyFor(race, level) {
+  const raw = Math.max(0, Math.trunc(Number(level) || 0));
+  if (race === 'mort-vivant' && raw < 5) return 0;
+  return FATIGUE_PENALTY[Math.min(FATIGUE_PENALTY.length - 1, raw)] ?? 0;
+}
+
 export function sortCards(cards) {
   return [...cards].sort((a, b) => {
     if (a._pending && !b._pending) return 1;
@@ -112,14 +124,36 @@ export const SUITS_INFO = [
   { symbol: '♦', label: 'Carreaux', isRed: true },
 ];
 
+/**
+ * Playable races (document order from the Cardenveil rulebook). The reducer
+ * only needs the ids; the trait text lives in `RACE_TRAITS`
+ * (characterSheet.js) to keep this file — bundled server-side — lean.
+ */
 export const RACES = [
-  { id: 'haut-elfe', label: 'Haut-Elfe' },
-  { id: 'tieffelin', label: 'Tieffelin' },
-  { id: 'aasimar',   label: 'Aasimar' },
-  { id: 'halfling',  label: 'Halfling' },
-  { id: 'sporelin',  label: 'Sporelin' },
-  { id: 'khajeet',   label: 'Khajeet' },
-  { id: 'gobelin',   label: 'Gobelin' },
+  { id: 'humain',       label: 'Humain' },
+  { id: 'haut-elfe',    label: 'Haut-Elfe' },
+  { id: 'elfe-des-bois', label: 'Elfe des Bois' },
+  { id: 'elfe-noir',    label: 'Elfe Noir' },
+  { id: 'demi-elfe',    label: 'Demi-Elfe' },
+  { id: 'tieffelin',    label: 'Tieffelin' },
+  { id: 'aasimar',      label: 'Aasimar' },
+  { id: 'demi-orque',   label: 'Demi-Orque' },
+  { id: 'nain',         label: 'Nain' },
+  { id: 'gobelin',      label: 'Gobelin' },
+  { id: 'gnome',        label: 'Gnome' },
+  { id: 'halfling',     label: 'Halfling' },
+  { id: 'goliath',      label: 'Goliath' },
+  { id: 'drakeide',     label: 'Drakéide' },
+  { id: 'sporelin',     label: 'Sporelin' },
+  { id: 'mort-vivant',  label: 'Mort-vivant' },
+  { id: 'khajeet',      label: 'Khajiit' },
+  { id: 'troll',        label: 'Troll' },
+  { id: 'homme-poisson', label: 'Homme-Poisson' },
+  { id: 'hobgoblin',    label: 'Hobgoblin' },
+  { id: 'centaure',     label: 'Centaure' },
+  { id: 'mecha',        label: 'Mécha' },
+  { id: 'illithid',     label: 'Illithid' },
+  { id: 'firbolg',      label: 'Firbolg' },
 ];
 
 const RACE_IDS = new Set(RACES.map(r => r.id));
@@ -143,6 +177,7 @@ export function createEmptyPlayer(name = '') {
     race:          null,
     tieflingDrawEligible: true,
     pendingHalfling: null,
+    lastDevourAt:  0,
   };
 }
 
@@ -187,6 +222,27 @@ function clamp(val, min, max) {
 export function handCap(player) {
   const raceBonus = player.race === 'haut-elfe' ? 1 : 0;
   return (player.maxHandSize ?? 3) + (player.spiritBounds ?? 0) + raceBonus;
+}
+
+/** Cooldown of the Illithid's Dévoration mentale (rule: once per 30 min). */
+export const DEVOUR_COOLDOWN_MS = 30 * 60 * 1000;
+
+/** Racial token-cap bonuses (Humain: +2 Social). */
+export function tokenCapBonus(race) {
+  return race === 'humain' ? { social: 2 } : {};
+}
+
+/**
+ * Effective token cap = stored base + racial bonus. `maxTokens` stays the
+ * base (what the GM/sheet sends); every cap check and refill goes through
+ * here, so a race change can never desync the pool.
+ */
+export function maxTokensFor(player) {
+  const base = player?.maxTokens ?? { force: 3, agilite: 3, esprit: 3, social: 3 };
+  const bonus = tokenCapBonus(player?.race);
+  let out = base;
+  for (const [key, value] of Object.entries(bonus)) out = { ...out, [key]: (out[key] ?? 0) + value };
+  return out;
 }
 
 /** If the player is Aasimar, append a random crystallized Heart card. */
@@ -546,7 +602,7 @@ export function applyAction(state, action) {
     case 'ADD_TOKEN': {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const p = state.players[action.targetId];
-      if (!p || !TOKEN_KEYS.has(action.token) || p.tokens[action.token] >= p.maxTokens[action.token]) return { state, log: null };
+      if (!p || !TOKEN_KEYS.has(action.token) || p.tokens[action.token] >= maxTokensFor(p)[action.token]) return { state, log: null };
       const s = {
         ...state,
         players: { ...state.players, [action.targetId]: {
@@ -555,6 +611,45 @@ export function applyAction(state, action) {
         }},
       };
       return { state: s, log: null };
+    }
+
+    case 'GIVE_TOKEN': {
+      // Hobgoblin « Commandement tactique » : the player hands one of their
+      // own tokens to an ally (the GM can do it too, as a table referee).
+      const giver = state.players[action.playerId];
+      const target = state.players[action.targetId];
+      if (!giver || !target || action.playerId === action.targetId) return { state, log: null };
+      if (!TOKEN_KEYS.has(action.token)) return { state, log: null };
+      if (giver.race !== 'hobgoblin' && !isGM(state, action.playerId)) return { state, log: null };
+      if ((giver.tokens[action.token] ?? 0) <= 0) return { state, log: null };
+      if ((target.tokens[action.token] ?? 0) >= (maxTokensFor(target)[action.token] ?? 0)) return { state, log: null };
+      const s = {
+        ...state,
+        players: { ...state.players,
+          [action.playerId]: { ...giver, tokens: { ...giver.tokens, [action.token]: giver.tokens[action.token] - 1 } },
+          [action.targetId]: { ...target, tokens: { ...target.tokens, [action.token]: (target.tokens[action.token] ?? 0) + 1 } },
+        },
+      };
+      return { state: addLog(s, action.playerId, giver.name, `donne 1 jeton ${action.token} à ${target.name}`), log: null };
+    }
+
+    case 'DEVOUR_MIND': {
+      // Illithid « Dévoration mentale » : +1 Esprit, throttled by the rule's
+      // 30-minute cooldown (the once-per-combat half is table-side).
+      const p = state.players[action.playerId];
+      if (!p || p.race !== 'illithid') return { state, log: null };
+      if (p.lastDevourAt && Date.now() - p.lastDevourAt < DEVOUR_COOLDOWN_MS) return { state, log: null };
+      const cap = maxTokensFor(p).esprit ?? 0;
+      if ((p.tokens.esprit ?? 0) >= cap) return { state, log: null };
+      const s = {
+        ...state,
+        players: { ...state.players, [action.playerId]: {
+          ...p,
+          tokens: { ...p.tokens, esprit: (p.tokens.esprit ?? 0) + 1 },
+          lastDevourAt: Date.now(),
+        }},
+      };
+      return { state: addLog(s, action.playerId, p.name, 'dévoration mentale : +1 jeton Esprit'), log: null };
     }
 
     case 'TOGGLE_GRAY': {
@@ -637,7 +732,7 @@ export function applyAction(state, action) {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const updated = {};
       for (const [id, p] of Object.entries(state.players)) {
-        updated[id] = { ...p, tokens: { ...p.maxTokens } };
+        updated[id] = { ...p, tokens: { ...maxTokensFor(p) } };
       }
       return { state: { ...state, players: updated }, log: null };
     }
@@ -707,13 +802,21 @@ export function applyAction(state, action) {
       const p = state.players[action.targetId];
       if (!p) return { state, log: null };
       const race = action.race && RACE_IDS.has(action.race) ? action.race : null;
+      // Runnable token caps are base + racial bonus: entering a race grants
+      // the bonus tokens once, leaving it clamps them back down.
+      const next = { ...p, race };
+      const tokens = { ...p.tokens };
+      for (const key of TOKEN_KEYS) {
+        const delta = (tokenCapBonus(race)[key] ?? 0) - (tokenCapBonus(p.race)[key] ?? 0);
+        tokens[key] = clamp((tokens[key] ?? 0) + delta, 0, maxTokensFor(next)[key] ?? 0);
+      }
       // A pending Halfling choice holds 2 real drawn cards — don't vaporise them.
       const s = {
         ...state,
         discard: [...state.discard, ...(p.pendingHalfling ?? [])],
         players: { ...state.players, [action.targetId]: {
-          ...p,
-          race,
+          ...next,
+          tokens,
           tieflingDrawEligible: true,
           pendingHalfling: null,
         }},
@@ -742,7 +845,7 @@ export function applyAction(state, action) {
         ...state,
         players: { ...state.players, [action.targetId]: {
           ...p,
-          tokens: { ...max },
+          tokens: { ...maxTokensFor({ ...p, maxTokens: max }) },
           maxTokens: max,
         }},
       };
@@ -870,6 +973,7 @@ export function hydrateState(raw) {
       race:         p.race ?? null,
       tieflingDrawEligible: p.tieflingDrawEligible ?? true,
       pendingHalfling: p.pendingHalfling ?? null,
+      lastDevourAt: p.lastDevourAt ?? 0,
     };
   }
 

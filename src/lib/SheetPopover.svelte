@@ -14,6 +14,11 @@
     rollDice,
     saveCharacterSheet,
     raceLabel,
+    raceTraits,
+    racePvBonus,
+    effectiveStats,
+    raceRollAdvantage,
+    rollD20Keep,
     normalizeRaceName,
     skillModifier,
     skillRollModifier,
@@ -197,7 +202,7 @@
   });
 
   function statMod(stat) {
-    const value = sheet?.stats?.[stat] || 10;
+    const value = effectiveStats(sheet)?.[stat] || 10;
     return Math.floor((value - 10) / 2);
   }
 
@@ -230,8 +235,15 @@
   }
 
   function skillMod(skillKey) {
-    return skillRollModifier(sheet?.stats ?? {}, skillKey, sheet?.skills?.[skillKey]);
+    return skillRollModifier(effectiveStats(sheet), skillKey, sheet?.skills?.[skillKey]);
   }
+
+  /** Racial avantage/désavantage → keep flag for the roll intent. */
+  function keepFor(kind) {
+    const adv = raceRollAdvantage(sheet?.identity?.race, kind);
+    return adv > 0 ? 'high' : adv < 0 ? 'low' : '';
+  }
+  let initKeep = $derived(keepFor('initiative'));
 
   // ─── Per-turn action diamonds (toggle + persist, no reset logic) ───
   let saveInFlight = false;
@@ -253,8 +265,15 @@
   // rapier simulation in the popup decides the numbers — broadcast an intent
   // and dispatch USE_CAPACITY when the result is reported back.
   async function doRoll(label, formula, opts = {}) {
+    const keep = opts?.keep || '';
     if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat') {
-      const spec = parseDiceSpec(formula, sheet?.stats ?? {});
+      // Avantage/désavantage racial : 2d20 garde 1 (intent construit à la main).
+      const spec = keep
+        ? (() => {
+            const base = parseDiceSpec(formula, effectiveStats(sheet));
+            return base ? { terms: [{ count: 2, sides: 20 }], modifier: base.modifier, formula: '2d20', keep } : null;
+          })()
+        : parseDiceSpec(formula, effectiveStats(sheet));
       if (spec) {
         broadcastRoll({
           label,
@@ -266,13 +285,14 @@
           diceSpec: spec.terms,
           modifier: spec.modifier,
           seed: Math.floor(Math.random() * 0xffffffff),
-          zoomCrit: !!opts?.zoomCrit
+          zoomCrit: !!opts?.zoomCrit,
+          keep: spec.keep || ''
         });
         return;
       }
     }
     try {
-      const result = rollDice(formula, sheet?.stats ?? {});
+      const result = keep ? rollD20Keep(formula, effectiveStats(sheet), keep) : rollDice(formula, effectiveStats(sheet));
       broadcastRoll({
         label,
         color: diceGemColor(sheet),
@@ -390,7 +410,7 @@
   let selectedAttackWeapon = $derived(pickAttackWeapon(attackWeapons, attackWeaponName).weapon);
   let attackCalc = $derived(
     selectedAttackWeapon
-      ? attackPreview(selectedAttackWeapon, sheet?.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race })
+      ? attackPreview(selectedAttackWeapon, effectiveStats(sheet), { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race })
       : null
   );
 
@@ -539,7 +559,7 @@
     // 3D mode: staged physics throws — the driver walks runAttack, throwing
     // each stage (initial pool, explosions) as a seeded intent and reading
     // the dice off the settled physics. Any failure falls back to flat.
-    const preview = attackPreview(weapon, sheet.stats ?? {}, opts);
+    const preview = attackPreview(weapon, effectiveStats(sheet), opts);
     let result;
     if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat' && preview && SIDES_TO_TYPE[preview.sides]) {
       attackInFlight = true;
@@ -636,7 +656,7 @@
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-sm font-bold truncate">{sheet.identity?.nom || 'Sans nom'}</div>
-          <div class="text-[10px] text-[#9ca3af] truncate">
+          <div class="text-[10px] text-[#9ca3af] truncate" use:tooltip={raceTraits(sheet.identity?.race).map((t) => `${t.nom} — ${t.texte}`).join('\n')}>
             {raceLabel(sheet.identity?.race) || '—'} · Niv. {sheet.identity?.niveau ?? 1}
           </div>
         </div>
@@ -644,7 +664,7 @@
           <div class="text-[8px] font-bold text-[#9ca3af]">PV</div>
           <div class="text-lg font-bold leading-none">
             {toNumber(sheet.derived?.pvActuels)}
-            <span class="text-[10px] text-[#9ca3af] font-semibold">/ {toNumber(sheet.derived?.pvMax)}</span>
+            <span class="text-[10px] text-[#9ca3af] font-semibold">/ {toNumber(sheet.derived?.pvMax) + racePvBonus(sheet)}</span>
           </div>
         </div>
       </div>
@@ -673,10 +693,10 @@
           <div class="text-sm font-bold leading-tight text-[#e5e7eb]">{calc.parade}</div>
         </div>
         <div
-          onclick={() => doRoll('Initiative', `d20${fmt(calc.initiative)}`)}
+          onclick={() => doRoll('Initiative', `d20${fmt(calc.initiative)}`, { keep: initKeep })}
           role="button"
           tabindex="0"
-          onkeydown={(e) => e.key === 'Enter' && doRoll('Initiative', `d20${fmt(calc.initiative)}`)}
+          onkeydown={(e) => e.key === 'Enter' && doRoll('Initiative', `d20${fmt(calc.initiative)}`, { keep: initKeep })}
           title={`Jet d'initiative (d20)`}
           class="bg-[#111827] rounded-md px-1.5 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
         >
@@ -928,7 +948,7 @@
       {#each pinnedSkills as skillKey}
         <button
           class="w-full flex items-center gap-2 bg-[#111827] hover:bg-[#1f2937] rounded-md px-2.5 py-2 text-left transition-colors"
-          onclick={() => doRoll(SKILL_LABELS[skillKey] || skillKey, `d20${skillMod(skillKey) >= 0 ? '+' + skillMod(skillKey) : skillMod(skillKey)}`, { zoomCrit: true })}
+          onclick={() => doRoll(SKILL_LABELS[skillKey] || skillKey, `d20${skillMod(skillKey) >= 0 ? '+' + skillMod(skillKey) : skillMod(skillKey)}`, { zoomCrit: true, keep: keepFor(skillKey) })}
         >
           <div class="w-1 h-5 rounded-full" style="background: {skillColor(skillKey)}"></div>
           <span class="text-[11px] font-medium truncate">

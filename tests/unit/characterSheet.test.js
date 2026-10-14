@@ -9,7 +9,8 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, stripStockGriffe, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, stripStockGriffe, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, raceTraits, RACE_TRAITS, racePvBonus, effectiveStats, raceRollAdvantage, rollD20Keep, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
+const { RACES } = await import('../../src/lib/deck.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -996,10 +997,117 @@ describe('Character Sheet dice helpers', () => {
     });
 
     it('should keep unrecognized races untouched', () => {
-      expect(normalizeRaceName('Humain')).toBe('Humain');
+      expect(normalizeRaceName('Reptilien')).toBe('Reptilien');
       expect(normalizeRaceName('')).toBe('');
       expect(normalizeRaceName(null)).toBeNull();
       expect(normalizeRaceName(undefined)).toBeUndefined();
+    });
+
+    it('should accept the new rulebook spellings (FR/EN variants)', () => {
+      expect(normalizeRaceName('Humain')).toBe('humain');
+      expect(normalizeRaceName('Halfelin')).toBe('halfling');
+      expect(normalizeRaceName('Tiefling')).toBe('tieffelin');
+      expect(normalizeRaceName('Drow')).toBe('elfe-noir');
+      expect(normalizeRaceName('Dark Elf')).toBe('elfe-noir');
+      expect(normalizeRaceName('Wood Elf')).toBe('elfe-des-bois');
+      expect(normalizeRaceName('Half-Elf')).toBe('demi-elfe');
+      expect(normalizeRaceName('Half-Orc')).toBe('demi-orque');
+      expect(normalizeRaceName('Dwarf')).toBe('nain');
+      expect(normalizeRaceName('Dragonborn')).toBe('drakeide');
+      expect(normalizeRaceName('Undead')).toBe('mort-vivant');
+      expect(normalizeRaceName('Fishman')).toBe('homme-poisson');
+      expect(normalizeRaceName('Centaur')).toBe('centaure');
+      expect(normalizeRaceName('Warforged')).toBe('mecha');
+      expect(normalizeRaceName('Mind Flayer')).toBe('illithid');
+      expect(normalizeRaceName('Fir Bolg')).toBe('firbolg');
+      expect(normalizeRaceName('Hobgoblin')).toBe('hobgoblin');
+      expect(normalizeRaceName('Troll')).toBe('troll');
+    });
+  });
+
+  describe('race traits', () => {
+    it('should expose traits for every catalog race', () => {
+      expect(Object.keys(RACE_TRAITS).sort()).toEqual(RACES.map((r) => r.id).sort());
+      for (const race of RACES) {
+        expect(raceTraits(race.id).length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should normalise the race before lookup and return [] for unknown races', () => {
+      expect(raceTraits('Drow')[0].nom).toBe('Réaction supplémentaire');
+      expect(raceTraits('Reptilien')).toEqual([]);
+      expect(raceTraits(null)).toEqual([]);
+    });
+
+    it('should carry the Gobelin crit traits and the Khajiit claws', () => {
+      expect(raceTraits('gobelin').map((t) => t.nom)).toEqual(['Critique facilité', 'Limite de critiques']);
+      expect(raceTraits('khajeet').some((t) => /griffes/i.test(t.nom))).toBe(true);
+    });
+  });
+
+  describe('racial computed values', () => {
+    const base = { stats: { force: 10, agilite: 10, esprit: 10, social: 10 } };
+
+    it('Nain adds Force as PV bonus (source display, never written back)', () => {
+      const sheet = { ...base, identity: { race: 'nain' }, stats: { force: 16 } };
+      expect(racePvBonus(sheet)).toBe(16);
+      expect(racePvBonus({ ...base, identity: { race: 'humain' } })).toBe(0);
+    });
+
+    it('Drakéide gains 1 natural armour', () => {
+      const armor = { armure: 3 };
+      const plain = computeDerived({ ...base, defense: armor });
+      const drakeide = computeDerived({ ...base, identity: { race: 'drakeide' }, defense: armor });
+      expect(drakeide.armure).toBe(plain.armure + 1);
+    });
+
+    it('Demi-Orque doubles armour under half HP only', () => {
+      const sheet = (pvActuels, pvMax) => ({
+        ...base,
+        identity: { race: 'demi-orque' },
+        equipment: { plastron: { nom: 'Plastron', armure: 4 } },
+        derived: { pvActuels, pvMax },
+      });
+      expect(computeDerived(sheet(3, 12)).armure).toBe(8);
+      expect(computeDerived(sheet(7, 12)).armure).toBe(4);
+      expect(computeDerived(sheet(0, 0)).armure).toBe(4);
+    });
+
+    it('Centaure multiplies movement by 1.5 (floored)', () => {
+      const sheet = { ...base, identity: { race: 'centaure' }, stats: { agilite: 11 } };
+      const plain = computeDerived({ ...sheet, identity: { race: 'humain' } });
+      expect(computeDerived(sheet).mouvement).toBe(Math.floor(plain.mouvement * 1.5));
+    });
+
+    it('Gnome reads a Force of 5–9 as 10 but keeps the malus at 4 or less', () => {
+      expect(effectiveStats({ identity: { race: 'gnome' }, stats: { force: 8 } }).force).toBe(10);
+      expect(effectiveStats({ identity: { race: 'gnome' }, stats: { force: 4 } }).force).toBe(4);
+      expect(effectiveStats({ identity: { race: 'humain' }, stats: { force: 8 } }).force).toBe(8);
+      expect(skillModifier(effectiveStats({ identity: { race: 'gnome' }, stats: { force: 8 } }), 'athletisme')).toBe(0);
+    });
+
+    it('raceRollAdvantage covers the named-skill traits and Initiative', () => {
+      expect(raceRollAdvantage('elfe-noir', 'discretion')).toBe(1);
+      expect(raceRollAdvantage('goliath', 'athletisme')).toBe(1);
+      expect(raceRollAdvantage('firbolg', 'dressage')).toBe(1);
+      expect(raceRollAdvantage('firbolg', 'initiative')).toBe(-1);
+      expect(raceRollAdvantage('centaure', 'acrobaties')).toBe(-1);
+      expect(raceRollAdvantage('humain', 'athletisme')).toBe(0);
+    });
+
+    it('rollD20Keep rolls 2d20 and keeps the best/worst die', () => {
+      const high = rollD20Keep('d20+3', {}, 'high');
+      expect(high.rolls).toHaveLength(2);
+      expect(high.total).toBe(Math.max(...high.rolls) + 3);
+      const low = rollD20Keep('d20-1', {}, 'low');
+      expect(low.total).toBe(Math.min(...low.rolls) - 1);
+      expect(low.diceTypes).toEqual([20, 20]);
+    });
+
+    it('Goliath wields two-handed weapons in one hand', () => {
+      const greatsword = { nom: 'Épée à deux mains', proprietes: 'Deux mains' };
+      expect(isTwoHanded(greatsword)).toBe(true);
+      expect(isTwoHanded(greatsword, 'goliath')).toBe(false);
     });
   });
 

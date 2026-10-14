@@ -166,13 +166,58 @@ function canonicalRace(value) {
 
 /**
  * Accepted spellings that are neither the id nor the label — imports and
- * hand-typed sheets carry "Khajit", "Khajiit", "Goblin"…
+ * hand-typed sheets carry "Khajit", "Halfelin", "Tiefling", "Drow"…
+ * (canonical form = accentless, lowercase, hyphen-separated).
  */
 const RACE_ALIASES = {
-  khajiit: 'khajeet',
-  khajit: 'khajeet',
-  khajet: 'khajeet',
-  goblin: 'gobelin'
+  // Humain
+  human: 'humain', humans: 'humain', humaine: 'humain',
+  // Haut-Elfe
+  'high-elf': 'haut-elfe', 'high-elfe': 'haut-elfe',
+  // Elfe des Bois
+  'wood-elf': 'elfe-des-bois', 'elfe-sylvain': 'elfe-des-bois', 'elfe-sylvestre': 'elfe-des-bois',
+  // Elfe Noir
+  'dark-elf': 'elfe-noir', darkelf: 'elfe-noir', drow: 'elfe-noir', 'elfe-noire': 'elfe-noir',
+  // Demi-Elfe
+  'half-elf': 'demi-elfe', 'half-elfe': 'demi-elfe', halfelf: 'demi-elfe',
+  // Tieffelin
+  tiefling: 'tieffelin', tieflingue: 'tieffelin',
+  // Aasimar
+  aasimars: 'aasimar',
+  // Demi-Orque
+  'half-orc': 'demi-orque', 'half-orque': 'demi-orque', 'demi-orc': 'demi-orque',
+  // Nain
+  dwarf: 'nain', naine: 'nain', nains: 'nain', dwarve: 'nain',
+  // Gobelin
+  goblin: 'gobelin', gobelins: 'gobelin', goblins: 'gobelin',
+  // Gnome
+  gnomes: 'gnome',
+  // Halfling
+  halfelin: 'halfling', halfelins: 'halfling', hobbit: 'halfling', halflings: 'halfling',
+  // Goliath
+  goliaths: 'goliath',
+  // Drakéide
+  dragonborn: 'drakeide', drakeid: 'drakeide', drakeids: 'drakeide',
+  // Sporelin
+  sporeling: 'sporelin', sporlin: 'sporelin', sporelins: 'sporelin',
+  // Mort-vivant
+  undead: 'mort-vivant', revenant: 'mort-vivant', 'morts-vivants': 'mort-vivant', 'mort-vivante': 'mort-vivant',
+  // Khajiit
+  khajiit: 'khajeet', khajit: 'khajeet', khajet: 'khajeet', khajiits: 'khajeet',
+  // Troll
+  trolls: 'troll',
+  // Homme-Poisson
+  fishman: 'homme-poisson', 'fish-man': 'homme-poisson', 'poisson-homme': 'homme-poisson', fishfolk: 'homme-poisson',
+  // Hobgoblin
+  'hob-gobelin': 'hobgoblin', hobgobelins: 'hobgoblin',
+  // Centaure
+  centaur: 'centaure', centaures: 'centaure', centaurs: 'centaure',
+  // Mécha
+  mech: 'mecha', mechas: 'mecha', warforged: 'mecha', automatise: 'mecha',
+  // Illithid
+  illithide: 'illithid', illithids: 'illithid', mindflayer: 'illithid', 'mind-flayer': 'illithid', 'flagelleur-mental': 'illithid', flagelleur: 'illithid',
+  // Firbolg
+  'fir-bolg': 'firbolg', firbolgs: 'firbolg',
 };
 
 /**
@@ -201,6 +246,151 @@ export function normalizeRaceName(race) {
 export function raceLabel(race) {
   const value = String(race ?? '').trim();
   return RACES.find((r) => r.id === value)?.label ?? value;
+}
+
+/**
+ * Racial traits, verbatim from the rulebook, in document order. Display-only
+ * reference text: the reducer never reads it (see `raceTraits`). Races whose
+ * passive the app cannot track (distances, vision, rests, damage types,
+ * creature tracking) still list their text here — the sheet renders it.
+ * @type {{ [raceId: string]: { nom: string, texte: string }[] }}
+ */
+export const RACE_TRAITS = {
+  humain: [
+    { nom: 'Polyvalence', texte: '+2 compétences supplémentaires.' },
+    { nom: 'Aisance sociale', texte: '+2 jetons de Social.' }
+  ],
+  'haut-elfe': [
+    { nom: 'Main étendue', texte: 'Vous pouvez conserver 1 carte supplémentaire en main.' },
+    { nom: 'Maîtrise supplémentaire', texte: 'Vous maîtrisez 1 capacité supplémentaire.' }
+  ],
+  'elfe-des-bois': [
+    { nom: 'Mobilité réactive', texte: 'Après avoir utilisé votre réaction, vous pouvez vous déplacer de 5 m. Si vous réagissez à une capacité non ciblée, ce déplacement est considéré comme effectué avant la capacité.' },
+    { nom: 'Initiative', texte: 'Avantage au deuxième jet d\'initiative du round.' }
+  ],
+  'elfe-noir': [
+    { nom: 'Réaction supplémentaire', texte: 'Si vous êtes hors du champ de vision d\'un ennemi, vous pouvez utiliser 1 réaction supplémentaire par tour.' },
+    { nom: 'Discrétion', texte: 'Avantage aux jets de Discrétion.' }
+  ],
+  'demi-elfe': [
+    { nom: 'Canalisation libre', texte: 'Lorsque vous utilisez une arme (attaque, parade, etc.), vous canalisez automatiquement pendant 1 round, avec une valeur égale à votre Esprit.' },
+    { nom: 'Canalisation flexible', texte: 'Vous choisissez la couleur de canalisation indépendamment de l\'arme utilisée.' },
+    { nom: 'Catalyseur défensif', texte: 'Vous pouvez parer avec un catalyseur, en utilisant sa valeur de canalisation à la place de la parade d\'une arme.' },
+    { nom: 'Érudition mixte', texte: '+1 compétence.' }
+  ],
+  tieffelin: [
+    { nom: 'Pioche ciblée', texte: 'Vous pouvez piocher spécifiquement du Pique 1 fois sur 2.' },
+    { nom: 'Résistance', texte: 'Résistance au feu.' }
+  ],
+  aasimar: [
+    { nom: 'Cœur supplémentaire', texte: 'Chaque fois que vous utilisez un token, quel qu\'en soit le type, invoquez également 1 carte de Cœur.' },
+    { nom: 'Résistance', texte: 'Résistance aux dégâts radiants.' }
+  ],
+  'demi-orque': [
+    { nom: 'Riposte cumulative', texte: 'Pour chaque créature vous ayant attaqué pendant le round, ajoutez votre modificateur à votre prochain jet d\'attaque ou à votre prochaine capacité infligeant des dégâts.' },
+    { nom: 'Armure de survie', texte: 'Votre armure double lorsque vous avez moins de 50 % de vos PV.' }
+  ],
+  nain: [
+    { nom: 'Points de vie supplémentaires', texte: 'Vous gagnez un nombre de PV égal à votre Force (source « Force pvs »).' },
+    { nom: 'Réduction de coût', texte: 'Réduisez le coût de vos capacités de Trèfle de 1 pour chaque créature vous ayant attaqué pendant le round.' }
+  ],
+  gobelin: [
+    { nom: 'Critique facilité', texte: 'Réduisez le seuil de critique de 1 (par exemple, 5–6 au lieu de 6 sur 1d6).' },
+    { nom: 'Limite de critiques', texte: 'Maximum 3 critiques cumulés par attaque.' }
+  ],
+  gnome: [
+    { nom: 'Faiblesse physique atténuée', texte: 'Les malus liés à une Force faible ne s\'appliquent qu\'à partir de 4 ou moins.' },
+    { nom: 'Compensation du surcoût', texte: 'Si vous payez un surcoût pour une capacité, réduisez le coût de la prochaine capacité lancée du même montant.' }
+  ],
+  halfling: [
+    { nom: 'Pioche sélective', texte: 'Lorsque vous piochez, piochez 2 cartes et défaussez-en 1.' },
+    { nom: 'Relance', texte: 'Une fois par repos court, vous pouvez relancer un dé.' }
+  ],
+  goliath: [
+    { nom: 'Force colossale', texte: 'Vous pouvez manier une arme à deux mains avec une seule main. Vous pouvez également manier deux armes polyvalentes ou deux bâtons simultanément (dual wield). Les épées longues sont considérées comme des armes de Finesse.' },
+    { nom: 'Endurance des cimes', texte: 'Avantage aux jets d\'Athlétisme et résistance aux dégâts de glace.' }
+  ],
+  drakeide: [
+    { nom: 'Héritage draconique', texte: 'Choisissez Feu, Foudre, Glace, Acide ou Poison. Vous résistez aux dégâts de cet élément et pouvez le générer pour interagir avec l\'environnement.' },
+    { nom: 'Écailles draconiques', texte: 'Armure naturelle de 1, cumulable avec d\'autres sources.' },
+    { nom: 'Souffle draconique', texte: 'En action bonus, infligez 1d10 dégâts de votre élément dans un cône de 4,5 m. À la place, vous pouvez retenir votre souffle pour canaliser automatiquement les capacités liées à cet élément (valeur = modificateur d\'Esprit).' },
+    { nom: 'Résonance élémentaire', texte: 'Au contact d\'une source de votre élément que vous n\'avez pas générée, vous la canalisez automatiquement.' }
+  ],
+  sporelin: [
+    { nom: 'Résistance et immunité', texte: 'Résistance au poison et immunité aux effets de saignement.' },
+    { nom: 'Vulnérabilité', texte: 'Vulnérabilité aux dégâts de glace.' },
+    { nom: 'Sporaissance', texte: 'Si vous ne vous déplacez pas pendant votre tour, vous activez cet état. Tant qu\'il est actif : vous récupérez un nombre de PV égal à votre déplacement ; si un ou plusieurs alliés restent pendant un round complet à moins de 3 m de vous, vous pouvez échanger gratuitement une carte avec chacun d\'eux à la fin de leur tour.' }
+  ],
+  'mort-vivant': [
+    { nom: 'Nécrose', texte: 'Insensibilité aux dégâts nécrotiques.' },
+    { nom: 'Résistance aux entraves', texte: 'Avantage aux jets de sauvegarde contre les effets restreignants.' },
+    { nom: 'Insensibilité aux critiques', texte: 'Les coups critiques reçus infligent des dégâts normaux.' },
+    { nom: 'Fatigue', texte: 'Ignorez les malus de fatigue jusqu\'au niveau 5.' }
+  ],
+  khajeet: [
+    { nom: 'Griffes félines', texte: 'Vous possédez une attaque naturelle avec vos griffes (1d6, finesse). Si l\'une de vos mains est libre ou équipée d\'un catalyseur une main, vous pouvez effectuer une attaque avec vos griffes en bonus action.' },
+    { nom: 'Souplesse féline', texte: 'Vous subissez moitié moins de dégâts liés aux chutes.' },
+    { nom: 'Esquive instinctive', texte: 'Vous pouvez utiliser l\'action Esquiver en bonus action.' }
+  ],
+  troll: [
+    { nom: 'Régénération totémique', texte: 'Chaque fois que vous utilisez un token, vous regagnez 2 × votre modificateur le plus élevé en points de vie (une fois par token par round / 30 min).' },
+    { nom: 'Membre des Hautes Terres', texte: 'Vous ignorez les terrains difficiles.' }
+  ],
+  'homme-poisson': [
+    { nom: 'Sens vibratoire', texte: 'En action bonus, vous pouvez maintenir votre Concentration. Tant qu\'elle est maintenue, toute créature qui se déplace d\'au moins 3 m bénéficie automatiquement de l\'effet de votre Ciblage.' },
+    { nom: 'Physiologie aquatique', texte: 'Votre vitesse de nage est égale à votre déplacement et vous avez avantage à tous vos jets dans l\'eau.' },
+    { nom: 'Peau glissante', texte: 'Si un liquide couvre entièrement votre zone de contrôle (rayon de 3 m), les attaques et capacités dirigées contre vous ont désavantage. Si ce liquide n\'est pas de l\'eau, un jet de Survie contextuel est nécessaire pour bénéficier de cet effet.' },
+    { nom: 'Résistance au froid', texte: 'Résistance aux dégâts de froid.' },
+    { nom: 'Dépendance hydrique', texte: 'Pour effectuer un repos court ou long, vous devez disposer d\'assez d\'eau pour garder votre peau immergée ou humide pendant toute la durée du repos. Un jet de Survie contextuel permet de trouver ou d\'exploiter une source d\'eau adaptée.' },
+    { nom: 'Vulnérabilité au feu', texte: 'Vulnérabilité aux dégâts de feu.' }
+  ],
+  hobgoblin: [
+    { nom: 'Discipline martiale', texte: 'Vous bénéficiez des bonus d\'armes de corps à corps avec les armes à distance (attaques d\'opportunité, parade, deuxième attaque, etc.). Vous avez avantage aux attaques d\'opportunité et pouvez vous déplacer après en avoir effectué une.' },
+    { nom: 'Commandement tactique', texte: 'Vous pouvez donner vos tokens à vos alliés.' }
+  ],
+  centaure: [
+    { nom: 'Vitesse équine', texte: 'Votre vitesse de déplacement est multipliée par 1,5.' },
+    { nom: 'Morphologie quadrupède', texte: 'Avantage aux jets d\'Athlétisme pour pousser ; désavantage aux jets d\'Acrobaties.' },
+    { nom: 'Angle mort', texte: 'Les attaques effectuées contre vous par derrière ont avantage.' },
+    { nom: 'Charge', texte: 'Si vous parcourez au moins 10 m en ligne droite pendant votre tour, votre prochaine attaque ou capacité bénéficie d\'un avantage.' }
+  ],
+  mecha: [
+    { nom: 'Corps résistant', texte: 'Résistance aux dégâts physiques.' },
+    { nom: 'Résistance au poison', texte: 'Résistance aux dégâts de poison.' },
+    { nom: 'Corps artificiel', texte: 'Vous n\'avez pas besoin de respirer et pouvez rester sous l\'eau indéfiniment.' },
+    { nom: 'Immortel', texte: 'La Fatigue ne peut pas vous tuer.' },
+    { nom: 'Corps modulaire', texte: 'Vous pouvez intégrer à l\'un de vos bras une arme à une main, un bouclier ou un catalyseur. L\'intégration est perdue si vous tombez inconscient.' },
+    { nom: 'Auto-soin', texte: 'Les capacités vous permettant de vous soigner vous-même fonctionnent à 50 % de leur valeur.' },
+    { nom: 'Fatigue mécanique', texte: 'Vous gagnez des niveaux de Fatigue par paliers de 1 et ne récupérez qu\'un niveau par repos court.' },
+    { nom: 'Réparation', texte: 'Les soins classiques et les consommables de soin ne fonctionnent pas sur vous. Vous possédez un kit de réparation utilisable une fois par jour lors d\'un repos long. Effectuez un jet d\'Investigation ou d\'Escamotage : vous récupérez résultat du jet × 5 % de vos PV maximum.' },
+    { nom: 'Relevage', texte: 'Lorsque vous êtes inconscient, un allié doit réussir un jet d\'Investigation ou d\'Escamotage de DC 8 + 2 × votre niveau de Fatigue pour vous relever.' },
+    { nom: 'Repos mécanique', texte: 'Aucune ration n\'est nécessaire lors d\'un repos court, mais vous devez vous éteindre pendant 1 heure.' },
+    { nom: 'Vulnérabilité électrique', texte: 'Vulnérabilité aux dégâts de foudre.' }
+  ],
+  illithid: [
+    { nom: 'Harmonisation cérébrale', texte: 'Votre Harmonisation est passive autour de vous et améliore les attaques ou capacités alliées comme une Harmonisation classique. En l\'activant par une réaction, vous déclenchez une Harmonisation totale : la cible obtient avantage à ses jets d\'attaque et de capacités, en plus du bonus de base.' },
+    { nom: 'Dévoration mentale', texte: 'Action bonus : dévorez le cerveau d\'une créature intelligente (Esprit > 8), morte depuis moins de 1 minute, pour récupérer 1 token d\'Esprit (maximum = modificateur d\'Esprit, minimum 1). Utilisable une fois par combat ou toutes les 30 minutes.' },
+    { nom: 'Résonance de mort', texte: 'À 0 PV, vous émettez une onde psychique de 18 m infligeant modificateur d\'Esprit × 1d6 dégâts psychiques à toutes les créatures alliées autour de vous.' },
+    { nom: 'Fragilité physique', texte: 'Désavantage à tous les jets de sauvegarde d\'Athlétisme.' }
+  ],
+  firbolg: [
+    { nom: 'Force de géant', texte: 'Avantage aux jets de sauvegarde d\'Athlétisme.' },
+    { nom: 'Imprégnation naturelle', texte: 'Lorsque vous utilisez Imprégner, vous pouvez imprégner votre équipement ou celui d\'un allié. L\'imprégnation dure 2 rounds.' },
+    { nom: 'Combinaison élémentaire', texte: 'Vous pouvez altérer un Choc élémentaire créé par une autre créature pour produire une Combinaison élémentaire et prolonger cette combinaison jusqu\'à 2 rounds.' },
+    { nom: 'Langage de la nature', texte: 'Vous pouvez communiquer avec les plantes et avez avantage aux jets de Dressage.' },
+    { nom: 'Disparition naturelle', texte: 'Si vous passez l\'intégralité de votre tour sans vous déplacer et le terminez hors du champ de vision de tous les ennemis, vous devenez automatiquement Invisible. Vous pouvez également utiliser votre action pour devenir Invisible une fois par repos court.' },
+    { nom: 'Lente mise en action', texte: 'Désavantage aux jets d\'Initiative.' }
+  ]
+};
+
+/**
+ * Traits for a race id (or an imported free-text name). Unknown races → []
+ * (a manually typed race has no rulebook traits).
+ * @param {unknown} race - Race id or free text
+ * @returns {{ nom: string, texte: string }[]}
+ */
+export function raceTraits(race) {
+  return RACE_TRAITS[normalizeRaceName(race)] ?? [];
 }
 
 /**
@@ -980,6 +1170,26 @@ function normalizeStatName(name) {
 }
 
 /**
+ * Racial avantage/désavantage on a roll — only the traits the app can honour
+ * automatically (named skills + Initiative); conditional ones (dans l'eau,
+ * pousser, sauvegardes, …) stay reference text.
+ * @param {unknown} race - Race id or free text
+ * @param {string} kind - Skill key or 'initiative'
+ * @returns {number} +1 avantage, −1 désavantage, 0 none
+ */
+export function raceRollAdvantage(race, kind) {
+  const id = normalizeRaceName(race);
+  const key = String(kind ?? '').toLowerCase();
+  if (id === 'elfe-noir' && key === 'discretion') return 1;
+  if (id === 'goliath' && key === 'athletisme') return 1;
+  if (id === 'firbolg' && key === 'dressage') return 1;
+  if (id === 'firbolg' && key === 'initiative') return -1;
+  if (id === 'centaure' && key === 'athletisme') return 1;
+  if (id === 'centaure' && key === 'acrobaties') return -1;
+  return 0;
+}
+
+/**
  * Compute a stat modifier from a raw score (e.g. 18 → +4).
  * @param {unknown} score - Raw stat score
  * @returns {number}
@@ -1113,6 +1323,36 @@ export function attackBonus(weapon, stats = {}) {
   return statMod + toNumber(weapon?.bonus);
 }
 
+/** Computed values a player may override with a manual value (ÉDITION STATS). */
+export const OVERRIDABLE_DERIVED = ['parade', 'initiative', 'mouvement', 'seuilMiss', 'bonusAttaque', 'canalisation', 'volonte'];
+
+/**
+ * Stats with racial stat rules applied before any modifier is read.
+ * Gnome « Faiblesse physique atténuée » : a Force of 5–9 gives no malus, so
+ * the score is read as 10 everywhere (score ≤ 4 keeps its real malus).
+ * @param {Object} [sheet] - Character sheet
+ * @returns {Object} Stats object (the original when no rule applies)
+ */
+export function effectiveStats(sheet = {}) {
+  const stats = sheet?.stats ?? {};
+  if (normalizeRaceName(sheet?.identity?.race) !== 'gnome') return stats;
+  const force = Number(stats.force);
+  if (!Number.isFinite(force) || force < 5 || force >= 10) return stats;
+  return { ...stats, force: 10 };
+}
+
+/**
+ * Nain « Points de vie supplémentaires » : bonus PV = score de Force. The
+ * sheet's PV max is a manual field, so this is shown as a PV source next to
+ * the total — never written back into `derived.pvMax`.
+ * @param {Object} [sheet] - Character sheet
+ * @returns {number} Bonus PV (0 when the race is not Nain)
+ */
+export function racePvBonus(sheet = {}) {
+  if (normalizeRaceName(sheet?.identity?.race) !== 'nain') return 0;
+  return Math.max(0, Math.trunc(Number(effectiveStats(sheet).force) || 0));
+}
+
 /**
  * Compute all rule-derived combat values from a sheet.
  * - parade      = déflexion (equipped items) + garde (melee die/2) + modificateur
@@ -1122,14 +1362,14 @@ export function attackBonus(weapon, stats = {}) {
  * - seuilMiss   = max(1, 1 - mod Agilité)
  * - canalisation = modificateur d'Esprit
  * - bonusAttaque = attack bonus of the main-hand weapon
+ * Racial gear rules (Drakéide armour, Demi-Orque survival armour, Centaure
+ * speed) are applied here too; manual overrides still win.
  * @param {Object} [sheet] - Character sheet data
  * @returns {Object} Computed values
  */
-/** Computed values a player may override with a manual value (ÉDITION STATS). */
-export const OVERRIDABLE_DERIVED = ['parade', 'initiative', 'mouvement', 'seuilMiss', 'bonusAttaque', 'canalisation', 'volonte'];
-
 export function computeDerived(sheet = {}) {
-  const stats = sheet?.stats ?? {};
+  const stats = effectiveStats(sheet);
+  const race = normalizeRaceName(sheet?.identity?.race);
   const equipment = sheet?.equipment ?? {};
   const weapons = sheet?.weapons ?? [];
   const eq = equipmentStats(equipment, weapons);
@@ -1154,6 +1394,20 @@ export function computeDerived(sheet = {}) {
     canalisation: statModifier(weaponStatScore(stats, 'esprit')),
     bonusAttaque: firstEquipped ? attackBonus(firstEquipped, stats) : 0,
   };
+  // Racial gear rules (applied before the manual overrides so those still win).
+  if (race === 'drakeide') {
+    // Écailles draconiques : armure naturelle de 1, cumulable.
+    base.armure = toNumber(base.armure) + 1;
+  } else if (race === 'demi-orque') {
+    // Armure de survie : double sous 50 % des PV.
+    const pvMax = toNumber(sheet?.derived?.pvMax);
+    const pvActuels = toNumber(sheet?.derived?.pvActuels);
+    if (pvMax > 0 && pvActuels < pvMax / 2) base.armure = toNumber(base.armure) * 2;
+  }
+  if (race === 'centaure') {
+    // Vitesse équine : déplacement ×1,5.
+    base.mouvement = Math.floor(toNumber(base.mouvement) * 1.5);
+  }
   // Manual overrides (typed in ÉDITION); empty/absent = rule value applies.
   const overrides = sheet?.derived?.overrides ?? {};
   for (const key of OVERRIDABLE_DERIVED) {
@@ -1390,7 +1644,10 @@ export function skillRollModifier(stats, skill, skillData = {}) {
  * @param {Object} weapon - Weapon entry (nom/de/propriétés/notes)
  * @returns {boolean}
  */
-export function isTwoHanded(weapon) {
+export function isTwoHanded(weapon, race) {
+  // Goliath « Force colossale » : une arme à deux mains tient dans une main
+  // (et donc n'occupe qu'un emplacement).
+  if (/goliath/i.test(String(race ?? ''))) return false;
   const text = [weapon?.nom, weapon?.propriétés, weapon?.proprietes, weapon?.notes]
     .map((v) => String(v ?? ''))
     .join(' ');
@@ -1435,7 +1692,8 @@ export function handSlots(sheet = {}) {
  */
 export function equipWeapon(sheet, weapon, hand = 'main') {
   if (!weapon?.nom) return sheet;
-  const two = isTwoHanded(weapon);
+  const race = sheet?.identity?.race;
+  const two = isTwoHanded(weapon, race);
   return {
     ...sheet,
     weapons: (sheet?.weapons ?? []).map((w) => {
@@ -1443,7 +1701,7 @@ export function equipWeapon(sheet, weapon, hand = 'main') {
       if (!w?.equipped && !w?.hand) return w;
       // legacy sheets: equipped without hand = main-hand occupant
       const wHand = w?.hand ?? 'main';
-      if (two || wHand === hand || isTwoHanded(w)) return { ...w, equipped: false, hand: null };
+      if (two || wHand === hand || isTwoHanded(w, race)) return { ...w, equipped: false, hand: null };
       return { ...w, hand: wHand };
     }),
   };
@@ -1538,7 +1796,31 @@ export function parseDiceSpec(formula, stats = {}) {
   return { terms, modifier, formula: parts.join('+') };
 }
 
-export function rollDice(formula, stats = {}) {
+/**
+ * Flat avantage/désavantage roll for a d20 check: 2d20, one die kept.
+ * Takes the same `d20±X` formula the normal path uses and rewrites the die
+ * count, so callers only flip `keep`.
+ * @param {string} formula - d20 check formula ("d20+3")
+ * @param {Object} [stats] - Stat scores for stat formulas
+ * @param {'high'|'low'} keep - Avantage (high) / désavantage (low)
+ * @returns {Object} rollDice-shaped result
+ */
+export function rollD20Keep(formula, stats = {}, keep = 'high') {
+  const base = parseDiceSpec(formula, stats);
+  if (!base) throw new Error(`Invalid dice formula: ${formula}`);
+  const mod = base.modifier;
+  return rollDice(`2d20${mod >= 0 ? '+' + mod : mod}`, stats, { keep });
+}
+
+export function rollDice(formula, stats = {}, opts = {}) {
+  // Avantage/désavantage racial: 2 dés, seul le meilleur/pire compte (le
+  // modificateur du jet est conservé tel quel).
+  const keep = opts?.keep;
+  const applyKeep = (rolls, total) => {
+    if (!keep || rolls.length < 2) return total;
+    const kept = keep === 'low' ? Math.min(...rolls) : Math.max(...rolls);
+    return kept + (total - rolls.reduce((a, b) => a + b, 0));
+  };
   // compound formulas ("1d6+1d4"): roll each term, concat rolls in order
   if (typeof formula === 'string' && formula.includes('+')) {
     const parts = formula.split('+').map((p) => p.trim()).filter(Boolean);
@@ -1557,7 +1839,7 @@ export function rollDice(formula, stats = {}) {
           }
           total += part.modifier;
         }
-        return { total, rolls, diceTypes, modifier: 0, formula: parts.join('+') };
+        return { total: applyKeep(rolls, total), rolls, diceTypes, modifier: 0, formula: parts.join('+'), keep };
       }
     }
   }
@@ -1574,9 +1856,9 @@ export function rollDice(formula, stats = {}) {
   }
 
   const sum = rolls.reduce((a, b) => a + b, 0);
-  const total = sum + modifier;
+  const total = applyKeep(rolls, sum + modifier);
 
-  return { total, rolls, diceTypes: Array(count).fill(sides), modifier, formula: parsed.formula };
+  return { total, rolls, diceTypes: Array(count).fill(sides), modifier, formula: parsed.formula, keep };
 }
 
 /**

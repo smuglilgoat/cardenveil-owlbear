@@ -1,6 +1,7 @@
 <script>
   import { tooltip } from './tooltip.js';
   import { STAT_COLORS } from './characterSheet.js';
+  import { maxTokensFor } from './deck.js';
   /**
    * @type {{
    *   playerState: object,
@@ -23,7 +24,8 @@
 <div class="space-y-2">
   {#each STATS as stat}
     {@const current = playerState.tokens[stat.key] ?? 0}
-    {@const max = playerState.maxTokens[stat.key] ?? 0}
+    {@const max = maxTokensFor(playerState)[stat.key] ?? 0}
+    {@const base = playerState.maxTokens?.[stat.key] ?? 0}
     <div class="flex items-center gap-2">
       <span class="text-xs text-gray-400 w-12 shrink-0">{stat.label}</span>
 
@@ -65,12 +67,12 @@
         {#if isGM && onSetMax}
           <input
             type="number"
-            value={max}
+            value={base}
             min="0"
             max="10"
             oninput={(e) => onSetMax(stat.key, Number(e.currentTarget.value))}
             class="w-8 text-xs bg-gray-800 border border-gray-600 rounded text-center text-gray-300 py-0.5"
-            title="Max tokens"
+            title="Max tokens (base hors bonus de race)"
           />
         {/if}
       </div>

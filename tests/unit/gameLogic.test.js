@@ -10,6 +10,10 @@ import {
   applyAction,
   handCap,
   addLog,
+  tokenCapBonus,
+  maxTokensFor,
+  fatiguePenaltyFor,
+  FATIGUE_PENALTY,
   GM_CHAR_ID,
 } from '../../netlify/functions/_gameLogic.js';
 
@@ -786,6 +790,107 @@ describe('Game Logic', () => {
     it('tolerates an unknown suit id in a stored card id', () => {
       expect(cardFromId('n-Z-5-abc')).toMatchObject({ suit: '?', value: '5' });
       expect(() => hydrateState({ players: { p: { name: 'P', hand: ['garbage'] } } })).not.toThrow();
+    });
+  });
+
+  describe('race token passives', () => {
+    let state;
+
+    beforeEach(() => {
+      state = createInitialGameState();
+      state.gmId = 'gm-player';
+      state.players = {
+        'player-1': createEmptyPlayer('Player 1'),
+        'player-2': createEmptyPlayer('Player 2'),
+      };
+    });
+
+    it('maxTokensFor adds the Humain Social bonus on top of the base cap', () => {
+      expect(tokenCapBonus('humain')).toEqual({ social: 2 });
+      expect(tokenCapBonus('nain')).toEqual({});
+      const humain = { ...createEmptyPlayer('H'), race: 'humain' };
+      expect(maxTokensFor(humain).social).toBe(5);
+      expect(maxTokensFor(humain).force).toBe(3);
+    });
+
+    it('SET_RACE to Humain grants 2 Social tokens and leaving clamps them', () => {
+      const { state: asHumain } = applyAction(state, {
+        type: 'SET_RACE', playerId: 'gm-player', targetId: 'player-1', race: 'humain',
+      });
+      expect(asHumain.players['player-1'].tokens.social).toBe(5);
+      expect(asHumain.players['player-1'].maxTokens.social).toBe(3); // base unchanged
+      const { state: back } = applyAction(asHumain, {
+        type: 'SET_RACE', playerId: 'gm-player', targetId: 'player-1', race: 'nain',
+      });
+      expect(back.players['player-1'].tokens.social).toBe(3);
+    });
+
+    it('REST_ALL refills to the racial cap', () => {
+      state.players['player-1'] = { ...state.players['player-1'], race: 'humain', tokens: { force: 0, agilite: 0, esprit: 0, social: 0 } };
+      const { state: next } = applyAction(state, { type: 'REST_ALL', playerId: 'gm-player' });
+      expect(next.players['player-1'].tokens).toEqual({ force: 3, agilite: 3, esprit: 3, social: 5 });
+    });
+
+    it('SYNC_TOKENS refills a Humain to the bonus cap', () => {
+      state.players['player-1'].race = 'humain';
+      const { state: next } = applyAction(state, {
+        type: 'SYNC_TOKENS', playerId: 'player-1', targetId: 'player-1',
+        tokens: { force: 4, agilite: 2, esprit: 3, social: 1 },
+      });
+      expect(next.players['player-1'].tokens).toEqual({ force: 4, agilite: 2, esprit: 3, social: 3 });
+      expect(next.players['player-1'].maxTokens).toEqual({ force: 4, agilite: 2, esprit: 3, social: 1 });
+    });
+
+    it('GIVE_TOKEN is Hobgoblin-only (or GM) and respects the target cap', () => {
+      const asCommoner = applyAction(state, {
+        type: 'GIVE_TOKEN', playerId: 'player-1', targetId: 'player-2', token: 'force',
+      });
+      expect(asCommoner.state.players['player-2'].tokens.force).toBe(3); // rejected
+
+      state.players['player-1'].race = 'hobgoblin';
+      state.players['player-2'].tokens.force = 2;
+      const { state: given } = applyAction(state, {
+        type: 'GIVE_TOKEN', playerId: 'player-1', targetId: 'player-2', token: 'force',
+      });
+      expect(given.players['player-1'].tokens.force).toBe(2);
+      expect(given.players['player-2'].tokens.force).toBe(3);
+
+      // target at cap → no-op
+      const { state: capped } = applyAction(given, {
+        type: 'GIVE_TOKEN', playerId: 'player-1', targetId: 'player-2', token: 'force',
+      });
+      expect(capped.players['player-1'].tokens.force).toBe(2);
+      expect(capped.players['player-2'].tokens.force).toBe(3);
+
+      // GM may hand a token out too (from their own pool)
+      state.players['gm-player'] = createEmptyPlayer('MJ');
+      const { state: byGm } = applyAction(state, {
+        type: 'GIVE_TOKEN', playerId: 'gm-player', targetId: 'player-2', token: 'force',
+      });
+      expect(byGm.players['gm-player'].tokens.force).toBe(2);
+      expect(byGm.players['player-2'].tokens.force).toBe(3);
+    });
+
+    it('DEVOUR_MIND is Illithid-only, +1 Esprit, throttled by the cooldown', () => {
+      const refused = applyAction(state, { type: 'DEVOUR_MIND', playerId: 'player-1' });
+      expect(refused.state.players['player-1'].tokens.esprit).toBe(3);
+
+      state.players['player-1'] = { ...state.players['player-1'], race: 'illithid', tokens: { force: 3, agilite: 3, esprit: 2, social: 3 } };
+      const { state: eaten } = applyAction(state, { type: 'DEVOUR_MIND', playerId: 'player-1' });
+      expect(eaten.players['player-1'].tokens.esprit).toBe(3);
+      expect(eaten.players['player-1'].lastDevourAt).toBeGreaterThan(0);
+
+      // second help within the 30-min cooldown is a no-op
+      const { state: again } = applyAction(eaten, { type: 'DEVOUR_MIND', playerId: 'player-1' });
+      expect(again.players['player-1'].tokens.esprit).toBe(3);
+      expect(again).toBe(eaten);
+    });
+
+    it('fatiguePenaltyFor lets the Mort-vivant ignore fatigue below level 5', () => {
+      expect(fatiguePenaltyFor('mort-vivant', 4)).toBe(0);
+      expect(fatiguePenaltyFor('mort-vivant', 5)).toBe(FATIGUE_PENALTY[FATIGUE_PENALTY.length - 1]);
+      expect(fatiguePenaltyFor('humain', 2)).toBe(2);
+      expect(fatiguePenaltyFor(null, 0)).toBe(0);
     });
   });
 });

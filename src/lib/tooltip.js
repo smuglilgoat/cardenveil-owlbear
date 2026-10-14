@@ -24,7 +24,7 @@ export function tooltip(node, text) {
         z-index: 9999;
         pointer-events: none;
         box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        white-space: normal;
+        white-space: pre-line;
         word-wrap: break-word;
       `;
       document.body.appendChild(tooltipEl);

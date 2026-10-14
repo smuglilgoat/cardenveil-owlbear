@@ -51,6 +51,11 @@
     itemTypeColor,
     ITEM_TYPE_OPTIONS,
     raceLabel,
+    raceTraits,
+    racePvBonus,
+    effectiveStats,
+    raceRollAdvantage,
+    rollD20Keep,
     normalizeRaceName,
     syncSkillBonuses,
     syncStatsFromEquipment,
@@ -159,6 +164,10 @@
   // Rule-derived combat values (parade, initiative, mouvement, volonté, ...) — always computed, never manual.
   let calc = $derived(computeDerived(view ?? {}));
   let editCalc = $derived(computeDerived(editSheet ?? {}));
+  // Racial traits (reference text) + the Nain's PV bonus source.
+  let raceTraitsList = $derived(raceTraits(view?.identity?.race));
+  let raceTraitTip = $derived(raceTraitsList.map((t) => `${t.nom} — ${t.texte}`).join('\n'));
+  let pvBonus = $derived(racePvBonus(view ?? {}));
 
   const SHEET_POPOVER_ID = 'cardenveil-sheet';
   let sheetPopoverOpen = $state(false);
@@ -387,7 +396,7 @@
           type: 'SYNC_TOKENS',
           playerId,
           targetId: playerId,
-          tokens: tokensFromStats(sheet.stats),
+          tokens: tokensFromStats(effectiveStats(sheet)),
         });
       } catch (err) {
         importError = err.message;
@@ -425,8 +434,16 @@
   // the rapier simulation in the popup decides the numbers — broadcast an
   // intent and dispatch USE_CAPACITY when the result is reported back.
   function handleDiceRoll(capacityName, formula, opts = {}) {
+    const keep = opts?.keep || '';
     if ((localStorage.getItem('cardenveil-dice-style') || '') !== 'flat') {
-      const spec = parseDiceSpec(formula, view?.stats ?? {});
+      // Avantage/désavantage racial : 2d20 garde 1 — intent construit à la
+      // main (parseDiceSpec ne connaît pas le « keep »).
+      const spec = keep
+        ? (() => {
+            const base = parseDiceSpec(formula, effectiveStats(view));
+            return base ? { terms: [{ count: 2, sides: 20 }], modifier: base.modifier, formula: '2d20', keep } : null;
+          })()
+        : parseDiceSpec(formula, effectiveStats(view));
       if (spec) {
         broadcastRoll({
           label: capacityName,
@@ -438,7 +455,8 @@
           diceSpec: spec.terms,
           modifier: spec.modifier,
           seed: Math.floor(Math.random() * 0xffffffff),
-          zoomCrit: !!opts?.zoomCrit
+          zoomCrit: !!opts?.zoomCrit,
+          keep: spec.keep || ''
         });
         showDicePopup({ label: capacityName }); // inline fallback only
         return;
@@ -447,7 +465,7 @@
       return;
     }
     try {
-      const result = rollDice(formula, view?.stats ?? {});
+      const result = keep ? rollD20Keep(formula, effectiveStats(view), keep) : rollDice(formula, effectiveStats(view));
       onAction({
         type: 'USE_CAPACITY',
         playerId,
@@ -471,9 +489,10 @@
   }
 
   function handleSkillRoll(skillKey) {
-    const mod = skillRollModifier(view.stats, skillKey, view.skills?.[skillKey]);
+    const mod = skillRollModifier(effectiveStats(view), skillKey, view.skills?.[skillKey]);
     const label = SKILL_LABELS[skillKey] || skillKey;
-    checkUnsavedChanges(() => handleDiceRoll(label, `d20${mod >= 0 ? '+' + mod : mod}`, { zoomCrit: true }));
+    const adv = raceRollAdvantage(view.identity?.race, skillKey);
+    checkUnsavedChanges(() => handleDiceRoll(label, `d20${mod >= 0 ? '+' + mod : mod}`, { zoomCrit: true, keep: adv > 0 ? 'high' : adv < 0 ? 'low' : '' }));
   }
 
   function handleStatRoll(stat) {
@@ -483,7 +502,8 @@
 
   // Derived combat rolls: initiative and volonté both roll d20 + their value
   function handleInitiativeRoll() {
-    checkUnsavedChanges(() => handleDiceRoll('Initiative', `d20${formatModifier(calc.initiative)}`));
+    const adv = raceRollAdvantage(view.identity?.race, 'initiative');
+    checkUnsavedChanges(() => handleDiceRoll('Initiative', `d20${formatModifier(calc.initiative)}`, { keep: adv > 0 ? 'high' : adv < 0 ? 'low' : '' }));
   }
 
   function handleVolonteRoll() {
@@ -519,7 +539,7 @@
   }
 
   function getStatModifier(stat) {
-    const value = view?.stats?.[stat] || 10;
+    const value = effectiveStats(view)?.[stat] || 10;
     return Math.floor((value - 10) / 2);
   }
 
@@ -569,7 +589,7 @@
 
   function handGlance(hand, weapon, two) {
     if (!weapon) return hand === 'main' ? 'Main principale — vide' : 'Main secondaire — vide';
-    const bonus = formatModifier(attackBonus(weapon, view?.stats ?? {}));
+    const bonus = formatModifier(attackBonus(weapon, effectiveStats(view)));
     return `${weapon.nom} · ${weapon.de || '—'} · ${bonus}${two ? ' · à deux mains' : ''}`;
   }
 
@@ -1034,14 +1054,14 @@
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-[18px] font-bold leading-tight truncate">{view.identity?.nom || 'Sans nom'}</div>
-          <div class="text-[10px] font-medium text-[#9ca3af] truncate">
+          <div class="text-[10px] font-medium text-[#9ca3af] truncate" use:tooltip={raceTraitTip}>
             {raceLabel(view.identity?.race) || '—'} · {view.identity?.alignement || '—'} · Niv. {view.identity?.niveau ?? 1} · XP {view.progression?.xpDepenses ?? 0}/{view.progression?.xpDisponibles ?? 0}
           </div>
         </div>
-        <div class="text-right shrink-0">
+        <div class="text-right shrink-0" use:tooltip={pvBonus > 0 ? `PV max ${toNumber(view.derived?.pvMax)} + ${pvBonus} (Force pvs, Nain)` : ''}>
           <div class="text-[9px] font-bold text-[#9ca3af] leading-none">PV</div>
           <div class="text-[20px] font-bold leading-none mt-0.5">
-            {toNumber(view.derived?.pvActuels)}<span class="text-[11px] text-[#9ca3af] font-semibold">/{toNumber(view.derived?.pvMax)}</span>
+            {toNumber(view.derived?.pvActuels)}<span class="text-[11px] text-[#9ca3af] font-semibold">/{toNumber(view.derived?.pvMax) + pvBonus}</span>
           </div>
           <div class="text-[9px] text-[#9ca3af] leading-none mt-0.5">
             T{view.derived?.pvTemporaires || 0} · F{toNumber(view.derived?.fatigue) || 0}
@@ -1146,7 +1166,7 @@
                 </div>
                 <div class="space-y-1">
                   {#each group.skills as skillKey}
-                    {@const mod = skillRollModifier(view.stats, skillKey, view.skills?.[skillKey])}
+                    {@const mod = skillRollModifier(effectiveStats(view), skillKey, view.skills?.[skillKey])}
                     {@const pinned = isPinned(view.pinnedSkills, skillKey)}
                     <div
                       class="skill-row flex items-center gap-2 bg-[#111827] rounded-md px-2.5 py-2 cursor-pointer hover:bg-[#374151] transition-colors"
@@ -1718,6 +1738,14 @@
                 <input type="number" bind:value={editSheet.progression.xpDisponibles} class="w-full text-[12px] bg-[#242424] border border-[#374151] rounded px-1.5 py-1 focus:outline-none focus:border-indigo-500" />
               </div>
             </div>
+            {#if raceTraitsList.length}
+              <div class="mt-2.5 bg-[#111827] rounded px-2 py-1.5">
+                <div class="text-[9px] font-bold text-[#9ca3af] mb-1">TRAITS DE RACE — {raceLabel(editSheet.identity.race)}</div>
+                {#each raceTraitsList as trait}
+                  <div class="text-[10px] text-gray-300 leading-snug"><span class="font-semibold text-indigo-300">{trait.nom}</span> — {trait.texte}</div>
+                {/each}
+              </div>
+            {/if}
           </div>
 
           <div>
@@ -2123,7 +2151,7 @@
                               editSheet.weapons = editSheet.weapons.map((w, j) => (j === i ? { ...weapon, equipped: false, hand: null } : w));
                             }
                           }}
-                          title="Emplacement d'équipement{isTwoHanded(weapon) ? ' — à deux mains : occupe les deux mains' : ''}"
+                          title="Emplacement d'équipement{isTwoHanded(weapon, view.identity?.race) ? ' — à deux mains : occupe les deux mains' : ''}"
                           class="px-2 py-1.5 rounded-md text-[11px] font-bold border bg-[#242424] focus:outline-none shrink-0 {weapon?.equipped
                             ? 'text-indigo-300 border-indigo-500'
                             : 'text-[#9ca3af] border-[#374151]'}"
@@ -2325,7 +2353,7 @@
               </div>
               <div class="flex gap-2 text-[12px]">
                 <span class="text-[#9ca3af] w-24 shrink-0">Bonus attaque</span>
-                <span class="font-bold" style="color: {STAT_COLORS.force}">{formatModifier(attackBonus(weapon, view?.stats ?? {}))}</span>
+                <span class="font-bold" style="color: {STAT_COLORS.force}">{formatModifier(attackBonus(weapon, effectiveStats(view)))}</span>
               </div>
               {#if weapon.notes}
                 <div class="flex gap-2 text-[12px]">
@@ -2399,7 +2427,7 @@
                   </div>
                   <span class="text-[12px] font-semibold truncate flex-1">{candName || '—'}</span>
                   {#if expandedSlot.kind === 'hand'}
-                    <span class="text-[11px] text-[#9ca3af] shrink-0">{candidate.de || '—'}{isTwoHanded(candidate) ? ' · 2M' : ''}{candidate.equipped ? ' · équipée' : ''}</span>
+                    <span class="text-[11px] text-[#9ca3af] shrink-0">{candidate.de || '—'}{isTwoHanded(candidate, view.identity?.race) ? ' · 2M' : ''}{candidate.equipped ? ' · équipée' : ''}</span>
                   {:else if candidate?.family}
                     <span class="text-[10px] text-[#9ca3af] shrink-0">{candidate.family}</span>
                   {/if}

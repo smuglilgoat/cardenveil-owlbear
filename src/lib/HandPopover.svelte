@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
-  import { GM_CHAR_ID, createEmptyPlayer, createInitialGameState, fullDeck, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./deck.js";
+  import { GM_CHAR_ID, createEmptyPlayer, createInitialGameState, fullDeck, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
   import { startRealtime, stopRealtime, dispatch, fetchState } from "./api.js";
   import { tooltip } from "./tooltip.js";
   import { logEvent, logError, setLogContext } from "./appLog.js";
@@ -196,6 +196,8 @@
       const state = params.get('state') || 'fanned';
       if (state === 'folded') folded = true;
       if (state === 'token') tokensOpen = true;
+      if (state === 'hobgoblin') { demo.race = 'hobgoblin'; tokensOpen = true; }
+      if (state === 'illithid') { demo.race = 'illithid'; tokensOpen = true; }
       if (state === 'tiefling') action = 'tiefling-choose';
       if (state === 'suit') { actionCard = demo.hand[0]; action = 'agilite-pick-suit'; }
       if (state === 'target') { actionCard = demo.hand[0]; action = 'social-pick-target'; }
@@ -324,6 +326,7 @@
 
   let acceptingExchange = $state(null);
   let tokensOpen = $state(false); // the 🎟 Tokens modal is open
+  let giveTarget = $state(null); // Hobgoblin: ally picked in the tokens modal
   let anchorPos = $state(getHandAnchorPosition()); // 'low' | 'high' (⇅ button)
 
   let interactionFrozen = $derived(
@@ -682,9 +685,9 @@
                     {/if}
                     <!-- Fatigue penalty badge (inside the card: the fan band
                          is exactly the card height, nothing may stick out) -->
-                    {#if FATIGUE_PENALTY[player?.fatigue ?? 0] > 0 && i === n - 1}
-                      <div class="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-amber-600 border border-amber-400 flex items-center justify-center text-[9px] font-bold text-white leading-none z-10 pointer-events-none" title="Fatigue : −{FATIGUE_PENALTY[player?.fatigue ?? 0]}">
-                        −{FATIGUE_PENALTY[player?.fatigue ?? 0]}
+                    {#if fatiguePenaltyFor(player?.race, player?.fatigue) > 0 && i === n - 1}
+                      <div class="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-amber-600 border border-amber-400 flex items-center justify-center text-[9px] font-bold text-white leading-none z-10 pointer-events-none" title="Fatigue : −{fatiguePenaltyFor(player?.race, player?.fatigue)}">
+                        −{fatiguePenaltyFor(player?.race, player?.fatigue)}
                       </div>
                     {/if}
                   </div>
@@ -837,10 +840,10 @@
         <button
           onclick={() => { active = null; tokensOpen = true; }}
           disabled={action !== null || tokensOpen}
-          use:tooltip={"Tokens — Force " + player.tokens.force + "/" + (player.maxTokens?.force ?? player.tokens.force) +
-            " · Agilité " + player.tokens.agilite + "/" + (player.maxTokens?.agilite ?? player.tokens.agilite) +
-            " · Esprit " + player.tokens.esprit + "/" + (player.maxTokens?.esprit ?? player.tokens.esprit) +
-            " · Social " + player.tokens.social + "/" + (player.maxTokens?.social ?? player.tokens.social)}
+          use:tooltip={"Tokens — Force " + player.tokens.force + "/" + (maxTokensFor(player).force ?? player.tokens.force) +
+            " · Agilité " + player.tokens.agilite + "/" + (maxTokensFor(player).agilite ?? player.tokens.agilite) +
+            " · Esprit " + player.tokens.esprit + "/" + (maxTokensFor(player).esprit ?? player.tokens.esprit) +
+            " · Social " + player.tokens.social + "/" + (maxTokensFor(player).social ?? player.tokens.social)}
           class="shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap"
           style="background: #213547; border-color: #4b5563;"
         >
@@ -858,7 +861,7 @@
         <div class="flex flex-col gap-1.5">
           {#each TOKENS as tok}
             {@const current = player.tokens[tok.key]}
-            {@const max = player.maxTokens?.[tok.key] ?? current}
+            {@const max = maxTokensFor(player)[tok.key] ?? current}
             {@const active_tok = action?.startsWith(tok.key)}
             <div class="flex items-center gap-1.5">
               <span
@@ -882,6 +885,48 @@
             </div>
           {/each}
         </div>
+
+        {#if player.race === 'hobgoblin'}
+          <div class="mt-2 pt-2 border-t border-[#374151]">
+            <div class="text-[10px] font-bold text-[#9ca3af] mb-1">🤝 Commandement tactique — choisir l'allié puis le jeton à donner</div>
+            <div class="flex flex-wrap gap-1 mb-1">
+              {#each otherPlayerIds as id}
+                <button
+                  onclick={() => (giveTarget = id)}
+                  class="px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-colors {giveTarget === id
+                    ? 'bg-indigo-600 border-indigo-400 text-white'
+                    : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'}"
+                >{getPlayerName(id)}</button>
+              {/each}
+              {#if !otherPlayerIds.length}
+                <span class="text-[10px] text-gray-500 italic">Aucun allié à table</span>
+              {/if}
+            </div>
+            <div class="flex gap-1">
+              {#each TOKENS as tok}
+                <button
+                  onclick={() => onAction({ type: 'GIVE_TOKEN', playerId: myId, targetId: giveTarget, token: tok.key })}
+                  disabled={!giveTarget || player.tokens[tok.key] <= 0}
+                  use:tooltip={`Donner 1 jeton ${tok.label} à ${giveTarget ? getPlayerName(giveTarget) : 'un allié'}`}
+                  class="flex-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  style="color: {STAT_COLORS[tok.key]}; border-color: {STAT_COLORS[tok.key]}; background: {STAT_COLORS[tok.key]}20;"
+                >{tok.label} {player.tokens[tok.key]}</button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        {#if player.race === 'illithid'}
+          {@const devourWait = Math.ceil((DEVOUR_COOLDOWN_MS - (Date.now() - (player.lastDevourAt ?? 0))) / 60000)}
+          <div class="mt-2 pt-2 border-t border-[#374151]">
+            <button
+              onclick={() => onAction({ type: 'DEVOUR_MIND', playerId: myId })}
+              disabled={devourWait > 0 || (player.tokens.esprit ?? 0) >= (maxTokensFor(player).esprit ?? 0)}
+              use:tooltip={'Dévoration mentale : +1 jeton Esprit (une fois par combat ou toutes les 30 min)'}
+              class="w-full py-1 rounded-md text-[11px] font-bold text-white bg-purple-700 hover:bg-purple-600 border border-purple-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >🧠 Dévoration mentale — +1 Esprit{devourWait > 0 ? ` (dans ${devourWait} min)` : ''}</button>
+          </div>
+        {/if}
       </HandModal>
 
     {:else if modal === 'halfling'}
