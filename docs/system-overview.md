@@ -447,7 +447,7 @@ French.
 AGENTS.md CLAUDE.md README.md CARDENVEIL.md   ← docs ladder
                              (CLAUDE.md = pointer to AGENTS.md; docs/archive/FIREBASE.md = legacy proposal)
 docs/Reglejetdattaque.md + docs/patch.md      ← attack dice spec (implemented by attackRoll.js)
-docs/patch-notes-*.md                         ← release notes per version
+docs/patch-notes/*.md                         ← release notes per version
 
 index.html hand.html dice.html sheet.html background.html   ← 5 Vite entries (4 pages + background)
 src/entries/{main,hand,sheetPopover,background,dice3d}.js

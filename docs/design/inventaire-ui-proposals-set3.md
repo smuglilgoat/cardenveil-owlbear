@@ -2,8 +2,8 @@
 
 > **Attribution tag: `qwen 3.8 max`** — tag applied at the user's request; content was generated
 > in this planner session. Proposals only — nothing implemented.
-> Companions: `docs/inventaire-ui-proposals.md` (set 1, GLM-5.3-Flash: A / B / C) and
-> `docs/inventaire-ui-proposals-set2.md` (set 2, deepseek v4.1 flash: D / E / F).
+> Companions: `docs/design/inventaire-ui-proposals.md` (set 1, GLM-5.3-Flash: A / B / C) and
+> `docs/design/inventaire-ui-proposals-set2.md` (set 2, deepseek v4.1 flash: D / E / F).
 > Same data model and color language as the other sets.
 
 ---

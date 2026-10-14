@@ -2,7 +2,7 @@
 
 > **Attribution tag: `deepseek v4.1 flash`** — tag applied at the user's request; content was
 > generated in this planner session. Proposals only — nothing implemented.
-> Companion doc: `docs/inventaire-ui-proposals.md` (set 1, tagged GLM-5.3-Flash: A / B / C).
+> Companion doc: `docs/design/inventaire-ui-proposals.md` (set 1, tagged GLM-5.3-Flash: A / B / C).
 > Data model assumed: 7 equipment slots (amulette ◈, casque ⛑, cape 🧥, gantelets 🧤,
 > plastron 🛡, anneau 💍, bottes 🥾), `inventoryItems` grouped by `type` with `degats` or
 > `x<quantité>`, `weapons` with `de`, `equipped`, free-text properties. Colors: `itemTypeColor`
