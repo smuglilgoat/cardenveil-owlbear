@@ -99,11 +99,15 @@ Server-side deps come through the Supabase Edge Function `@esm.sh` import of
 
 | HTML | Script/Component | Serves as |
 |---|---|---|
-| `index.html` | `src/main.js` → `App.svelte` | main plugin panel (opened via manifest `action.popover`) |
-| `hand.html` | `src/hand.js` → `HandPopover.svelte` | floating card-fan popover (player + GM character) |
-| `dice.html` | inline `<script type="module">` | animated dice-roll popup (three.js + Rapier physics, flat CSS fallback) |
-| `sheet.html` | `src/sheetPopover.js` → `SheetPopover.svelte` | compact character-sheet popover |
-| `background.html` | `src/background.js` | persistent per-client page that listens on OBR broadcast and opens the dice popover for every roll |
+| `index.html` | `src/entries/main.js` → `src/lib/App.svelte` | main plugin panel (opened via manifest `action.popover`) |
+| `hand.html` | `src/entries/hand.js` → `src/lib/HandPopover.svelte` | floating card-fan popover (player + GM character) |
+| `dice.html` | `src/entries/dice3d.js` | animated dice-roll popup (three.js + Rapier physics, flat CSS fallback) |
+| `sheet.html` | `src/entries/sheetPopover.js` → `src/lib/SheetPopover.svelte` | compact character-sheet popover |
+| `background.html` | `src/entries/background.js` | persistent per-client page that listens on OBR broadcast and opens the dice popover for every roll |
+
+The HTML files stay at the repository root on purpose: their built URLs
+(`/hand.html`, `/dice.html`, `/sheet.html`) are baked into OBR popovers already
+open in live rooms, so moving them would break every existing room.
 
 Two custom Vite plugins glue it together:
 
@@ -379,14 +383,14 @@ Important components:
   and game-state token/fatigue syncs save **immediately** (via `$effect`);
   sheet edits save on ÉDITION Save. Bidirectional sheet ↔ game-state sync
   covers tokens and fatigue.
-- `SheetPopover.svelte` (759 l.) / `HandPopover.svelte` (933 l.) — popovers
+- `SheetPopover.svelte` / `HandPopover.svelte` — popovers
   (self-contained; read `?popoverId=`/`?playerId=` URL params and render).
 - `ActionDiamonds.svelte` — per-turn ACTION/BONUS/RÉACTION toggles, shared by
   sheet and popover.
 - `ActionLog.svelte` — collapsible log list from `state.logs`.
 - `CardDisplay.svelte` — reusable card face (handles `_pending` placeholder
   cards and gray-out).
-- `src/dice3d.js` (652 l.) — the physics dice roller used by the `dice.html`
+- `src/entries/dice3d.js` — the physics dice roller used by the `dice.html`
   popup (three.js scene, seeded Rapier sim, collider hulls, Web Audio clacks).
 
 Tailwind styling only, dark theme `#242424` bg / indigo accents. All UI text
@@ -416,7 +420,7 @@ French.
   overlay the tabletop — an opaque background would block it. Each popover
   entry must `@import "tailwindcss"` or it renders unstyled.
 - JSDoc type-checking is on via `jsconfig.json` (`checkJs: true`).
-- **197 unit tests** (7 suites) cover the pure logic (`deck`,
+- **220 unit tests** (7 suites, run `npm test`) cover the pure logic (`deck`,
   `characterSheet`, `api`, `attackRoll`, `diceRoll`, `gameLogic`,
   `sheetAssets`). Run `npm run test:unit`.
 - Form inputs intentionally skip `<label>` elements (a11y warnings accepted —
@@ -446,34 +450,36 @@ docs/Reglejetdattaque.md + docs/patch.md      ← attack dice spec (implemented 
 docs/patch-notes-*.md                         ← release notes per version
 
 index.html hand.html dice.html sheet.html background.html   ← 5 Vite entries (4 pages + background)
-src/main.js src/hand.js src/sheetPopover.js src/background.js src/dice3d.js
+src/entries/{main,hand,sheetPopover,background,dice3d}.js
 
-src/lib/deck.js                ← game reducer + cards + races + handCap (863)
-src/lib/characterSheet.js      ← sheet schema + CRUD + formulas + dice rolls (1479)
-src/lib/api.js                 ← realtime + optimistic dispatch (415)
-src/lib/attackRoll.js          ← attack-dice engine per rules doc (212)
-src/lib/diceRoll.js            ← 3D-dice helpers (mesh→roll mapping, 47)
-src/lib/rollBroadcast.js       ← OBR roll broadcast + local result channels (57)
-src/lib/sheetAssets.js         ← zip import → Supabase Storage images (149)
-src/lib/supabaseClient.js      ← Supabase client init (6)
-src/lib/tooltip.js             ← Svelte tooltip action (0.5 s hover, 83)
-src/lib/CardGame.svelte        ← OBR bootstrapping + realtime wiring (182)
-src/lib/PlayerHand.svelte      ← player UI (834)
-src/lib/GMDashboard.svelte     ← GM UI (1770)
-src/lib/CharacterSheet.svelte  ← full sheet + edit modal (2396)
+src/lib/deck.js                ← game reducer + cards + races + handCap
+src/lib/characterSheet.js      ← sheet schema + CRUD + formulas + dice rolls
+src/lib/api.js                 ← realtime + optimistic dispatch
+src/lib/attackRoll.js          ← attack-dice engine per rules doc
+src/lib/diceRoll.js            ← 3D-dice helpers (mesh→roll mapping)
+src/lib/rollBroadcast.js       ← OBR roll broadcast + local result channels
+src/lib/sheetAssets.js         ← zip import → Supabase Storage images
+src/lib/supabaseClient.js      ← Supabase client init
+src/lib/tooltip.js             ← Svelte tooltip action (0.5 s hover)
+src/lib/CardGame.svelte        ← OBR bootstrapping + realtime wiring
+src/lib/PlayerHand.svelte      ← player UI
+src/lib/GMDashboard.svelte     ← GM UI
+src/lib/CharacterSheet.svelte  ← full sheet + edit modal
+src/lib/SheetPopover.svelte    ← compact sheet popover
+src/lib/HandPopover.svelte     ← card-fan popover
+src/lib/App.svelte             ← 3-tab root + identity provider
 src/lib/ActionDiamonds.svelte  ← per-turn ACTION/BONUS/RÉACTION toggles
 src/lib/ActionLog.svelte       ← collapsible action log
 src/lib/CardDisplay.svelte     ← reusable card face
 src/lib/TokenPanel.svelte      ← token bar
-src/SheetPopover.svelte        ← compact sheet popover (759)
-src/HandPopover.svelte         ← card-fan popover (933)
-src/App.svelte                 ← 3-tab root + identity provider (168)
+
+src/app.css src/hand.css src/sheetPopover.css   ← one Tailwind entry per page/shell
 
 netlify/functions/state.js     ← GET/POST fallback server
 netlify/functions/_gameLogic.js, _supabaseClient.js  ← reducer/client shims
 supabase/functions/action/{index.ts, _gameLogic.ts, _deck.js(symlink→src/lib/deck.js)}
 supabase/migrations/20240101_create_character_sheets.sql
 supabase/migrations/20260910_create_character_assets_bucket.sql
-tests/unit/*                   ← 197 JEST unit tests (7 suites)
+tests/unit/*                   ← 220 JEST unit tests (7 suites)
 scripts/generate-cards.js      ← sharp SVG→PNG card generator
 ```

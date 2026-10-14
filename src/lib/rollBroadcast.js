@@ -12,7 +12,7 @@ export const DICE_POPOVER_ID = 'cardenveil-dice';
  * { diceSpec: [{count, sides}...], modifier, seed } — the rapier simulation
  * in each client's dice popup is the source of the numbers. In flat (GM
  * classique) mode the payload carries pre-rolled {rolls, diceTypes, total}.
- * The persistent background page (src/background.js) opens the popup.
+ * The persistent background page (src/entries/background.js) opens the popup.
  */
 export async function broadcastRoll(data) {
   const rollId = typeof crypto !== 'undefined' && crypto.randomUUID

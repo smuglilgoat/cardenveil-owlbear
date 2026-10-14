@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
-  import CardGame from './lib/CardGame.svelte';
-  import CharacterSheet from './lib/CharacterSheet.svelte';
+  import CardGame from './CardGame.svelte';
+  import CharacterSheet from './CharacterSheet.svelte';
   import OBR from '@owlbear-rodeo/sdk';
 
   let activeTab = $state('game');

@@ -1,19 +1,19 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
-  import { GM_CHAR_ID, createEmptyPlayer, createInitialGameState, fullDeck, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./lib/deck.js";
-  import { startRealtime, stopRealtime, dispatch, fetchState } from "./lib/api.js";
-  import { tooltip } from "./lib/tooltip.js";
-  import { logEvent, logError, setLogContext } from "./lib/appLog.js";
-  import { collectDiag, initDiag } from "./lib/diag.js";
+  import { GM_CHAR_ID, createEmptyPlayer, createInitialGameState, fullDeck, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./deck.js";
+  import { startRealtime, stopRealtime, dispatch, fetchState } from "./api.js";
+  import { tooltip } from "./tooltip.js";
+  import { logEvent, logError, setLogContext } from "./appLog.js";
+  import { collectDiag, initDiag } from "./diag.js";
   import {
     getHandAnchorPosition,
     rememberHandPopoverSize,
     requestHandPopoverResize,
     toggleHandAnchor,
-  } from "./lib/handAnchor.js";
-  import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY, STAT_COLORS } from "./lib/characterSheet.js";
-  import HandModal from "./lib/HandModal.svelte";
+  } from "./handAnchor.js";
+  import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY, STAT_COLORS } from "./characterSheet.js";
+  import HandModal from "./HandModal.svelte";
 
   initDiag('hand');
 

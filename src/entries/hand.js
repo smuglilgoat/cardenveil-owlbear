@@ -1,7 +1,7 @@
 import { mount } from 'svelte';
-import './hand.css';
-import HandPopover from './HandPopover.svelte';
-import { initLogging } from './lib/appLog.js';
+import '../hand.css';
+import HandPopover from '../lib/HandPopover.svelte';
+import { initLogging } from '../lib/appLog.js';
 
 initLogging('hand', { sessionStart: true });
 

@@ -1,9 +1,9 @@
 <script>
   import { onMount } from 'svelte';
   import OBR from '@owlbear-rodeo/sdk';
-  import { dispatch } from './lib/api.js';
-  import { tooltip } from './lib/tooltip.js';
-  import ActionDiamonds from './lib/ActionDiamonds.svelte';
+  import { dispatch } from './api.js';
+  import { tooltip } from './tooltip.js';
+  import ActionDiamonds from './ActionDiamonds.svelte';
   import {
     STAT_COLORS,
     STAT_LABELS,
@@ -28,14 +28,14 @@
     DICE_GEM_LABELS,
     diceGemColor,
     parseDiceSpec
-  } from './lib/characterSheet.js';
-  import { broadcastRoll, onRollResult } from './lib/rollBroadcast.js';
-  import { logEvent, logError, setLogContext } from './lib/appLog.js';
-  import { initDiag } from './lib/diag.js';
+  } from './characterSheet.js';
+  import { broadcastRoll, onRollResult } from './rollBroadcast.js';
+  import { logEvent, logError, setLogContext } from './appLog.js';
+  import { initDiag } from './diag.js';
 
   initDiag('sheet');
-  import { rollAttack, runAttack, attackPreview, pickAttackWeapon, isGobelin } from './lib/attackRoll.js';
-  import { SIDES_TO_TYPE } from './lib/diceRoll.js';
+  import { rollAttack, runAttack, attackPreview, pickAttackWeapon, isGobelin } from './attackRoll.js';
+  import { SIDES_TO_TYPE } from './diceRoll.js';
 
   const params = new URLSearchParams(location.search);
   let playerId = params.get('playerId');

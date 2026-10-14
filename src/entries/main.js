@@ -1,7 +1,7 @@
 import { mount } from 'svelte'
-import './app.css'
-import App from './App.svelte'
-import { initLogging } from './lib/appLog.js'
+import '../app.css'
+import App from '../lib/App.svelte'
+import { initLogging } from '../lib/appLog.js'
 
 initLogging('main', { sessionStart: true })
 

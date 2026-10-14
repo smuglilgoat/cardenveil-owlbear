@@ -1,8 +1,8 @@
 // Persistent page that opens each client's dice popup when a roll starts.
 import OBR from '@owlbear-rodeo/sdk';
-import { ROLL_CHANNEL, DICE_POPOVER_ID } from './lib/rollBroadcast.js';
-import { initLogging, setLogContext, logEvent, logError } from './lib/appLog.js';
-import { initDiag } from './lib/diag.js';
+import { ROLL_CHANNEL, DICE_POPOVER_ID } from '../lib/rollBroadcast.js';
+import { initLogging, setLogContext, logEvent, logError } from '../lib/appLog.js';
+import { initDiag } from '../lib/diag.js';
 
 initLogging('background', { sessionStart: true });
 initDiag('background');

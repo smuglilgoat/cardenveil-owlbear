@@ -4,10 +4,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { groupDiceByRoll, meshDefsFor, rollValueForGroup, SIDES_TO_TYPE, MAX_VISIBLE_DICE, visibleRollChip } from './lib/diceRoll.js';
-import { reportRollResult, DICE_POPOVER_ID } from './lib/rollBroadcast.js';
+import { groupDiceByRoll, meshDefsFor, rollValueForGroup, SIDES_TO_TYPE, MAX_VISIBLE_DICE, visibleRollChip } from '../lib/diceRoll.js';
+import { reportRollResult, DICE_POPOVER_ID } from '../lib/rollBroadcast.js';
 import OBR from '@owlbear-rodeo/sdk';
-import { initLogging, logEvent, logError } from './lib/appLog.js';
+import { initLogging, logEvent, logError } from '../lib/appLog.js';
 
 initLogging('dice');
 
