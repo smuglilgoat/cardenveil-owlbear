@@ -293,9 +293,13 @@
         url: `${window.location.origin}/hand.html?popoverId=${encodeURIComponent(id)}`,
         width: size.width,
         height: size.height,
+        // POSITION must be explicit: without it OBR ignores anchorPosition and
+        // keeps the popover's default spot (the dice popup sets it and works).
+        anchorReference: "POSITION",
         anchorPosition: { left: vw / 2, top: handAnchorTop(vh, position) },
         anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+        marginThreshold: 8,
         disableClickAway: true,
         hidePaper: true,
       });
@@ -324,9 +328,13 @@
   // way to move or resize an OBR popover for real.
   const offHandPopover = onHandPopoverChange((message) => {
     if (!popoverVisible) return;
-    logEvent('info', message.type === 'anchor' ? 'hand_anchor_reopen' : 'hand_resize_reopen', {
-      message: message.type === 'anchor' ? String(message.position) : `${message.width}x${message.height}`,
-    });
+    try {
+      logEvent('info', message.type === 'anchor' ? 'hand_anchor_reopen' : 'hand_resize_reopen', {
+        message: message.type === 'anchor' ? String(message.position) : `${message.width}x${message.height}`,
+      });
+    } catch {
+      /* logging must never block the reopen */
+    }
     closePopover()
       .then(() => new Promise((r) => setTimeout(r, 200)))
       .then(openPopover);

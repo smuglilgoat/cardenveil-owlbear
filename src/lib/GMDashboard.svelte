@@ -39,7 +39,7 @@
   } from "./characterSheet.js";
   import ItemAddPopup from "./ItemAddPopup.svelte";
   import { tooltip } from "./tooltip.js";
-  import { logError, setLogContext } from "./appLog.js";
+  import { logEvent, logError, setLogContext } from "./appLog.js";
   import { requestDiag } from "./diag.js";
   import {
     getHandAnchorPosition,
@@ -129,9 +129,13 @@
         url: `${window.location.origin}/hand.html?playerId=${GM_CHAR_ID}&popoverId=${encodeURIComponent(id)}`,
         width: size.width,
         height: size.height,
+        // POSITION must be explicit: without it OBR ignores anchorPosition and
+        // keeps the popover's default spot (the dice popup sets it and works).
+        anchorReference: "POSITION",
         anchorPosition: { left: vw / 2, top: handAnchorTop(vh, position) },
         anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
+        marginThreshold: 8,
         disableClickAway: true,
         hidePaper: true,
       });
@@ -160,9 +164,13 @@
   // way to move or resize an OBR popover for real.
   const offHandPopover = onHandPopoverChange((message) => {
     if (!gmPopoverVisible) return;
-    logEvent('info', message.type === 'anchor' ? 'hand_anchor_reopen' : 'hand_resize_reopen', {
-      message: message.type === 'anchor' ? String(message.position) : `${message.width}x${message.height}`,
-    });
+    try {
+      logEvent('info', message.type === 'anchor' ? 'hand_anchor_reopen' : 'hand_resize_reopen', {
+        message: message.type === 'anchor' ? String(message.position) : `${message.width}x${message.height}`,
+      });
+    } catch {
+      /* logging must never block the reopen */
+    }
     closeGmPopover()
       .then(() => new Promise((r) => setTimeout(r, 200)))
       .then(openGmPopover);
