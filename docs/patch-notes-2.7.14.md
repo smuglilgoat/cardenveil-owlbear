@@ -1,0 +1,9 @@
+# Cardenveil 2.7.14 — notes de version
+
+- Les **deux positions** du popover de main descendent de 20 px :
+  `HAND_ANCHOR_OFFSETS = { low: 36, high: 136 }` (au lieu de 56 / 156), soit un
+  bord bas à `vh − 36` et `vh − 136`. Un seul endroit à changer désormais
+  (`src/lib/handAnchor.js`), les deux appelants (joueur et MJ) le lisent.
+- À surveiller : la barre d'outils d'Owlbear occupe le bas de l'écran ; à 36 px
+  le bord du popover peut la chevaucher légèrement selon la taille de la fenêtre.
+  Si c'est gênant, remonter à 46-50 px suffit.
