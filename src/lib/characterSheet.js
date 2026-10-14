@@ -1591,6 +1591,7 @@ export function rollDice(formula, stats = {}) {
 // compact popover (same browser, different frames) — this makes every save
 // apply instantly on the other frame. Cross-client sync stays on Realtime.
 let sheetChannel = null;
+const sheetListeners = new Set();
 
 function sheetChannelInstance() {
   if (!sheetChannel && typeof BroadcastChannel !== 'undefined') {
@@ -1620,9 +1621,16 @@ export function broadcastSheet(message) {
 export function onSheetBroadcast(callback) {
   const channel = sheetChannelInstance();
   if (!channel) return () => {};
-  channel.onmessage = (event) => callback(event.data);
+  // One shared channel, many listeners: assigning channel.onmessage directly
+  // made the last subscriber replace the previous one (GMDashboard lost the
+  // GM frame's instant diamond updates) and its unsubscribe could never match.
+  sheetListeners.add(callback);
+  channel.onmessage = (event) => {
+    for (const cb of [...sheetListeners]) cb(event.data);
+  };
   return () => {
-    if (channel.onmessage === callback) channel.onmessage = null;
+    sheetListeners.delete(callback);
+    if (sheetListeners.size === 0) channel.onmessage = null;
   };
 }
 

@@ -119,7 +119,8 @@
 
     fetchCharacterSheet(playerId, roomId)
       .then((data) => {
-        sheet = data?.data ?? null;
+        // Realtime/broadcast may already have delivered fresher data.
+        if (sheet == null) sheet = data?.data ?? null;
       })
       .catch((err) => logError('sheet_popover_fetch_failed', err));
 

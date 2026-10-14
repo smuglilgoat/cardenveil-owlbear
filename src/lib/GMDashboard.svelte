@@ -143,6 +143,8 @@
       });
       gmPopoverId = id;
       gmPopoverVisible = true;
+    } catch (err) {
+      logError('gm_hand_popover_open_failed', err);
     } finally {
       isOpeningGmPopover = false;
     }
@@ -214,8 +216,8 @@
 
   // Live per-player action diamonds: mirrors each player's sheet
   // actionChecks (saved immediately on toggle) via one sheet subscription
-  // per player. Stale entries for removed players are harmless (display
-  // only iterates playerIds) and keep this effect loop-free.
+  // per player. checkUnsubs is a plain Map, so pruning it below stays
+  // untracked and cannot re-trigger this effect.
   let playerChecks = $state({});
   const checkUnsubs = new Map();
   $effect(() => {
@@ -228,6 +230,10 @@
       fetchCharacterSheet(id, OBR.room.id)
         .then((row) => { playerChecks = { ...playerChecks, [id]: row?.data?.actionChecks ?? {} }; })
         .catch(() => {});
+    }
+    // Release the sheets of players who left the room (the Map only grew).
+    for (const [id, un] of checkUnsubs) {
+      if (!playerIds.includes(id)) { un?.(); checkUnsubs.delete(id); }
     }
   });
   // same-browser fast path: sheet saves broadcast on cardenveil-sheet
@@ -464,11 +470,16 @@
   }
 
   // ── Character Sheet Management ─────────────────────────────────────────
+  // Plain (non-reactive) guard: two quick clicks on two players used to let the
+  // slower response win and show a sheet the GM did not click.
+  let sheetRequest = null;
   async function viewCharacterSheet(playerId) {
+    sheetRequest = playerId;
     sheetLoading = true;
     sheetError = '';
     try {
       const row = await fetchCharacterSheet(playerId, OBR.room.id);
+      if (sheetRequest !== playerId) return;
       // fetchCharacterSheet returns the DB row; the sheet payload is row.data.
       // Merge onto empty defaults so every section is editable even for
       // sheets stored before newer fields existed.
@@ -493,7 +504,7 @@
       sheetError = `Erreur lors du chargement: ${err.message}`;
       console.error('Failed to load character sheet:', err);
     } finally {
-      sheetLoading = false;
+      if (sheetRequest === playerId) sheetLoading = false;
     }
   }
 
@@ -516,6 +527,18 @@
   function closeCharacterSheet() {
     viewingSheet = null;
     sheetError = '';
+  }
+
+  /** GM modal: rule-derived values are computed — a typed value becomes an override
+   *  (same mechanism as ÉDITION); syncStatsFromEquipment() applies overrides on save. */
+  function setGmDerivedOverride(key, raw) {
+    if (!viewingSheet) return;
+    const derived = { ...(viewingSheet.sheet.derived ?? {}) };
+    const overrides = { ...(derived.overrides ?? {}) };
+    if (raw === '' || raw == null || Number.isNaN(Number(raw))) delete overrides[key];
+    else overrides[key] = Number(raw);
+    derived.overrides = overrides;
+    viewingSheet.sheet = { ...viewingSheet.sheet, derived };
   }
 
   async function saveViewingSheet() {
@@ -1675,7 +1698,8 @@
               <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
                 <div class="text-[8px] font-bold text-gray-400 mb-1">INITIATIVE</div>
                 {#if viewingSheet.isEditing}
-                  <input type="number" bind:value={viewingSheet.sheet.derived.initiative} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
+                  {@const ov = viewingSheet.sheet.derived?.overrides?.initiative}
+                  <input type="number" value={ov ?? ''} placeholder={String(viewingSheet.sheet.derived?.initiative ?? '')} title="Valeur calculée — saisir pour forcer (vide = valeur de règle)" onchange={(e) => setGmDerivedOverride('initiative', e.currentTarget.value)} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
                 {:else}
                   <div class="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold">{toNumber(viewingSheet.sheet.derived?.initiative)}</div>
                 {/if}
@@ -1683,7 +1707,8 @@
               <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
                 <div class="text-[8px] font-bold text-gray-400 mb-1">MOUVEMENT</div>
                 {#if viewingSheet.isEditing}
-                  <input type="number" bind:value={viewingSheet.sheet.derived.mouvement} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
+                  {@const ov = viewingSheet.sheet.derived?.overrides?.mouvement}
+                  <input type="number" value={ov ?? ''} placeholder={String(viewingSheet.sheet.derived?.mouvement ?? '')} title="Valeur calculée — saisir pour forcer (vide = valeur de règle)" onchange={(e) => setGmDerivedOverride('mouvement', e.currentTarget.value)} class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold" />
                 {:else}
                   <div class="px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center font-bold">{toNumber(viewingSheet.sheet.derived?.mouvement)} m</div>
                 {/if}
@@ -1694,7 +1719,8 @@
                 <div class="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5">
                   <div class="text-[8px] font-bold text-gray-400">{label}</div>
                   {#if viewingSheet.isEditing && field !== 'volonte'}
-                    <input type="text" bind:value={viewingSheet.sheet.derived[field]} class="w-full px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-white text-center text-sm" />
+                    {@const ov = viewingSheet.sheet.derived?.overrides?.[field]}
+                    <input type="text" value={ov ?? ''} placeholder={String(viewingSheet.sheet.derived?.[field] ?? '')} title="Valeur calculée — saisir pour forcer (vide = valeur de règle)" onchange={(e) => setGmDerivedOverride(field, e.currentTarget.value)} class="w-full px-1 py-0.5 bg-gray-900 border border-gray-600 rounded text-white text-center text-sm" />
                   {:else}
                     {@const pillValue = field === 'volonte' ? gmEqStats.volonte : viewingSheet.sheet.derived?.[field]}
                     <div class="text-sm font-bold text-white text-center">{pillValue === '' || pillValue == null ? '—' : pillValue}</div>

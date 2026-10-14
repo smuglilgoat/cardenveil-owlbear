@@ -26,10 +26,15 @@
   // Track whether we've ever received a successful SUBSCRIBED so we know
   // to suppress the "reconnected" toast on the initial subscribe.
   let hadInitialConnection = false;
+  // Non-reactive: guards against re-firing on our own `toasts` write.
+  // Reading+writing `toasts` inside this effect used to trip Svelte's
+  // effect_update_depth_exceeded on every connection transition.
+  let lastStatus = null;
 
   $effect(() => {
     const status = connectionStatus;
-    if (!ready) return;
+    if (!ready || status === lastStatus) return;
+    lastStatus = status;
     if (status === 'disconnected') {
       if (hadInitialConnection) {
         addToast('Connexion perdue — reconnexion en cours...', 'error');

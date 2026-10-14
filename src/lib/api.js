@@ -44,7 +44,7 @@ export async function fetchState(roomId) {
     logEvent('warn', 'fetch_state_failed', { message: err?.message ?? String(err), detail: { timeoutMs: FETCH_TIMEOUT_MS } });
     throw new Error('State fetch timed out');
   }
-  if (res.status === 304) return null;
+  if (res.status === 304) return lastServerState;
   if (!res.ok) {
     logEvent('warn', 'fetch_state_failed', { message: `HTTP ${res.status}` });
     throw new Error(`State fetch failed: ${res.status}`);
@@ -275,6 +275,9 @@ function teardownRealtime(keepCounters = false) {
     permanentlyDisconnected = false;
     lastServerState = null;
     pendingActions = [];
+    // A stopped frame must not claim to know a version: a stale version makes
+    // the next fetch send a bogus If-None-Match (304) and drops realtime rows.
+    currentVersion = 0;
   }
 }
 
@@ -413,6 +416,18 @@ function timeoutSignal(ms) {
 
 const MAX_CLIENT_RETRIES = 3;
 
+/**
+ * Mark a dispatched action as confirmed. If Realtime already delivered that
+ * version, drop the optimistic entry and re-render: replaying it on top of a
+ * state that already contains it would show the action twice (an extra card).
+ */
+function confirmPending(pendingEntry, version) {
+  pendingEntry._confirmedVersion = version;
+  if (version > currentVersion) return;
+  pendingActions = pendingActions.filter(a => a !== pendingEntry);
+  if (lastServerState && onStateCallback) onStateCallback(replayPending(lastServerState));
+}
+
 export async function dispatch(roomId, action) {
   const currentState = lastServerState
     ? replayPending(lastServerState)
@@ -445,7 +460,7 @@ export async function dispatch(roomId, action) {
         }
 
         if (data?.version != null) {
-          pendingEntry._confirmedVersion = data.version;
+          confirmPending(pendingEntry, data.version);
           return;
         }
 
@@ -475,7 +490,7 @@ export async function dispatch(roomId, action) {
 
           if (res.ok) {
             const data = await res.json();
-            pendingEntry._confirmedVersion = data.version;
+            confirmPending(pendingEntry, data.version);
             return;
           }
 

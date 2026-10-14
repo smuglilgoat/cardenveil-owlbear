@@ -4,6 +4,7 @@ import {
   drawNormal,
   drawSpecialized,
   makeCard,
+  cardFromId,
   hydrateState,
   dehydrateState,
   applyAction,
@@ -640,6 +641,151 @@ describe('Game Logic', () => {
       }
       
       expect(state.logs.length).toBeLessThanOrEqual(200);
+    });
+  });
+
+  // Payload validation: card ids and exchange ids are public in the broadcast
+  // state, so these guards are what stop a buggy or hostile client from moving
+  // another player's cards, bricking the room, or writing NaN into tokens.
+  describe('action hardening', () => {
+    let state;
+
+    beforeEach(() => {
+      state = createInitialGameState();
+      state.gmId = 'gm-player';
+      state.players = {
+        'player-1': createEmptyPlayer('Player 1'),
+        'player-2': createEmptyPlayer('Player 2'),
+        'player-3': createEmptyPlayer('Player 3'),
+      };
+    });
+
+    function withExchange() {
+      const fromCard = makeCard('♠', '5');
+      const toCard = makeCard('♥', '9');
+      state.players['player-1'].hand = [fromCard];
+      state.players['player-2'].hand = [toCard];
+      state.pendingExchanges = [{ id: 'ex-1', from: 'player-1', fromCard, to: 'player-2' }];
+      return { fromCard, toCard };
+    }
+
+    it('lets only the recipient accept an exchange', () => {
+      const { toCard } = withExchange();
+      const { state: next } = applyAction(state, {
+        type: 'ACCEPT_EXCHANGE', playerId: 'player-3', exchangeId: 'ex-1', cardId: toCard.id,
+      });
+      expect(next).toBe(state);
+      expect(next.players['player-1'].hand[0].id).toBe(state.players['player-1'].hand[0].id);
+      expect(next.pendingExchanges).toHaveLength(1);
+    });
+
+    it('lets only the recipient decline an exchange', () => {
+      withExchange();
+      const { state: next } = applyAction(state, {
+        type: 'DECLINE_EXCHANGE', playerId: 'player-3', exchangeId: 'ex-1',
+      });
+      expect(next).toBe(state);
+    });
+
+    it('still lets the recipient accept', () => {
+      const { fromCard, toCard } = withExchange();
+      const { state: next } = applyAction(state, {
+        type: 'ACCEPT_EXCHANGE', playerId: 'player-2', exchangeId: 'ex-1', cardId: toCard.id,
+      });
+      expect(next.pendingExchanges).toHaveLength(0);
+      expect(next.players['player-1'].hand.map(c => c.id)).toContain(toCard.id);
+      expect(next.players['player-2'].hand.map(c => c.id)).toContain(fromCard.id);
+    });
+
+    it('refuses an exchange addressed to a player who does not exist', () => {
+      const card = makeCard('♠', '5');
+      state.players['player-1'].hand = [card];
+      const { state: next } = applyAction(state, {
+        type: 'PROPOSE_EXCHANGE', playerId: 'player-1', cardId: card.id, targetId: 'ghost',
+      });
+      expect(next).toBe(state);
+      expect(state.players['player-1'].tokens.social).toBe(3);
+    });
+
+    it('ignores SET_DRAW_RANGE on a field outside the allowlist', () => {
+      const { state: next } = applyAction(state, {
+        type: 'SET_DRAW_RANGE', playerId: 'gm-player', targetId: 'player-1', field: 'hand', val: 3,
+      });
+      expect(next).toBe(state);
+      expect(Array.isArray(next.players['player-1'].hand)).toBe(true);
+    });
+
+    it('still applies SET_DRAW_RANGE on minDrawValue', () => {
+      const { state: next } = applyAction(state, {
+        type: 'SET_DRAW_RANGE', playerId: 'gm-player', targetId: 'player-1', field: 'minDrawValue', val: 4,
+      });
+      expect(next.players['player-1'].minDrawValue).toBe(4);
+    });
+
+    it('never writes NaN for an unknown token key', () => {
+      const { state: next } = applyAction(state, {
+        type: 'SPEND_TOKEN', playerId: 'player-1', token: 'mana',
+      });
+      expect(next).toBe(state);
+      expect(next.players['player-1'].tokens.mana).toBeUndefined();
+    });
+
+    it('ignores ADD_TOKEN / SET_MAX_TOKENS with an unknown token key', () => {
+      const add = applyAction(state, { type: 'ADD_TOKEN', playerId: 'gm-player', targetId: 'player-1', token: 'mana' });
+      const set = applyAction(state, { type: 'SET_MAX_TOKENS', playerId: 'gm-player', targetId: 'player-1', token: 'mana', val: 5 });
+      expect(add.state).toBe(state);
+      expect(set.state).toBe(state);
+    });
+
+    it('ignores GIVE_CARDS with an unknown suit instead of throwing', () => {
+      const { state: next } = applyAction(state, {
+        type: 'GIVE_CARDS', playerId: 'gm-player', targetId: 'player-1',
+        mode: 'specific', cards: [{ suit: 'Z', value: '5' }],
+      });
+      expect(next).toBe(state);
+    });
+
+    it('caps a specific GIVE_CARDS list at 10 cards', () => {
+      const cards = Array.from({ length: 40 }, () => ({ suit: '♠', value: '5' }));
+      const { state: next } = applyAction(state, {
+        type: 'GIVE_CARDS', playerId: 'gm-player', targetId: 'player-1', mode: 'specific', cards,
+      });
+      expect(next.players['player-1'].hand).toHaveLength(10);
+    });
+
+    it('rejects an IMPORT_STATE payload without players', () => {
+      const { state: next } = applyAction(state, {
+        type: 'IMPORT_STATE', playerId: 'gm-player', state: { discard: [] },
+      });
+      expect(next).toBe(state);
+    });
+
+    it('hydrates dehydrated card ids on IMPORT_STATE', () => {
+      const raw = {
+        ...createInitialGameState(),
+        gmId: 'gm-player',
+        players: { 'player-1': { ...createEmptyPlayer('Player 1'), hand: ['n-S-5-abc'] } },
+      };
+      const { state: next } = applyAction(state, {
+        type: 'IMPORT_STATE', playerId: 'gm-player', state: raw,
+      });
+      expect(next.players['player-1'].hand[0]).toMatchObject({ suit: '♠', value: '5' });
+    });
+
+    it('moves a pending Halfling draw to the discard when the race changes', () => {
+      const a = makeCard('♠', '3');
+      const b = makeCard('♥', '4');
+      state.players['player-1'].pendingHalfling = [a, b];
+      const { state: next } = applyAction(state, {
+        type: 'SET_RACE', playerId: 'gm-player', targetId: 'player-1', race: 'gobelin',
+      });
+      expect(next.players['player-1'].pendingHalfling).toBeNull();
+      expect(next.discard.map(c => c.id)).toEqual([a.id, b.id]);
+    });
+
+    it('tolerates an unknown suit id in a stored card id', () => {
+      expect(cardFromId('n-Z-5-abc')).toMatchObject({ suit: '?', value: '5' });
+      expect(() => hydrateState({ players: { p: { name: 'P', hand: ['garbage'] } } })).not.toThrow();
     });
   });
 });

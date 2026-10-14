@@ -5,7 +5,7 @@
   import ActionLog from "./ActionLog.svelte";
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./deck.js";
   import { tooltip } from "./tooltip.js";
-  import { logEvent } from "./appLog.js";
+  import { logEvent, logError } from "./appLog.js";
   import {
     getHandAnchorPosition,
     getHandPopoverSize,
@@ -305,6 +305,10 @@
       });
       currentPopoverId = id;
       popoverVisible = true;
+    } catch (err) {
+      // A rejected open must not escape as an unhandled rejection: the anchor
+      // button would look dead with popoverVisible stuck true.
+      logError('hand_popover_open_failed', err);
     } finally {
       isOpeningPopover = false;
     }

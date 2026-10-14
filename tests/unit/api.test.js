@@ -74,15 +74,34 @@ describe('API Client', () => {
       expect(result.players).toBeDefined();
     });
 
-    it('should return null on 304 Not Modified', async () => {
+    it('should return the cached state on 304 Not Modified', async () => {
+      const mockState = {
+        version: 7,
+        state: {
+          players: {},
+          discard: [],
+          pendingExchanges: [],
+          logs: [],
+        },
+      };
+
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockState,
+      });
+      const first = await fetchState('test-room');
+      expect(first.players).toBeDefined();
+
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 304,
       });
+      const cached = await fetchState('test-room');
 
-      const result = await fetchState('test-room');
-
-      expect(result).toBeNull();
+      // 304 must not be conflated with "the room has no state": callers treat
+      // null as "no room" and would dispatch a game-wiping INIT_GAME.
+      expect(cached).toBe(first);
     });
 
     it('should throw error on failed request', async () => {
@@ -254,6 +273,60 @@ describe('API Client', () => {
 
       stopRealtime();
       jest.useRealTimers();
+    });
+    it('drops the optimistic entry when realtime delivers the confirmed state first', async () => {
+      let realtimeCb = null;
+      mockChannel.on.mockImplementationOnce((_event, _config, cb) => {
+        realtimeCb = cb;
+        return mockChannel;
+      });
+
+      const onState = jest.fn();
+      startRealtime('test-room', onState);
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      const row = (version, hand) => ({
+        version,
+        state: {
+          players: {
+            'player-1': {
+              name: 'P',
+              hand,
+              crystallized: [],
+              tokens: { force: 3, agilite: 3, esprit: 3, social: 3 },
+              maxTokens: { force: 3, agilite: 3, esprit: 3, social: 3 },
+            },
+          },
+          discard: [],
+          pendingExchanges: [],
+          logs: [],
+        },
+      });
+
+      global.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => row(1, []) });
+      await fetchState('test-room');
+
+      let resolveInvoke;
+      mockSupabase.functions.invoke.mockImplementationOnce(
+        () => new Promise((resolve) => { resolveInvoke = resolve; })
+      );
+
+      const dispatching = dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+      expect(onState.mock.calls.at(-1)[0].players['player-1'].hand).toHaveLength(1);
+
+      // The row for version 2 (which already contains the draw) lands before
+      // the function response does — the classic double-apply window.
+      realtimeCb({ new: row(2, ['n-S-5-a']) });
+
+      resolveInvoke({ data: { version: 2 }, error: null });
+      await dispatching;
+
+      // Confirmation must re-render from server truth: exactly one card.
+      const shown = onState.mock.calls.at(-1)[0].players['player-1'].hand;
+      expect(shown).toHaveLength(1);
+      expect(shown[0]._pending).toBeUndefined();
+
+      stopRealtime();
     });
   });
 });

@@ -87,11 +87,13 @@ export function fullSuit(suitSymbol) {
 /** Reconstruct a full card object from its ID string. */
 export function cardFromId(id) {
   // id format: "{prefix}-{suitId}-{value}-{copy}"  e.g. "n-S-10-1"
-  const parts = id.split('-');
+  const parts = String(id).split('-');
   const suitId = parts[1];
   const value  = parts[2];
-  const { symbol, isRed } = SUIT_BY_ID[suitId];
-  return { id, suit: symbol, value, numericValue: VALUES.indexOf(value) + 1, isRed };
+  // Unknown/legacy ids must not throw: one bad id in the stored row would
+  // break hydration for every client in the room.
+  const { symbol, isRed } = SUIT_BY_ID[suitId] ?? { symbol: '?', isRed: false };
+  return { id, suit: symbol, value: value ?? '?', numericValue: VALUES.indexOf(value) + 1, isRed };
 }
 
 /** Accept an ID string or an already-hydrated card object. */
@@ -121,6 +123,9 @@ export const RACES = [
 ];
 
 const RACE_IDS = new Set(RACES.map(r => r.id));
+
+/** Valid token keys — an unknown key used to write NaN into `tokens`. */
+const TOKEN_KEYS = new Set(['force', 'agilite', 'esprit', 'social']);
 
 export function createEmptyPlayer(name = '') {
   return {
@@ -296,7 +301,11 @@ export function applyAction(state, action) {
       const prefix = crystal ? 's' : 'n';
       let cards;
       if (action.mode === 'specific' && Array.isArray(action.cards) && action.cards.length > 0) {
-        cards = action.cards.map(c => makeCard(c.suit, c.value, prefix));
+        const valid = action.cards
+          .filter(c => c && VALUES.includes(c.value) && SUITS.some(s => s.symbol === c.suit))
+          .slice(0, 10);
+        if (valid.length === 0) return { state, log: null };
+        cards = valid.map(c => makeCard(c.suit, c.value, prefix));
       } else {
         const count = clamp(action.count ?? 1, 1, 10);
         const mn = target.minDrawValue ?? 1, mx = target.maxDrawValue ?? 13;
@@ -434,6 +443,7 @@ export function applyAction(state, action) {
       if (!p || p.tokens.social <= 0 || p.pendingHalfling) return { state, log: null };
       const card = p.hand.find(c => c.id === action.cardId);
       if (!card) return { state, log: null };
+      if (!state.players[action.targetId]) return { state, log: null };
       const exchange = {
         id: `${action.playerId}-${Date.now()}`,
         from: action.playerId,
@@ -456,7 +466,9 @@ export function applyAction(state, action) {
 
     case 'ACCEPT_EXCHANGE': {
       const ex = (state.pendingExchanges ?? []).find(e => e.id === action.exchangeId);
-      if (!ex) return { state, log: null };
+      // Only the recipient may accept: exchange ids and every card id are
+      // public in the broadcast state.
+      if (!ex || action.playerId !== ex.to) return { state, log: null };
       const recipient = state.players[ex.to];
       const sender = state.players[ex.from];
       if (!recipient || !sender) return { state, log: null };
@@ -478,7 +490,7 @@ export function applyAction(state, action) {
 
     case 'DECLINE_EXCHANGE': {
       const ex = (state.pendingExchanges ?? []).find(e => e.id === action.exchangeId);
-      if (!ex) return { state, log: null };
+      if (!ex || action.playerId !== ex.to) return { state, log: null };
       const sender = state.players[ex.from];
       if (!sender) return { state, log: null };
       const s = {
@@ -516,7 +528,7 @@ export function applyAction(state, action) {
 
     case 'SPEND_TOKEN': {
       const p = state.players[action.playerId];
-      if (!p || p.tokens[action.token] <= 0 || p.pendingHalfling) return { state, log: null };
+      if (!p || !TOKEN_KEYS.has(action.token) || p.tokens[action.token] <= 0 || p.pendingHalfling) return { state, log: null };
       let updatedPlayer = {
         ...p,
         tokens: { ...p.tokens, [action.token]: p.tokens[action.token] - 1 },
@@ -532,7 +544,7 @@ export function applyAction(state, action) {
     case 'ADD_TOKEN': {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const p = state.players[action.targetId];
-      if (!p || p.tokens[action.token] >= p.maxTokens[action.token]) return { state, log: null };
+      if (!p || !TOKEN_KEYS.has(action.token) || p.tokens[action.token] >= p.maxTokens[action.token]) return { state, log: null };
       const s = {
         ...state,
         players: { ...state.players, [action.targetId]: {
@@ -591,6 +603,9 @@ export function applyAction(state, action) {
 
     case 'SET_DRAW_RANGE': {
       if (!isGM(state, action.playerId)) return { state, log: null };
+      // Allowlist: a free-form field name could overwrite `hand`/`tokens` and
+      // brick the room for every client.
+      if (action.field !== 'minDrawValue' && action.field !== 'maxDrawValue') return { state, log: null };
       const p = state.players[action.targetId];
       if (!p) return { state, log: null };
       const s = {
@@ -605,7 +620,7 @@ export function applyAction(state, action) {
     case 'SET_MAX_TOKENS': {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const p = state.players[action.targetId];
-      if (!p) return { state, log: null };
+      if (!p || !TOKEN_KEYS.has(action.token)) return { state, log: null };
       const s = {
         ...state,
         players: { ...state.players, [action.targetId]: {
@@ -639,7 +654,13 @@ export function applyAction(state, action) {
 
     case 'IMPORT_STATE': {
       if (!isGM(state, action.playerId)) return { state, log: null };
-      return { state: action.state, log: null };
+      const imported = action.state;
+      if (!imported || typeof imported !== 'object' || !imported.players || typeof imported.players !== 'object') {
+        return { state, log: null };
+      }
+      // Normalise through the hydrator: an unhydrated payload used to reach
+      // dehydrateState() and throw, breaking the room for every client.
+      return { state: hydrateState(imported), log: null };
     }
 
     case 'CREATE_GM_CHAR': {
@@ -684,8 +705,10 @@ export function applyAction(state, action) {
       const p = state.players[action.targetId];
       if (!p) return { state, log: null };
       const race = action.race && RACE_IDS.has(action.race) ? action.race : null;
+      // A pending Halfling choice holds 2 real drawn cards — don't vaporise them.
       const s = {
         ...state,
+        discard: [...state.discard, ...(p.pendingHalfling ?? [])],
         players: { ...state.players, [action.targetId]: {
           ...p,
           race,

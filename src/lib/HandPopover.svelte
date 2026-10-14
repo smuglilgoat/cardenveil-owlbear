@@ -550,14 +550,6 @@
     },
   ];
 
-  const RACE_PASSIVE_TIP = /** @type {{ [key: string]: string }} */ ({
-    'haut-elfe': 'Passif : Vous avez +1 carte en main',
-    'tieffelin': 'Passif : Vous pouvez choisir de piocher du Pique un tour sur deux',
-    'aasimar':   'Passif : Quand vous utilisez un token, vous créez automatiquement une carte cristallisée Cœur',
-    'halfling':  'Passif : À chaque pioche, piochez 2 cartes puis choisissez-en 1',
-    'sporelin':  'Passif : Vous pouvez échanger une carte gratuitement avec un allié',
-  });
-
   const TOKEN_CARTE_TIP = /** @type {{ [key: string]: string }} */ ({
     force:   'Piocher une carte',
     agilite: 'Échanger une carte avec une couleur spécifique, la valeur reste aléatoire',
