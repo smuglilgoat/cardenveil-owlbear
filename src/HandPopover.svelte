@@ -6,7 +6,12 @@
   import { tooltip } from "./lib/tooltip.js";
   import { logEvent, logError, setLogContext } from "./lib/appLog.js";
   import { collectDiag, initDiag } from "./lib/diag.js";
-  import { getHandAnchorPosition, toggleHandAnchor } from "./lib/handAnchor.js";
+  import {
+    getHandAnchorPosition,
+    rememberHandPopoverSize,
+    requestHandPopoverResize,
+    toggleHandAnchor,
+  } from "./lib/handAnchor.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY, STAT_COLORS } from "./lib/characterSheet.js";
   import HandModal from "./lib/HandModal.svelte";
 
@@ -108,7 +113,9 @@
         return false;
       }
       fitted = { w: width, h: height };
-      logEvent('info', 'hand_popover_metrics', { message: `${width}x${height}`, detail: { width, height, folded, modal, cards: allCards.length } });
+      // remember only the resting size: a modal height is transient
+      if (!modal) rememberHandPopoverSize(width, height);
+      logEvent('info', 'hand_popover_metrics', { message: `${width}x${height}`, detail: { width, height, folded, modal, cards: allCards.length, iframe: `${window.innerWidth}x${window.innerHeight}` } });
       // OBR can resize the popover container while the iframe keeps its old
       // size (calls that race the popover being placed or reopened are
       // ignored) — and the iframe is what clips the content. Verify shortly
@@ -122,9 +129,12 @@
           return;
         }
         if (fitRetries >= 3) {
+          // OBR resized the box but not the iframe (the iframe is what clips the
+          // content): the only reliable fix is a fresh open at the right size.
           logEvent('warn', 'hand_popover_iframe_mismatch', {
-            message: `asked ${width}x${height}, iframe ${window.innerWidth}x${window.innerHeight}`,
+            message: `asked ${width}x${height}, iframe ${window.innerWidth}x${window.innerHeight} → reopen`,
           });
+          requestHandPopoverResize(width, height);
           return;
         }
         fitRetries++;

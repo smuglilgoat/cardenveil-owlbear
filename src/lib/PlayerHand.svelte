@@ -6,7 +6,12 @@
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./deck.js";
   import { tooltip } from "./tooltip.js";
   import { logEvent } from "./appLog.js";
-  import { handAnchorTop, onHandAnchorChange } from "./handAnchor.js";
+  import {
+    getHandAnchorPosition,
+    getHandPopoverSize,
+    handAnchorTop,
+    onHandPopoverChange,
+  } from "./handAnchor.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY, STAT_COLORS } from "./characterSheet.js";
 
   let { gameState, myId, myName, party, onAction } = $props();
@@ -264,32 +269,37 @@
   );
 
   // ── Popover hand ─────────────────────────────────────────────────────
-  // The frame owns its footprint now (HandPopover.fitPopover sizes itself to
-  // the bar + fan + modal), so we only open it: provisional size = fanned
-  // 460x172, immediately corrected by the frame. No reopen-on-card-count
-  // effect anymore — the frame subscribes to the state itself.
-  const POPOVER_ID = "com.cardenveil/hand";
+  // Two popover IDs, one per anchor preset: reopening the SAME id kept the old
+  // position, while a new id is created at the requested anchor. The size comes
+  // from the last fitted size (OBR applies sizes reliably at open only).
+  const POPOVER_IDS = { low: "com.cardenveil/hand", high: "com.cardenveil/hand-high" };
   let popoverVisible = $state(false);
+  let currentPopoverId = $state(null);
   let isOpeningPopover = false;
 
   async function openPopover() {
     if (isOpeningPopover) return;
     isOpeningPopover = true;
     try {
+      const position = getHandAnchorPosition();
+      const id = POPOVER_IDS[position];
+      const size = getHandPopoverSize() ?? { width: 460, height: 172 };
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
+      const other = POPOVER_IDS[position === "high" ? "low" : "high"];
+      await OBR.popover.close(other).catch(() => {});
       await OBR.popover.open({
-        id: POPOVER_ID,
-        url: `${window.location.origin}/hand.html?popoverId=${encodeURIComponent(POPOVER_ID)}`,
-        width: 460,
-        height: 172,
-        // 56 px above the OBR toolbar, raised another 100 px on request
-        anchorPosition: { left: vw / 2, top: handAnchorTop(vh) },
+        id,
+        url: `${window.location.origin}/hand.html?popoverId=${encodeURIComponent(id)}`,
+        width: size.width,
+        height: size.height,
+        anchorPosition: { left: vw / 2, top: handAnchorTop(vh, position) },
         anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         disableClickAway: true,
         hidePaper: true,
       });
+      currentPopoverId = id;
       popoverVisible = true;
     } finally {
       isOpeningPopover = false;
@@ -297,20 +307,10 @@
   }
 
   async function closePopover() {
-    await OBR.popover.close(POPOVER_ID);
+    await OBR.popover.close(currentPopoverId ?? POPOVER_IDS[getHandAnchorPosition()]).catch(() => {});
+    currentPopoverId = null;
     popoverVisible = false;
   }
-
-  // The ⇅ button in the popover bar toggles the anchor preset: reopening is
-  // the only way to move an OBR popover.
-  const offHandAnchor = onHandAnchorChange((position) => {
-    if (!popoverVisible) return;
-    logEvent('info', 'hand_anchor_reopen', { message: position });
-    // give OBR time to tear the old popover down before opening the new one
-    closePopover()
-      .then(() => new Promise((r) => setTimeout(r, 200)))
-      .then(openPopover);
-  });
 
   async function togglePopover() {
     if (popoverVisible) {
@@ -319,6 +319,18 @@
       await openPopover();
     }
   }
+
+  // Anchor preset / size requested by the popover frame: reopening is the only
+  // way to move or resize an OBR popover for real.
+  const offHandPopover = onHandPopoverChange((message) => {
+    if (!popoverVisible) return;
+    logEvent('info', message.type === 'anchor' ? 'hand_anchor_reopen' : 'hand_resize_reopen', {
+      message: message.type === 'anchor' ? String(message.position) : `${message.width}x${message.height}`,
+    });
+    closePopover()
+      .then(() => new Promise((r) => setTimeout(r, 200)))
+      .then(openPopover);
+  });
 
   // ── Card color scheme ('color' = sheet schema, 'classic' = red/black) ──
   let cardScheme = $state(getCardScheme());
@@ -337,8 +349,8 @@
   window.addEventListener('storage', onCardSchemeStorage);
 
   onDestroy(async () => {
-    if (popoverVisible) await OBR.popover.close(POPOVER_ID).catch(() => {});
-    offHandAnchor();
+    if (popoverVisible) await closePopover();
+    offHandPopover();
     offCardScheme();
     window.removeEventListener('storage', onCardSchemeStorage);
   });

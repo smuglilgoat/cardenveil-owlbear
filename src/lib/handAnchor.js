@@ -1,11 +1,19 @@
 /**
- * Hand popover anchor: two presets the ⇅ button in the popover bar switches
- * between. OBR has no "move popover" API (only setWidth/setHeight), so the
- * popover frame stores the choice in localStorage and announces it on a
- * BroadcastChannel; the frame that opened the popover (PlayerHand /
- * GMDashboard, same browser, same origin) reopens it at the new anchor.
+ * Hand popover geometry: anchor preset + size, shared between the popover frame
+ * and the frame that opened it (PlayerHand / GMDashboard, same browser).
+ *
+ * Why it works like this: OBR has no "move popover" API and — in the versions
+ * we see in the wild — a popover's iframe keeps the size it was created with
+ * (`setWidth`/`setHeight` may resize the box while the iframe, which is what
+ * clips the content, stays put). So the reliable path is `open()`:
+ *  - two popover IDs, one per anchor preset, so a switch really creates a new
+ *    popover at the new anchor (reopening the same ID kept the old position);
+ *  - the last good size is remembered and reused on open (no resize flash);
+ *  - when `setWidth`/`setHeight` fails to reach the iframe, the frame asks the
+ *    caller to reopen it at the right size (one flash, then correct).
  */
 const KEY = 'cardenveil-hand-anchor';
+const SIZE_KEY = 'cardenveil-hand-popover-size';
 const CHANNEL = 'cardenveil-hand-anchor';
 
 /** Distance in px between the popover's bottom edge and the viewport bottom. */
@@ -25,7 +33,41 @@ export function handAnchorTop(vh, position = getHandAnchorPosition()) {
   return vh - (HAND_ANCHOR_OFFSETS[position] ?? HAND_ANCHOR_OFFSETS.low);
 }
 
-/** Flip the preset, announce it, and return the new one. */
+/**
+ * Last size the popover frame fitted itself to, reused on the next open so the
+ * popover is created at the right size (OBR applies sizes at open reliably).
+ * @returns {{width: number, height: number}|null}
+ */
+export function getHandPopoverSize() {
+  try {
+    const raw = localStorage.getItem(SIZE_KEY);
+    const value = raw ? JSON.parse(raw) : null;
+    return value && value.width > 100 && value.height > 40 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** @param {number} width @param {number} height */
+export function rememberHandPopoverSize(width, height) {
+  try {
+    localStorage.setItem(SIZE_KEY, JSON.stringify({ width, height }));
+  } catch {
+    /* private mode */
+  }
+}
+
+function post(message) {
+  try {
+    const channel = new BroadcastChannel(CHANNEL);
+    channel.postMessage(message);
+    channel.close();
+  } catch {
+    /* BroadcastChannel unavailable */
+  }
+}
+
+/** Flip the anchor preset, announce it, and return the new one. */
 export function toggleHandAnchor() {
   const next = getHandAnchorPosition() === 'high' ? 'low' : 'high';
   try {
@@ -33,30 +75,31 @@ export function toggleHandAnchor() {
   } catch {
     /* private mode — the toggle still applies for this session via the broadcast */
   }
-  try {
-    const channel = new BroadcastChannel(CHANNEL);
-    channel.postMessage(next);
-    channel.close();
-  } catch {
-    /* BroadcastChannel unavailable */
-  }
+  post({ type: 'anchor', position: next });
   return next;
 }
 
+/** Ask the caller to reopen the popover at this size (used when OBR refuses a resize). */
+export function requestHandPopoverResize(width, height) {
+  rememberHandPopoverSize(width, height);
+  post({ type: 'resize', width, height });
+}
+
 /**
- * Called when the preset changes (BroadcastChannel for this browser's frames,
- * `storage` for other tabs). Returns an unsubscribe function.
- * @param {(position: 'low'|'high') => void} callback
+ * Called when the anchor preset or the requested size changes (BroadcastChannel
+ * for this browser's frames, `storage` for other tabs). Returns an unsubscribe.
+ * @param {(message: {type: 'anchor'|'resize', position?: 'low'|'high', width?: number, height?: number}) => void} callback
  */
-export function onHandAnchorChange(callback) {
+export function onHandPopoverChange(callback) {
   // BroadcastChannel AND the storage event both fire for one toggle: collapse
-  // the duplicates so the caller reopens the popover only once.
-  let last = { position: getHandAnchorPosition(), at: 0 };
-  const emit = (position) => {
+  // duplicates so the caller reopens the popover only once.
+  let last = { key: '', at: 0 };
+  const emit = (message) => {
+    const key = JSON.stringify(message);
     const now = Date.now();
-    if (position === last.position && now - last.at < 500) return;
-    last = { position, at: now };
-    callback(position);
+    if (key === last.key && now - last.at < 500) return;
+    last = { key, at: now };
+    callback(message);
   };
   let channel = null;
   try {
@@ -66,7 +109,7 @@ export function onHandAnchorChange(callback) {
     /* BroadcastChannel unavailable */
   }
   const onStorage = (e) => {
-    if (e.key === KEY) emit(getHandAnchorPosition());
+    if (e.key === KEY) emit({ type: 'anchor', position: getHandAnchorPosition() });
   };
   window.addEventListener('storage', onStorage);
   return () => {

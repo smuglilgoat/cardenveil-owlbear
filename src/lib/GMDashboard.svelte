@@ -41,7 +41,12 @@
   import { tooltip } from "./tooltip.js";
   import { logError, setLogContext } from "./appLog.js";
   import { requestDiag } from "./diag.js";
-  import { handAnchorTop, onHandAnchorChange } from "./handAnchor.js";
+  import {
+    getHandAnchorPosition,
+    getHandPopoverSize,
+    handAnchorTop,
+    onHandPopoverChange,
+  } from "./handAnchor.js";
 
   let { gameState, party, myId, onAction } = $props();
 
@@ -99,30 +104,38 @@
   );
 
   // ── GM Character Hand Popover ─────────────────────────────────────────
-  // Same as the player hand popover: the frame sizes itself (fitPopover), we
-  // just open it with the provisional fanned size.
-  const GM_POPOVER_ID = "com.cardenveil/gm-hand";
+  // Two popover IDs, one per anchor preset: reopening the SAME id kept the old
+  // position, while a new id is created at the requested anchor. The size comes
+  // from the last fitted size (OBR applies sizes reliably at open only).
+  const GM_POPOVER_IDS = { low: "com.cardenveil/gm-hand", high: "com.cardenveil/gm-hand-high" };
   let gmPopoverVisible = $state(false);
+  let gmPopoverId = $state(null);
   let isOpeningGmPopover = false;
 
   async function openGmPopover() {
     if (isOpeningGmPopover) return;
     isOpeningGmPopover = true;
     try {
+      const position = getHandAnchorPosition();
+      const id = GM_POPOVER_IDS[position];
+      const size = getHandPopoverSize() ?? { width: 460, height: 172 };
       const vw = await OBR.viewport.getWidth();
       const vh = await OBR.viewport.getHeight();
+      // belt: never leave the other preset's popover around
+      const other = GM_POPOVER_IDS[position === "high" ? "low" : "high"];
+      await OBR.popover.close(other).catch(() => {});
       await OBR.popover.open({
-        id: GM_POPOVER_ID,
-        url: `${window.location.origin}/hand.html?playerId=${GM_CHAR_ID}&popoverId=${encodeURIComponent(GM_POPOVER_ID)}`,
-        width: 460,
-        height: 172,
-        // 56 px above the OBR toolbar, raised another 100 px on request
-        anchorPosition: { left: vw / 2, top: handAnchorTop(vh) },
+        id,
+        url: `${window.location.origin}/hand.html?playerId=${GM_CHAR_ID}&popoverId=${encodeURIComponent(id)}`,
+        width: size.width,
+        height: size.height,
+        anchorPosition: { left: vw / 2, top: handAnchorTop(vh, position) },
         anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         disableClickAway: true,
         hidePaper: true,
       });
+      gmPopoverId = id;
       gmPopoverVisible = true;
     } finally {
       isOpeningGmPopover = false;
@@ -130,20 +143,10 @@
   }
 
   async function closeGmPopover() {
-    await OBR.popover.close(GM_POPOVER_ID);
+    await OBR.popover.close(gmPopoverId ?? GM_POPOVER_IDS[getHandAnchorPosition()]).catch(() => {});
+    gmPopoverId = null;
     gmPopoverVisible = false;
   }
-
-  // The ⇅ button in the popover bar toggles the anchor preset: reopening is
-  // the only way to move an OBR popover.
-  const offHandAnchor = onHandAnchorChange((position) => {
-    if (!gmPopoverVisible) return;
-    logEvent('info', 'hand_anchor_reopen', { message: position });
-    // give OBR time to tear the old popover down before opening the new one
-    closeGmPopover()
-      .then(() => new Promise((r) => setTimeout(r, 200)))
-      .then(openGmPopover);
-  });
 
   async function toggleGmPopover() {
     if (gmPopoverVisible) {
@@ -153,9 +156,21 @@
     }
   }
 
+  // Anchor preset / size requested by the popover frame: reopening is the only
+  // way to move or resize an OBR popover for real.
+  const offHandPopover = onHandPopoverChange((message) => {
+    if (!gmPopoverVisible) return;
+    logEvent('info', message.type === 'anchor' ? 'hand_anchor_reopen' : 'hand_resize_reopen', {
+      message: message.type === 'anchor' ? String(message.position) : `${message.width}x${message.height}`,
+    });
+    closeGmPopover()
+      .then(() => new Promise((r) => setTimeout(r, 200)))
+      .then(openGmPopover);
+  });
+
   onDestroy(async () => {
-    if (gmPopoverVisible) await OBR.popover.close(GM_POPOVER_ID).catch(() => {});
-    offHandAnchor();
+    if (gmPopoverVisible) await closeGmPopover();
+    offHandPopover();
   });
 
   // All exchanges between regular players (neither side is the GM char)
