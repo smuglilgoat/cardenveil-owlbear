@@ -142,11 +142,15 @@ push and pull request.
 
 1. Deploy the static build (Netlify: build `npm run build`, publish `dist`).
 2. Redeploy the Supabase Edge Function `action` **whenever
-   `src/lib/deck.js` changes** — the game reducer is the single source of truth
-   and the Edge Function reaches it through a symlink
-   (`supabase/functions/action/_deck.js`), so a stale deploy silently rejects
-   new actions.
-3. Bump the version in **one** place: [`src/version.js`](src/version.js)
+   `src/lib/deck.js` or `src/lib/actionGuard.js` changes** — the game reducer and
+   the write-path guards are the single source of truth and the Edge Function
+   reaches them through symlinks (`supabase/functions/action/_deck.js`,
+   `_actionGuard.js`), so a stale deploy silently rejects new actions.
+3. If you are upgrading a room that already exists, **deploy the client before
+   the Edge Function**: every frame then already sends its actor token when
+   server-side verification turns on. Players who were in a room before this
+   feature keep playing — their identity is claimed on their next write.
+4. Bump the version in **one** place: [`src/version.js`](src/version.js)
    (`APP_VERSION`), which feeds `manifest.json` and the log rows. Mirror it in
    `package.json`.
 
@@ -192,6 +196,12 @@ open in live rooms.
   are dehydrated to ID strings before storage and rehydrated on read.
 - **OBR is only used for identity** (`player.*`, party, viewport, popovers) and
   broadcast — never for game-state sync.
+- **Every write is authenticated and de-duplicated.** The server mints a
+  per-actor token on an identity's first write and stores only its hash; the
+  client keeps the token in `localStorage` and sends an `actionId` with every
+  action. A write is refused when the token does not match, and a replayed
+  `actionId` is ignored instead of applied twice. Recovery from a lost token is
+  a GM **HARD_RESET**. See AGENTS.md for the limits of this scheme.
 - **Realtime resilience.** `worker: true` + `heartbeatCallback` (Supabase's
   documented fix for silent disconnects in backgrounded tabs), backoff with a
   catch-up fetch after reconnects, and request timeouts so no network call can
@@ -221,3 +231,7 @@ open in live rooms.
 - UI text is **French**; code, comments and docs are English.
 - Game-state changes belong in `src/lib/deck.js` (never in a component), and
   anything player-visible gets a note in `docs/patch-notes/`.
+
+## License
+
+[MIT](LICENSE). The game rules in `CARDENVEIL.md` are the author's own work.

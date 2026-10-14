@@ -79,15 +79,25 @@ against the code before patching.
   longer revert a newer sheet; `popover.open` rejections caught and logged;
   dead `RACE_PASSIVE_TIP` copy deleted from `HandPopover`.
 
+### Implemented after the review (user decision: "both now")
+
+- **Actor tokens** (`src/lib/actionGuard.js`, both server functions): the first
+  accepted write for an identity mints a 256-bit token, the client keeps it in
+  `localStorage` and echoes it, and only its SHA-256 hash is stored in
+  `state.actorTokens` (keyed by actor, so the GM and `__gm_char__` work too).
+  A mismatch is a 401; an unclaimed identity passes so stale frames no-op.
+- **Idempotency**: a 128-bit `actionId` per dispatch + a 50-entry
+  `state.lastActionIds` ring; a replayed id returns the current row without a
+  write, so the Edge→Netlify retry can no longer double-apply a draw or a token
+  spend.
+- **Recovery / limits** (documented in AGENTS.md): the first claimant of an
+  unclaimed identity owns it; an OBR GM can still `INIT_GAME` a room
+  (deliberate takeover path); a lost token needs a GM `HARD_RESET`.
+- **Deploy order**: client (Netlify) first, then the Edge Function.
+- `LICENSE` (MIT) + README License section.
+
 ### Reported, deliberately NOT fixed
 
-- **No actor authentication (P0).** Both server functions apply `playerId` from
-  the client body and `gmId` is public, so any client can act as any player. The
-  fix is a protocol change (per-player secret + `actorId`, both write paths, an
-  Edge Function redeploy) → needs a product decision.
-- **No idempotency key (P0).** A lost Edge Function response makes `api.js`
-  re-send the action to the Netlify fallback → applied twice (double draw /
-  double token spend).
 - **A reviewer's `INIT_GAME` guard was rejected**: `CardGame.svelte:92`
   deliberately re-inits when an OBR GM opens a room whose `gmId` belongs to
   someone else, so the "stopgap" would have bricked GM takeover.
@@ -103,9 +113,10 @@ against the code before patching.
 
 ## Verification (after)
 
-- `npm test` → **235 passed / 7 suites**
-- `npm run check` → 0 reference errors (1563 type-inference diagnostics, the
-  pre-existing noise class; +13 from the new code)
+- `npm test` → **260 passed / 9 suites** (25 new guard/idempotency tests,
+  including a Netlify-handler integration test with a mocked `game_rooms` row)
+- `npm run check` → 0 reference errors (1581 type-inference diagnostics, the
+  pre-existing noise class)
 - `npm run build` → green, all 5 entries emitted at `dist/` root
 - `docs/system-overview.md` file map + entry table updated to the new layout
 - Live manifest (`https://cardenveil.netlify.app/manifest.json`) verified as
@@ -113,10 +124,12 @@ against the code before patching.
 
 ## Follow-ups
 
-1. Decide on actor authentication and the idempotency key (above).
-2. Commit the `game_rooms` DDL + `apply_game_action()` SQL to
+1. Commit the `game_rooms` DDL + `apply_game_action()` SQL to
    `supabase/migrations/`.
-3. Add a `LICENSE` (none exists) — the repo is public but has no declared license.
-4. Add screenshots to the README (no images are tracked; the Figma prototype
+2. Add screenshots to the README (no images are tracked; the Figma prototype
    HTML is the only visual reference).
-5. Consider a `version` column for `character_sheets` (lost-update fix).
+3. Consider a `version` column for `character_sheets` (lost-update fix).
+4. Decide whether `CANCEL_EXCHANGE` should refund the sender's Social token
+   (it does not, while `DECLINE_EXCHANGE` does).
+5. Deploy order for this branch: client (Netlify) first, then the Supabase Edge
+   Function `action` — verification only turns on with the second deploy.
