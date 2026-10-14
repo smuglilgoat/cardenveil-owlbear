@@ -42,7 +42,7 @@ lists them in full. JEST is configured with `svelte-jester` for Svelte 5 compone
 
 ## Build-time codegen
 
-The plugin version has a single source: `src/version.js` (`APP_VERSION`) — used by `vite.config.js` for `manifest.json` and by `src/lib/appLog.js` for log rows.
+The plugin version has a single source: `src/version.js` (`APP_VERSION`) — used by `vite.config.js` for `manifest.json` and by `src/lib/appLog.js` for log rows. `package.json`'s `version` mirrors it; bump both together.
 
 `scripts/generate-cards.js` pre-generates 104 card PNGs (52 normal + 52 crystallized) into `public/cards/` using `sharp`. This runs **automatically** via a custom Vite plugin (`generateCards()` in `vite.config.js`) on every build start. A dynamic manifest plugin generates `manifest.json` for OBR with dev/prod naming.
 

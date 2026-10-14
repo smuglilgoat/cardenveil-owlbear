@@ -1,3 +1,6 @@
+> **⚠️ HISTORICAL — NEVER EXECUTED.** Firebase was evaluated as a backend and
+> rejected; the plugin runs on Supabase. Kept for reference only.
+
 # FIREBASE.md - Migrating to Firebase Realtime Database
 
 ## Overview

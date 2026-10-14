@@ -430,7 +430,7 @@ French.
   Aasimar, Sporelin) have documented decisions in `.agent/CONTINUITY.md` —
   re-read it before touching those flows.
 - Old docs drift: `docs/character-sheet-analysis.md` is outdated,
-  `FIREBASE.md` is a migration proposal (never executed), CARDENVEIL.md
+  `docs/archive/FIREBASE.md` is a migration proposal (never executed), CARDENVEIL.md
   predates some formula changes — cross-check CONTINUITY.md when formulas
   matter (e.g. Mouvement is 5 + Agi/2, not the 8 in CARDENVEIL.md).
 - The reducer's `logs` array is trimmed to the last 200 entries by `addLog`.
@@ -440,7 +440,8 @@ French.
 ## 9. Map of important files
 
 ```
-AGENTS.md CLAUDE.md README.md CARDENVEIL.md   ← docs ladder (FIREBASE.md = legacy proposal)
+AGENTS.md CLAUDE.md README.md CARDENVEIL.md   ← docs ladder
+                             (CLAUDE.md = pointer to AGENTS.md; docs/archive/FIREBASE.md = legacy proposal)
 docs/Reglejetdattaque.md + docs/patch.md      ← attack dice spec (implemented by attackRoll.js)
 docs/patch-notes-*.md                         ← release notes per version
 

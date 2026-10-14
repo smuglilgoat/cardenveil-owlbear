@@ -42,6 +42,9 @@ Located in `tests/unit/`, these test individual functions and modules:
 - **deck.test.js** - Card utilities, sorting, pending placeholders
 - **api.test.js** - API client (realtime subscriptions, dispatch fallback)
 - **characterSheet.test.js** - Dice parsing/rolling, combat formulas, sheet import/export helpers
+- **attackRoll.test.js** - Attack dice engine (advantage, crits, Gobelin crit range)
+- **diceRoll.test.js** - 3D-dice mesh→value mapping
+- **sheetAssets.test.js** - Zip import → Storage upload URL rewriting
 
 **Run unit tests:**
 ```bash
@@ -70,14 +73,20 @@ See `tests/httpie/README.md` for complete API test documentation.
 
 ## Test Coverage
 
-Current coverage:
-- ✅ 117 unit tests passing (4 suites)
-- ✅ Game logic (all 34 actions)
+Current coverage (run `npm test` for the live count):
+- ✅ 220 unit tests across 7 suites
+- ✅ Game logic (all 35 actions)
 - ✅ Deck utilities
 - ✅ API client (realtime + dispatch fallback)
 - ✅ State hydration/dehydration
 - ✅ Optimistic updates
 - ✅ Character sheet: dice formulas, combat formulas, imports, color helpers
+- ✅ Attack engine, 3D-dice mapping, zip asset import
+
+Component-level tests are **not** wired in: `svelte-jester`'s ESM path is unreachable
+through Jest 30's transform pipeline (tried `extensionsToTreatAsEsm` and the `.mjs`
+transformer path, reverted). Svelte components are covered by `npm run check` at build
+time and by manual testing in a live OBR room.
 
 ## Writing Tests
 
