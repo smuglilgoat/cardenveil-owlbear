@@ -5,7 +5,7 @@
   import ActionDiamonds from './ActionDiamonds.svelte';
   import ItemAddPopup from './ItemAddPopup.svelte';
   import { importSheetArchive } from './sheetAssets.js';
-  import { RACES } from './deck.js';
+  import { RACES, GM_CHAR_ID } from './deck.js';
   import { logError, setLogContext } from './appLog.js';
   import {
     STAT_COLORS,
@@ -223,10 +223,21 @@
         });
       });
 
+      // Connected players (transfer targets) — live OBR party.
+      try {
+        partyPlayers = await OBR.party.getPlayers();
+        offParty = OBR.party.onChange((players) => {
+          partyPlayers = players;
+        });
+      } catch {
+        /* outside OBR */
+      }
+
       return () => {
         unsubscribe();
         offBroadcast();
         offRollResult();
+        offParty?.();
       };
     } catch (err) {
       console.error('Failed to load character sheet:', err);
@@ -629,13 +640,56 @@
   let gearAction = $state(/** @type {{kind: 'weapon'|'item', weapon?: Object, item?: Object}|null} */ (null));
   let gearStep = $state('actions'); // 'actions' | 'ally'
 
-  /** Every other player in the room (GM character included), for the give step. */
-  let allyIds = $derived(
-    gameState ? Object.keys(gameState.players).filter((id) => id !== playerId) : []
-  );
+  /**
+   * Transfer targets: the players actually CONNECTED to the room (OBR party,
+   * live), plus the GM character when it exists (it is not a party member).
+   * Their sheet portrait is loaded on demand for the avatar; the fallback is a
+   * coloured disc with the initial (OBR does not expose profile pictures).
+   */
+  let partyPlayers = $state(/** @type {Array<{id: string, name: string, color?: string}>} */ ([]));
+  let allyPortraits = $state(/** @type {Record<string, string>} */ ({}));
+  let offParty = /** @type {null | (() => void)} */ (null);
 
-  function allyName(id) {
-    return gameState?.players?.[id]?.name ?? id.slice(0, 8);
+  let allyTargets = $derived.by(() => {
+    const list = partyPlayers
+      .filter((p) => p.id !== playerId)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color ?? '#6b7280',
+        portrait: allyPortraits[p.id] ?? '',
+      }));
+    if (playerId !== GM_CHAR_ID && gameState?.gmCharacterId != null && gameState?.players?.[GM_CHAR_ID]) {
+      list.push({
+        id: GM_CHAR_ID,
+        name: gameState.players[GM_CHAR_ID].name ?? 'Personnage MJ',
+        color: '#a855f7',
+        portrait: allyPortraits[GM_CHAR_ID] ?? '',
+      });
+    }
+    return list;
+  });
+
+  /** Fetch the missing portraits once (cheap: one row per ally, cached). */
+  async function loadAllyPortraits() {
+    const missing = allyTargets.filter((a) => !(a.id in allyPortraits));
+    if (!missing.length) return;
+    const entries = await Promise.all(
+      missing.map(async (a) => {
+        try {
+          const row = await fetchCharacterSheet(a.id, roomId);
+          return [a.id, row?.data?.portrait ?? ''];
+        } catch {
+          return [a.id, ''];
+        }
+      })
+    );
+    allyPortraits = { ...allyPortraits, ...Object.fromEntries(entries) };
+  }
+
+  function openAllyStep() {
+    gearStep = 'ally';
+    loadAllyPortraits();
   }
 
   function openGearAction(action) {
@@ -2491,16 +2545,28 @@
         </div>
 
         {#if gearStep === 'ally'}
-          <div class="text-[11px] text-[#9ca3af] mb-2">Donner à :</div>
-          <div class="flex flex-wrap gap-1.5 mb-4">
-            {#each allyIds as id}
+          <div class="text-[11px] text-[#9ca3af] mb-2">Donner à (joueurs connectés) :</div>
+          <div class="flex flex-col gap-1.5 mb-4 max-h-56 overflow-y-auto scrollbar-thin">
+            {#each allyTargets as ally (ally.id)}
               <button
-                onclick={() => giveToAlly(gearAction, id)}
-                class="px-2.5 py-1 bg-[#111827] hover:bg-[#374151] border border-[#374151] rounded-lg text-[11px] font-semibold text-gray-100 transition-colors"
-              >{allyName(id)}</button>
+                onclick={() => giveToAlly(gearAction, ally.id)}
+                class="flex items-center gap-2 px-2 py-1.5 bg-[#111827] hover:bg-[#374151] border border-[#374151] rounded-lg text-[12px] font-semibold text-gray-100 transition-colors"
+              >
+                {#if ally.portrait && isImageUrl(ally.portrait)}
+                  <img src={ally.portrait} alt="" class="w-6 h-6 rounded-full object-cover shrink-0 border border-[#374151]" />
+                {:else if ally.portrait}
+                  <span class="w-6 h-6 rounded-full bg-[#242424] border border-[#374151] flex items-center justify-center text-[13px] leading-none shrink-0">{ally.portrait}</span>
+                {:else}
+                  <span
+                    class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                    style="background: {ally.color}"
+                  >{ally.name.slice(0, 1).toUpperCase()}</span>
+                {/if}
+                <span class="truncate">{ally.name}</span>
+              </button>
             {/each}
-            {#if allyIds.length === 0}
-              <p class="text-[11px] text-gray-500 italic">Aucun autre joueur dans la partie.</p>
+            {#if allyTargets.length === 0}
+              <p class="text-[11px] text-gray-500 italic">Aucun autre joueur connecté.</p>
             {/if}
           </div>
           <button
@@ -2516,8 +2582,8 @@
               class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-[13px] font-bold rounded-lg transition-colors"
             >⚔️ Équiper</button>
             <button
-              onclick={() => (gearStep = 'ally')}
-              disabled={allyIds.length === 0}
+              onclick={openAllyStep}
+              disabled={allyTargets.length === 0}
               class="px-4 py-2 bg-[#111827] hover:bg-[#374151] disabled:opacity-40 disabled:cursor-not-allowed text-[13px] font-semibold rounded-lg transition-colors"
             >🎁 Donner à un allié</button>
             <button

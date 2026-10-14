@@ -1,0 +1,14 @@
+# Cardenveil 2.7.17 — notes de version
+
+## Don d'équipement : joueurs connectés + portrait
+
+- La liste « Donner à » n'affiche plus tous les personnages connus de la partie
+  mais **uniquement les joueurs connectés** (la *party* Owlbear, mise à jour en
+  direct) — plus de transfert possible vers un joueur qui a quitté la table.
+  Le **personnage du MJ** reste proposé quand il existe (il n'est pas dans la
+  party).
+- Chaque nom est accompagné de son **portrait de fiche** (image ou emoji).
+  Owlbear n'expose pas la photo de profil du compte dans son SDK : c'est donc le
+  portrait de la fiche qui sert d'avatar, avec repli sur une pastille colorée
+  portant l'initiale du joueur quand la fiche n'a pas de portrait.
+- La liste est scrollable si la table est nombreuse.
