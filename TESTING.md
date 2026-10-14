@@ -15,6 +15,23 @@ npm run test:watch
 npm run test:coverage
 ```
 
+## Build Gate (svelte-check)
+
+```bash
+# Reference errors only (undefined names/modules) — wired into `npm run build`
+npm run check
+
+# Full report (~1500 pre-existing type-inference diagnostics)
+npm run check:types
+```
+
+`npm run check` runs `svelte-check` through `scripts/check-svelte.mjs` and fails
+the build only on `Cannot find name/module/namespace`. Rollup cannot see those
+(unbound identifiers are treated as globals), which is how
+`Uncaught ReferenceError: logEvent is not defined` reached production and broke
+the GM hand popover. The JS/JSDoc type-inference baseline is reported as a count,
+not as a failure.
+
 ## Test Types
 
 ### 1. Unit Tests (JEST)

@@ -4,7 +4,8 @@
 
 ```bash
 npm run dev      # Dev server (CORS open to https://www.owlbear.rodeo)
-npm run build    # Production build → dist/
+npm run check    # Build gate: svelte-check, fails on undefined names/modules (also runs before build)
+npm run build    # npm run check && Production build → dist/
 npm run preview  # Preview built output
 npm test         # Run JEST unit tests
 npm run test:unit   # Run only unit tests
@@ -12,7 +13,15 @@ npm run test:watch  # Run tests in watch mode
 npm run test:coverage  # Run tests with coverage report
 ```
 
-JSDoc type checking is enabled via `jsconfig.json` (`checkJs: true`). JEST is configured with `svelte-jester` for Svelte 5 components and `jsdom` environment for browser APIs.
+JSDoc type checking is enabled via `jsconfig.json` (`checkJs: true`).
+
+**Build gate (`scripts/check-svelte.mjs`, wired into `npm run build`)**: runs
+`svelte-check` and fails only on reference errors — `Cannot find name/module/namespace`.
+Those are invisible to Rollup (unbound identifiers look like globals) and have
+shipped twice (`RACES is not defined`, `logEvent is not defined` in a popover
+callback). The remaining ~1500 diagnostics are pre-existing JS/JSDoc
+type-inference noise and are reported as a count only; `npm run check:types`
+lists them in full. JEST is configured with `svelte-jester` for Svelte 5 components and `jsdom` environment for browser APIs.
 
 ## Architecture
 

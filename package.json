@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "check": "node scripts/check-svelte.mjs",
+    "check:types": "svelte-check --tsconfig ./jsconfig.json --output human",
+    "build": "npm run check && vite build",
     "preview": "vite preview",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
@@ -25,7 +27,9 @@
     "sharp": "^0.34.5",
     "supabase": "^2.118.0",
     "svelte": "^5.43.8",
+    "svelte-check": "^4.7.6",
     "svelte-jester": "^5.0.0",
+    "typescript": "^6.0.3",
     "vite": "^7.2.4"
   },
   "dependencies": {
