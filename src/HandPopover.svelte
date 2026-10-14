@@ -44,6 +44,7 @@
   let fitted = { w: 0, h: 0 };
   let fitting = false;
   let refitQueued = false;
+  let fitRetries = 0;
 
   /** Fan width for n cards (unchanged formula — no cap, user decision). */
   function fanWidth(n) {
@@ -108,6 +109,28 @@
       }
       fitted = { w: width, h: height };
       logEvent('info', 'hand_popover_metrics', { message: `${width}x${height}`, detail: { width, height, folded, modal, cards: allCards.length } });
+      // OBR can resize the popover container while the iframe keeps its old
+      // size (calls that race the popover being placed or reopened are
+      // ignored) — and the iframe is what clips the content. Verify shortly
+      // after and retry a few times.
+      setTimeout(() => {
+        if (
+          Math.abs(window.innerHeight - height) <= 6 &&
+          Math.abs(window.innerWidth - width) <= 6
+        ) {
+          fitRetries = 0;
+          return;
+        }
+        if (fitRetries >= 3) {
+          logEvent('warn', 'hand_popover_iframe_mismatch', {
+            message: `asked ${width}x${height}, iframe ${window.innerWidth}x${window.innerHeight}`,
+          });
+          return;
+        }
+        fitRetries++;
+        fitted = { w: 0, h: 0 }; // force the retry through the early return
+        fitPopover();
+      }, 200);
       return true;
     } catch (err) {
       logError('hand_popover_fit_failed', err);
@@ -735,7 +758,10 @@
         >{folded ? '🃏 Afficher' : '🃏 Replier'}</button>
 
         <button
-          onclick={() => { anchorPos = toggleHandAnchor(); }}
+          onclick={() => {
+            anchorPos = toggleHandAnchor();
+            logEvent('info', 'hand_anchor_toggle', { message: anchorPos });
+          }}
           use:tooltip={anchorPos === 'high' ? "Descendre le popover (position basse)" : "Remonter le popover (position haute)"}
           class="shrink-0 w-6 h-6 p-0 flex items-center justify-center rounded-full text-[12px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors"
         >{anchorPos === 'high' ? '⬇' : '⬆'}</button>

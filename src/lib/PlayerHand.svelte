@@ -303,8 +303,13 @@
 
   // The ⇅ button in the popover bar toggles the anchor preset: reopening is
   // the only way to move an OBR popover.
-  const offHandAnchor = onHandAnchorChange(() => {
-    if (popoverVisible) closePopover().then(openPopover);
+  const offHandAnchor = onHandAnchorChange((position) => {
+    if (!popoverVisible) return;
+    logEvent('info', 'hand_anchor_reopen', { message: position });
+    // give OBR time to tear the old popover down before opening the new one
+    closePopover()
+      .then(() => new Promise((r) => setTimeout(r, 200)))
+      .then(openPopover);
   });
 
   async function togglePopover() {

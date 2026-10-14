@@ -136,8 +136,13 @@
 
   // The ⇅ button in the popover bar toggles the anchor preset: reopening is
   // the only way to move an OBR popover.
-  const offHandAnchor = onHandAnchorChange(() => {
-    if (gmPopoverVisible) closeGmPopover().then(openGmPopover);
+  const offHandAnchor = onHandAnchorChange((position) => {
+    if (!gmPopoverVisible) return;
+    logEvent('info', 'hand_anchor_reopen', { message: position });
+    // give OBR time to tear the old popover down before opening the new one
+    closeGmPopover()
+      .then(() => new Promise((r) => setTimeout(r, 200)))
+      .then(openGmPopover);
   });
 
   async function toggleGmPopover() {
@@ -261,8 +266,13 @@
   }
 
   /** Ask every Cardenveil frame to log a layout/state snapshot (app_logs). */
+  let diagToast = $state('');
   async function runDiag() {
     await requestDiag();
+    diagToast = '🔍 Diagnostic envoyé ✓ (table app_logs)';
+    setTimeout(() => {
+      diagToast = '';
+    }, 3500);
   }
 
   // ── Per-player GM controls ───────────────────────────────────────────
@@ -1907,6 +1917,13 @@
           <ItemAddPopup onPick={addItemToViewingSheet} askQuantity />
         {/if}
       </div>
+    </div>
+  {/if}
+  {#if diagToast}
+    <div
+      class="fixed bottom-3 right-3 z-[300] px-3 py-2 rounded-lg bg-emerald-800 border border-emerald-400 text-white text-xs font-bold shadow-lg"
+    >
+      {diagToast}
     </div>
   {/if}
 </div>
