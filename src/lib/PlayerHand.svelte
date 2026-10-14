@@ -282,7 +282,8 @@
         url: `${window.location.origin}/hand.html?popoverId=${encodeURIComponent(POPOVER_ID)}`,
         width: 460,
         height: 172,
-        anchorPosition: { left: vw / 2, top: vh - 56 },
+        // 56 px above the OBR toolbar, raised another 100 px on request
+        anchorPosition: { left: vw / 2, top: vh - 156 },
         anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         disableClickAway: true,
