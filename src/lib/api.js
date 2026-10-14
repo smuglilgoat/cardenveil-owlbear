@@ -416,6 +416,39 @@ function timeoutSignal(ms) {
 
 const MAX_CLIENT_RETRIES = 3;
 
+// ─── Actor tokens ───────────────────────────────────────────────────────
+// The server mints a token on a player's first accepted write and returns it
+// once; every later write must echo it. Shared through localStorage so the
+// main panel, the hand fan and the compact sheet all present the same token.
+const TOKEN_PREFIX = 'cardenveil-token';
+
+function tokenKey(roomId, actorId) {
+  return `${TOKEN_PREFIX}:${roomId}:${actorId}`;
+}
+
+function getActorToken(roomId, actorId) {
+  try {
+    return localStorage.getItem(tokenKey(roomId, actorId));
+  } catch {
+    return null;
+  }
+}
+
+function setActorToken(roomId, actorId, token) {
+  try {
+    localStorage.setItem(tokenKey(roomId, actorId), token);
+  } catch {
+    /* private mode / storage disabled: the next write simply re-claims */
+  }
+}
+
+/** 128-bit id used by the server to ignore a retried action. */
+function newActionId() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 /**
  * Mark a dispatched action as confirmed. If Realtime already delivered that
  * version, drop the optimistic entry and re-render: replaying it on top of a
@@ -433,14 +466,28 @@ export async function dispatch(roomId, action) {
     ? replayPending(lastServerState)
     : (await fetchState(roomId)) ?? createInitialGameState();
 
+  const actorId = action.actorId ?? action.playerId;
+  const token = actorId ? getActorToken(roomId, actorId) : null;
+  const wireAction = {
+    ...action,
+    actorId,
+    actionId: newActionId(),
+    ...(token ? { token } : {}),
+  };
+
   const { state: rawOptimistic } = applyAction(currentState, action);
   const optimisticState = markOptimisticDraws(currentState, rawOptimistic, action);
   if (onStateCallback) {
     onStateCallback(optimisticState);
   }
 
-  const pendingEntry = { ...action, _dispatchTime: Date.now() };
+  const pendingEntry = { ...wireAction, _dispatchTime: Date.now() };
   pendingActions.push(pendingEntry);
+
+  /** Persist a first-claim token so the next write is accepted. */
+  function acceptToken(data) {
+    if (data?.token) setActorToken(roomId, actorId, data.token);
+  }
 
   (async () => {
     let lastError;
@@ -449,7 +496,7 @@ export async function dispatch(roomId, action) {
     for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
       try {
         const { data, error } = await supabase.functions.invoke('action', {
-          body: { roomId, action },
+          body: { roomId, action: wireAction },
           timeout: INVOKE_TIMEOUT_MS,
         });
 
@@ -460,6 +507,7 @@ export async function dispatch(roomId, action) {
         }
 
         if (data?.version != null) {
+          acceptToken(data);
           confirmPending(pendingEntry, data.version);
           return;
         }
@@ -484,14 +532,27 @@ export async function dispatch(roomId, action) {
           const res = await fetch('/api/state', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roomId, action }),
+            body: JSON.stringify({ roomId, action: wireAction }),
             signal: timeoutSignal(FETCH_TIMEOUT_MS),
           });
 
           if (res.ok) {
             const data = await res.json();
+            acceptToken(data);
             confirmPending(pendingEntry, data.version);
             return;
+          }
+
+          if (res.status === 401) {
+            // The actor could not prove its id (a stale token, or a client
+            // that lost localStorage). Retrying cannot help: the GM resets the
+            // room's records to let the client claim a fresh token.
+            const data = await res.json().catch(() => ({}));
+            logEvent('error', 'action_unauthorized', {
+              detail: { action: action?.type, roomId, reason: data?.reason },
+            });
+            lastError = new Error('Action refusée : identité du joueur non reconnue');
+            break;
           }
 
           if (res.status === 409) {

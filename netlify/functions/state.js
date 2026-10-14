@@ -1,5 +1,13 @@
 import supabase from './_supabaseClient.js';
 import { applyAction, hydrateState, dehydrateState, createInitialGameState } from './_gameLogic.js';
+import {
+  verifyActor,
+  mintToken,
+  hashToken,
+  rememberTokenHash,
+  isDuplicateAction,
+  rememberActionId,
+} from '../../src/lib/actionGuard.js';
 
 function corsHeaders() {
   return {
@@ -73,7 +81,30 @@ export default async (request) => {
         currentState = createInitialGameState();
       }
 
-      const { state: newState } = applyAction(currentState, action);
+      const actorId = action.actorId ?? action.playerId;
+
+      // A retried action must not be applied twice: when the Edge Function
+      // commits but its response is lost, the client re-sends it here.
+      if (isDuplicateAction(currentState, action.actionId)) {
+        return json({ version: currentVersion, state: existing?.state ?? dehydrateState(currentState) }, 200, {
+          'ETag': String(currentVersion),
+        });
+      }
+
+      const verdict = await verifyActor(currentState, action);
+      if (!verdict.ok) {
+        return json({ error: 'unauthorized', reason: verdict.reason }, 401);
+      }
+
+      const { state: appliedState } = applyAction(currentState, action);
+      // Mint for an identity that has no hash yet — including one claimed by
+      // this very action (INIT_GAME, REGISTER_PLAYER, CREATE_GM_CHAR). The GM
+      // and the GM character act without a player record, so this checks both.
+      const actorKnown = !!appliedState.players?.[actorId] || appliedState.gmId === actorId;
+      const minted = actorKnown && (appliedState.actorTokens?.[actorId] ?? []).length === 0 ? mintToken() : null;
+      let newState = rememberActionId(appliedState, action.actionId);
+      if (minted) newState = rememberTokenHash(newState, actorId, await hashToken(minted));
+
       const dehydrated = dehydrateState(newState);
       const newVersion = currentVersion + 1;
 
@@ -102,7 +133,7 @@ export default async (request) => {
         }, 409);
       }
 
-      return json({ version: newVersion, state: dehydrated }, 200, {
+      return json({ version: newVersion, state: dehydrated, token: minted ?? undefined }, 200, {
         'ETag': String(newVersion),
       });
     }

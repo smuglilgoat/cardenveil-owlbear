@@ -1,5 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { applyAction, hydrateState, dehydrateState, createInitialGameState } from './_gameLogic.ts'
+import {
+  verifyActor,
+  mintToken,
+  hashToken,
+  rememberTokenHash,
+  isDuplicateAction,
+  rememberActionId,
+} from './_actionGuard.js'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,7 +62,34 @@ Deno.serve(async (req) => {
         currentState = createInitialGameState()
       }
 
-      const { state: newState } = applyAction(currentState, action)
+      const actorId = action.actorId ?? action.playerId
+
+      // A retried action must not be applied twice: when this function commits
+      // but its response is lost, the client re-sends it to the Netlify fallback.
+      if (isDuplicateAction(currentState, action.actionId)) {
+        return new Response(
+          JSON.stringify({ version: currentVersion, state: existing?.state ?? dehydrateState(currentState) }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const verdict = await verifyActor(currentState, action)
+      if (!verdict.ok) {
+        return new Response(
+          JSON.stringify({ error: 'unauthorized', reason: verdict.reason }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { state: appliedState } = applyAction(currentState, action)
+      // Mint for an identity that has no hash yet — including one claimed by
+      // this very action (INIT_GAME, REGISTER_PLAYER, CREATE_GM_CHAR). The GM
+      // and the GM character act without a player record, so this checks both.
+      const actorKnown = !!appliedState.players?.[actorId] || appliedState.gmId === actorId
+      const minted = actorKnown && (appliedState.actorTokens?.[actorId] ?? []).length === 0 ? mintToken() : null
+      let newState = rememberActionId(appliedState, action.actionId)
+      if (minted) newState = rememberTokenHash(newState, actorId, await hashToken(minted))
+
       const dehydrated = dehydrateState(newState)
       const newVersion = currentVersion + 1
 
@@ -90,7 +125,7 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ version: newVersion, state: dehydrated }),
+        JSON.stringify({ version: newVersion, state: dehydrated, token: minted ?? undefined }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

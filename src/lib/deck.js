@@ -150,6 +150,8 @@ export function createInitialGameState() {
   return {
     discard:          [],
     pendingExchanges: [],
+    lastActionIds:    [],
+    actorTokens:      {},
     gmId:             null,
     gmCharacterId:    null,
     players:          {},
@@ -879,6 +881,8 @@ export function hydrateState(raw) {
   return {
     discard:          (raw.discard ?? []).map(toCard),
     pendingExchanges,
+    lastActionIds:    raw.lastActionIds ?? [],
+    actorTokens:      raw.actorTokens ?? {},
     gmId:             raw.gmId          ?? null,
     gmCharacterId:    raw.gmCharacterId ?? null,
     players,
@@ -906,6 +910,8 @@ export function dehydrateState(state) {
   return {
     discard:          state.discard.map(toId),
     pendingExchanges: state.pendingExchanges.map(ex => ({ ...ex, fromCard: ex.fromCard.id })),
+    lastActionIds:    state.lastActionIds ?? [],
+    actorTokens:      state.actorTokens ?? {},
     gmId:             state.gmId,
     gmCharacterId:    state.gmCharacterId,
     players,

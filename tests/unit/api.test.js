@@ -173,10 +173,42 @@ describe('API Client', () => {
       expect(mockSupabase.functions.invoke).toHaveBeenCalledWith(
         'action',
         expect.objectContaining({
-          body: { roomId: 'test-room', action },
+          body: {
+            roomId: 'test-room',
+            action: expect.objectContaining({
+              type: 'DRAW',
+              playerId: 'player-1',
+              actorId: 'player-1',
+              actionId: expect.any(String),
+            }),
+          },
           timeout: expect.any(Number),
         })
       );
+    });
+
+    it('stores a first-claim token and echoes it on the next dispatch', async () => {
+      localStorage.removeItem('cardenveil-token:test-room:player-1');
+      const token = 'a'.repeat(64);
+
+      mockSupabase.functions.invoke.mockResolvedValueOnce({
+        data: { version: 3, token },
+        error: null,
+      });
+      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+      await new Promise((r) => setTimeout(r, 0));
+      expect(localStorage.getItem('cardenveil-token:test-room:player-1')).toBe(token);
+
+      mockSupabase.functions.invoke.mockResolvedValueOnce({
+        data: { version: 4 },
+        error: null,
+      });
+      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+
+      const body = mockSupabase.functions.invoke.mock.calls.at(-1)[1].body;
+      expect(body.action.token).toBe(token);
+      // A retried action must be recognisable as the same action instance.
+      expect(body.action.actionId).toEqual(expect.any(String));
     });
 
     it('should fallback to Netlify on Supabase error', async () => {
