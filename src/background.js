@@ -31,13 +31,23 @@ async function anchorFor(isSelf) {
   }
 }
 
-function openDicePopover(params, anchor) {
+/** Height the popup needs: chips wrap every ~9 dice, the breakdown is a block. */
+function dicePopoverHeight(data) {
+  const dice = data.rolls?.length ?? (data.diceSpec ?? []).reduce((n, t) => n + (t.count ?? 0), 0) ?? 1;
+  const chipRows = Math.max(1, Math.ceil(Math.min(dice, 15) / 9));
+  const breakdown = (data.breakdown ?? []).length ? 90 : 0;
+  return Math.min(470, 350 + (chipRows - 1) * 34 + breakdown);
+}
+
+function openDicePopover(params, anchor, height) {
   return OBR.popover.open({
     id: DICE_POPOVER_ID,
     url: `${window.location.origin}/dice.html?${params.toString()}`,
-    // ~30% smaller than the original 520x440
+    // ~30% narrower than the original 520; the height follows the content:
+    // 3D canvas (180) + title/formula + one chip row + total = ~350, plus one
+    // row per extra line of chips and the attack breakdown when present.
     width: 364,
-    height: 308,
+    height,
     // click-away used to dismiss the popup before the dice settled: the popup
     // now only closes by itself (8 s) or through its own ✕ (after 3 s)
     disableClickAway: true,
@@ -91,7 +101,7 @@ OBR.onReady(() => {
       params.set('modifier', String(data.modifier ?? 0));
     }
     try {
-      await openDicePopover(params, await anchorFor(isSelf));
+      await openDicePopover(params, await anchorFor(isSelf), dicePopoverHeight(data));
       clearTimeout(closeTimer);
       closeTimer = setTimeout(() => OBR.popover.close(DICE_POPOVER_ID).catch((err) => logError('dice_popup_close_failed', err)), CLOSE_AFTER_MS);
       // Heavy-popup churn watch: one row every 10 opens, not one per roll.

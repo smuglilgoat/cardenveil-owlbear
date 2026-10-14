@@ -399,7 +399,7 @@ function makeHostCanvas(hostHeight) {
 // ─── Every client's seeded Rapier simulation ────────────────────────────
 async function startSim(spec, seed, modifier) {
   const meshDefs = meshDefsFor(spec);
-  const { host, canvas, width, height } = makeHostCanvas(210);
+  const { host, canvas, width, height } = makeHostCanvas(180);
   let stage;
   try {
     stage = buildStage(canvas, width, height, color);

@@ -375,6 +375,16 @@
     }
   });
 
+  // The <select> is bound to `attackWeaponName`, which starts empty: the browser
+  // then DISPLAYS the first option (possibly the off-hand weapon) while the roll
+  // uses the main hand. Seed the name from the weapon actually used, and
+  // re-seed whenever the selection no longer matches an equipped weapon.
+  $effect(() => {
+    if (!sheet) return;
+    const used = pickAttackWeapon(attackWeapons, attackWeaponName).weapon;
+    if (used?.nom && used.nom !== attackWeaponName) attackWeaponName = used.nom;
+  });
+
   // Self-healing selection: stale saved name falls back to main hand → first equipped.
   let selectedAttackWeapon = $derived(pickAttackWeapon(attackWeapons, attackWeaponName).weapon);
   let attackCalc = $derived(
