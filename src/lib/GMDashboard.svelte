@@ -41,6 +41,7 @@
   import { tooltip } from "./tooltip.js";
   import { logError, setLogContext } from "./appLog.js";
   import { requestDiag } from "./diag.js";
+  import { handAnchorTop, onHandAnchorChange } from "./handAnchor.js";
 
   let { gameState, party, myId, onAction } = $props();
 
@@ -116,7 +117,7 @@
         width: 460,
         height: 172,
         // 56 px above the OBR toolbar, raised another 100 px on request
-        anchorPosition: { left: vw / 2, top: vh - 156 },
+        anchorPosition: { left: vw / 2, top: handAnchorTop(vh) },
         anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         disableClickAway: true,
@@ -133,6 +134,12 @@
     gmPopoverVisible = false;
   }
 
+  // The ⇅ button in the popover bar toggles the anchor preset: reopening is
+  // the only way to move an OBR popover.
+  const offHandAnchor = onHandAnchorChange(() => {
+    if (gmPopoverVisible) closeGmPopover().then(openGmPopover);
+  });
+
   async function toggleGmPopover() {
     if (gmPopoverVisible) {
       await closeGmPopover();
@@ -143,6 +150,7 @@
 
   onDestroy(async () => {
     if (gmPopoverVisible) await OBR.popover.close(GM_POPOVER_ID).catch(() => {});
+    offHandAnchor();
   });
 
   // All exchanges between regular players (neither side is the GM char)

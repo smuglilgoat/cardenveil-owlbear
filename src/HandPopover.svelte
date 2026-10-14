@@ -6,6 +6,7 @@
   import { tooltip } from "./lib/tooltip.js";
   import { logEvent, logError, setLogContext } from "./lib/appLog.js";
   import { collectDiag, initDiag } from "./lib/diag.js";
+  import { getHandAnchorPosition, toggleHandAnchor } from "./lib/handAnchor.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY, STAT_COLORS } from "./lib/characterSheet.js";
   import HandModal from "./lib/HandModal.svelte";
 
@@ -290,6 +291,7 @@
 
   let acceptingExchange = $state(null);
   let tokensOpen = $state(false); // the 🎟 Tokens modal is open
+  let anchorPos = $state(getHandAnchorPosition()); // 'low' | 'high' (⇅ button)
 
   let interactionFrozen = $derived(
     (player?.pendingHalfling != null) ||
@@ -732,6 +734,12 @@
             : 'bg-[#213547] border-gray-500 text-gray-200 hover:text-white'}"
         >{folded ? '🃏 Afficher' : '🃏 Replier'}</button>
 
+        <button
+          onclick={() => { anchorPos = toggleHandAnchor(); }}
+          use:tooltip={anchorPos === 'high' ? "Descendre le popover (position basse)" : "Remonter le popover (position haute)"}
+          class="shrink-0 w-6 h-6 p-0 flex items-center justify-center rounded-full text-[12px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors"
+        >{anchorPos === 'high' ? '⬇' : '⬆'}</button>
+
         {#if pickHint}
           <div
             class="shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-semibold text-white"
@@ -744,12 +752,6 @@
               class="shrink-0 opacity-60 hover:opacity-100">✕</button
             >
           </div>
-        {:else}
-          <button
-            onclick={toggleCardScheme}
-            title={cardScheme === 'classic' ? 'Passer aux couleurs par famille (♥ rouge, ♦ or, ♣ vert, ♠ gris)' : "Repasser au schéma classique rouge/noir"}
-            class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors border bg-[#213547] border-gray-500 text-gray-200 hover:text-white"
-          >🎨 Couleur</button>
         {/if}
 
         {#if outgoingExchange}
@@ -784,6 +786,12 @@
             <span class="text-purple-300 text-[9px] font-bold">♠</span>
           {/if}
         </button>
+
+        <button
+          onclick={toggleCardScheme}
+          title={cardScheme === 'classic' ? 'Passer aux couleurs par famille (♥ rouge, ♦ or, ♣ vert, ♠ gris)' : "Repasser au schéma classique rouge/noir"}
+          class="shrink-0 w-6 h-6 p-0 flex items-center justify-center rounded-full text-[12px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors"
+        >🎨</button>
 
         {#if player.race === 'sporelin' && player.hand.length > 0}
           <button

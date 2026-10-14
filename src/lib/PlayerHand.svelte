@@ -6,6 +6,7 @@
   import { GM_CHAR_ID, sortCards, FATIGUE_PENALTY, handCap, RACES, SUITS_INFO } from "./deck.js";
   import { tooltip } from "./tooltip.js";
   import { logEvent } from "./appLog.js";
+  import { handAnchorTop, onHandAnchorChange } from "./handAnchor.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY, STAT_COLORS } from "./characterSheet.js";
 
   let { gameState, myId, myName, party, onAction } = $props();
@@ -283,7 +284,7 @@
         width: 460,
         height: 172,
         // 56 px above the OBR toolbar, raised another 100 px on request
-        anchorPosition: { left: vw / 2, top: vh - 156 },
+        anchorPosition: { left: vw / 2, top: handAnchorTop(vh) },
         anchorOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         transformOrigin: { horizontal: "CENTER", vertical: "BOTTOM" },
         disableClickAway: true,
@@ -299,6 +300,12 @@
     await OBR.popover.close(POPOVER_ID);
     popoverVisible = false;
   }
+
+  // The ⇅ button in the popover bar toggles the anchor preset: reopening is
+  // the only way to move an OBR popover.
+  const offHandAnchor = onHandAnchorChange(() => {
+    if (popoverVisible) closePopover().then(openPopover);
+  });
 
   async function togglePopover() {
     if (popoverVisible) {
@@ -326,6 +333,7 @@
 
   onDestroy(async () => {
     if (popoverVisible) await OBR.popover.close(POPOVER_ID).catch(() => {});
+    offHandAnchor();
     offCardScheme();
     window.removeEventListener('storage', onCardSchemeStorage);
   });
