@@ -26,6 +26,14 @@ dist-ssr
 # Local Netlify folder
 .netlify
 
+# Agent session dumps — never commit these (root only, historical ones were purged from HEAD)
+/pi-session-*.html
+/session-*.md
+
+# Oversized local fixtures — the sheet export/zip used for manual import testing
+/docs/*.rpsheet.json
+/docs/*.zip
+
 # Supabase CLI local state
 supabase/.temp/
 docs/dice/
