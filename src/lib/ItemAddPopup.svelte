@@ -148,6 +148,10 @@
             <span class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">PROPRIÉTÉS</span>
             <input class={INPUT} bind:value={draft.proprietes} placeholder="Finesse, Légère, Garde" />
           </label>
+          <label class="block">
+            <span class="block text-[9px] font-bold text-[#9ca3af] mb-0.5">NOTES</span>
+            <textarea rows="2" class={INPUT} bind:value={draft.notes}></textarea>
+          </label>
         {:else}
           <div class="flex gap-1.5">
             <label class="flex-1 min-w-0">
