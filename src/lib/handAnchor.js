@@ -17,7 +17,7 @@ const SIZE_KEY = 'cardenveil-hand-popover-size';
 const CHANNEL = 'cardenveil-hand-anchor';
 
 /** Distance in px between the popover's bottom edge and the viewport bottom. */
-export const HAND_ANCHOR_OFFSETS = { low: 36, high: 136 };
+export const HAND_ANCHOR_OFFSETS = { low: 16, high: 116 };
 
 /** @returns {'low'|'high'} */
 export function getHandAnchorPosition() {
