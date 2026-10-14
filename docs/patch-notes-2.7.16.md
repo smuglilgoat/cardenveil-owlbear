@@ -1,0 +1,53 @@
+# Cardenveil 2.7.16 — notes de version
+
+## Ajout d'objet / d'arme : formulaire avant ajout
+
+- Cliquer un modèle du catalogue (ou « objet vierge » / « arme vierge ») ouvre
+  maintenant un **formulaire prérempli** avec les valeurs du modèle : nom, icône,
+  dé, dégâts, bonus, propriétés pour une arme ; nom, icône, type, quantité,
+  dégâts, attributs, description pour un objet. On modifie, puis « ＋ Ajouter ».
+- **Correctif** : un objet ou une arme vierge naissait sans nom, or le SAC
+  n'affiche que les entrées nommées — il disparaissait donc du sac. Le
+  formulaire préremplit « Nouvel objet » / « Nouvelle arme » et exige un nom.
+- Les valeurs par défaut viennent du catalogue (`itemFromTemplate` /
+  `weaponFromTemplate`), donc le formulaire et la création ne peuvent plus
+  diverger.
+
+## Fiche compacte
+
+- Le panneau d'attaque (⚔️) démarre **sur l'arme en main principale** : le
+  choix précédent n'est plus restauré au rechargement (les curseurs d'avantage /
+  engagement le sont toujours).
+
+## SAC : équipement cliquable
+
+- Les armes et les armures/équipements non équipés du sac sont cliquables et
+  proposent : **⚔️ Équiper** (main principale pour une arme — une arme à deux
+  mains libère la main secondaire — ou l'emplacement pour une armure),
+  **🎁 Donner à un allié** (transfert direct vers la fiche du joueur choisi,
+  sans proposition ni acceptation) et **🗑 Jeter** (suppression).
+
+## Tableau MJ
+
+- **⇩ Importer** : le MJ peut importer une fiche `.json` ou `.zip` **pour un
+  joueur** depuis la fenêtre de fiche (même chemin que l'importeur du joueur,
+  avec la race poussée dans l'état de jeu et les tokens remis aux mods + 1).
+- Le **sélecteur de race est retiré** du tableau : la race vit dans la fiche
+  (ÉDITION → IDENTITÉ, ou import) et s'affiche en lecture seule — plus de risque
+  de désynchronisation fiche / partie.
+
+## Dés
+
+- Le popup de dés reste **8 s** au lieu de 6.
+- Il n'est plus fermable par un **clic à l'extérieur** (les joueurs le
+  fermaient avant de voir le résultat) : un bouton **✕** apparaît après 3 s, et
+  la fermeture automatique reste en place.
+- Popup **~30 % plus petit** : 364 × 308 au lieu de 520 × 440.
+
+## Khajeet
+
+- Les **griffes** ne sont plus un équipement ajouté à la fiche : elles sont une
+  **option d'attaque intégrée** à la fiche compacte (🐾 Griffes — 1d6 Finesse),
+  disponible en plus des armes équipées et utilisée par défaut quand aucune arme
+  n'est équipée. Les anciennes griffes « stock » sont retirées automatiquement
+  des fiches à l'ouverture (une griffe renommée ou modifiée est conservée).

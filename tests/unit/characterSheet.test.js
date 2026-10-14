@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, ensureRacialWeapon, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, stripStockGriffe, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
 function mockUpsertChain(result) {
@@ -839,31 +839,32 @@ describe('Character Sheet dice helpers', () => {
     });
   });
 
-  describe('ensureRacialWeapon', () => {
-    it('grants the griffe on import even when the sheet says "Khajit"', async () => {
+  describe('stripStockGriffe', () => {
+    const stock = { nom: 'Griffe', de: '1d6', degats: 'tranchant', proprietes: 'Finesse, Légère, Naturelle', icon: '🐾', equipped: true, hand: 'main' };
+
+    it('does not add any racial weapon on import (the claws are a built-in attack option)', async () => {
       const upsert = mockUpsertChain({ data: {}, error: null }).upsert;
       await importCharacterSheet('p1', 'r1', JSON.stringify({ identity: { nom: 'Khajit', race: 'Khajit' }, stats: {}, weapons: [] }));
       const saved = upsert.mock.calls[0][0];
+      // the free-text race is still canonized…
       expect(saved.data.identity.race).toBe('khajeet');
-      expect(saved.data.weapons.map((w) => w.nom)).toEqual(['Griffe']);
-      expect(saved.data.weapons[0].equipped).toBe(true);
+      // …but nothing lands in the weapons list
+      expect(saved.data.weapons).toEqual([]);
     });
 
-    it('grants the Khajeet griffe once, equipped when both hands are free', () => {
-      const base = { weapons: [], identity: { race: 'khajeet' } };
-      const granted = ensureRacialWeapon(base, 'khajeet');
-      expect(granted.weapons).toHaveLength(1);
-      expect(granted.weapons[0]).toMatchObject({ nom: 'Griffe', de: '1d6', icon: '🐾', equipped: true, hand: 'main' });
-      // idempotent + no re-equip on a second call
-      expect(ensureRacialWeapon(granted, 'khajeet')).toBe(granted);
-      // leaves both hands alone when the character already wields something
-      const armed = { weapons: [{ nom: 'Dague', de: '1d4', equipped: true, hand: 'main' }] };
-      const withClaws = ensureRacialWeapon(armed, 'Khajeet');
-      expect(withClaws.weapons.map((w) => w.nom)).toEqual(['Griffe', 'Dague']);
-      expect(withClaws.weapons[0].equipped).toBe(false);
-      // other races get nothing
-      expect(ensureRacialWeapon(base, 'gobelin').weapons).toHaveLength(0);
-      expect(ensureRacialWeapon(base, '')).toBe(base);
+    it('removes only the untouched stock griffe and keeps edited weapons', () => {
+      const sheet = {
+        weapons: [
+          stock,
+          { ...stock, nom: 'Griffes de Khajiit' }, // renamed → kept
+          { nom: 'Dague', de: '1d4', proprietes: 'Finesse' },
+        ],
+      };
+      const next = stripStockGriffe(sheet);
+      expect(next.weapons.map((w) => w.nom)).toEqual(['Griffes de Khajiit', 'Dague']);
+      // idempotent, and untouched sheets come back by reference
+      expect(stripStockGriffe(next)).toBe(next);
+      expect(stripStockGriffe({ weapons: [{ nom: 'Dague' }] })).toEqual({ weapons: [{ nom: 'Dague' }] });
     });
   });
 

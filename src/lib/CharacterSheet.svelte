@@ -23,6 +23,7 @@
     normalizeItemType,
     syncSlotsFromItems,
     slotDataFromItem,
+    SLOT_FIELDS,
     SUIT_LABELS,
     SUIT_SYMBOLS,
     unequipHand,
@@ -46,7 +47,7 @@
     isImageUrl,
     withItemFromTemplate,
     withWeaponFromTemplate,
-    ensureRacialWeapon,
+    stripStockGriffe,
     itemTypeColor,
     ITEM_TYPE_OPTIONS,
     raceLabel,
@@ -163,10 +164,10 @@
   let sheetPopoverOpen = $state(false);
 
   /**
-   * Adopt the race text on load + grant the racial default weapon (Khajeet
-   * griffes). Self-heal: covers sheets imported before the rule existed, free
-   * text spellings ("Khajit"), and a race set from the GM dashboard while no
-   * sheet was there yet. One write, then idempotent.
+   * Adopt the race text on load and drop the stock Khajeet griffe the game used
+   * to add as equipment (the claws are a built-in attack option now). Self-heal:
+   * covers free-text spellings ("Khajit") and sheets imported before this rule.
+   * One write, then idempotent.
    */
   function applyRaceDefaults(loaded) {
     if (!loaded) return loaded;
@@ -177,7 +178,7 @@
     const base = race && race !== loaded.identity?.race
       ? { ...loaded, identity: { ...(loaded.identity ?? {}), race } }
       : loaded;
-    const next = ensureRacialWeapon(base, race);
+    const next = stripStockGriffe(base);
     if (next !== loaded) saveSheet(next);
     return next;
   }
@@ -328,10 +329,7 @@
     isSaving = true;
     try {
       applyMasteryText(editSheet);
-      editSheet = ensureRacialWeapon(
-        syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(editSheet))),
-        editSheet.identity?.race
-      );
+      editSheet = syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(editSheet)));
       await saveCharacterSheet(playerId, roomId, editSheet);
       sheet = editSheet;
       editSheet = null;
@@ -585,13 +583,14 @@
   // ─── Template add-buttons (ÉDITION INVENTAIRE) ──
   // templateName '' = blank entry; the helpers live in characterSheet.js so the
   // in-sheet add popup and the GM sheet modal share the exact same prefill.
-  /** @param {string} templateName @param {number} [quantity] */
-  function addInventoryItem(templateName, quantity) {
-    editSheet = withItemFromTemplate(editSheet, templateName, quantity);
+  /** @param {string} templateName @param {number} [quantity] @param {Object} [draft] */
+  function addInventoryItem(templateName, quantity, draft) {
+    editSheet = withItemFromTemplate(editSheet, templateName, quantity, draft);
   }
 
-  function addWeaponFromTemplate(templateName) {
-    editSheet = withWeaponFromTemplate(editSheet, templateName);
+  /** @param {string} templateName @param {Object} [draft] */
+  function addWeaponFromTemplate(templateName, draft) {
+    editSheet = withWeaponFromTemplate(editSheet, templateName, draft);
   }
 
   // ─── Add popup: the SAC view and both ÉDITION sections share it ──
@@ -602,22 +601,106 @@
     itemAddTarget = target;
   }
 
-  /** @param {string|null} name @param {boolean} isWeapon @param {number} [quantity] */
-  function addFromPopup(name, isWeapon, quantity) {
+  /** @param {{name: string, isWeapon: boolean, quantity?: number, draft?: Object}|null} payload */
+  function addFromPopup(payload) {
     const target = itemAddTarget;
     itemAddTarget = null;
-    if (name == null) return; // dismissed
+    if (!payload) return; // dismissed
+    const { name, isWeapon, quantity, draft } = payload;
     if (target === 'sac') {
-      saveSheet(isWeapon ? withWeaponFromTemplate(sheet, name) : withItemFromTemplate(sheet, name, quantity));
+      saveSheet(
+        isWeapon
+          ? withWeaponFromTemplate(sheet, name, draft)
+          : withItemFromTemplate(sheet, name, quantity, draft)
+      );
       return;
     }
-    if (isWeapon) addWeaponFromTemplate(name);
-    else addInventoryItem(name, quantity);
+    if (isWeapon) addWeaponFromTemplate(name, draft);
+    else addInventoryItem(name, quantity, draft);
   }
 
   function saveSheet(next) {
     sheet = next;
     saveCharacterSheet(playerId, roomId, next).catch(console.error);
+  }
+
+  // ─── SAC equipment actions: armes + armures/équipement non équipés ──
+  // Click a chip → Équiper / Donner à un allié / Jeter (view mode only).
+  let gearAction = $state(/** @type {{kind: 'weapon'|'item', weapon?: Object, item?: Object}|null} */ (null));
+  let gearStep = $state('actions'); // 'actions' | 'ally'
+
+  /** Every other player in the room (GM character included), for the give step. */
+  let allyIds = $derived(
+    gameState ? Object.keys(gameState.players).filter((id) => id !== playerId) : []
+  );
+
+  function allyName(id) {
+    return gameState?.players?.[id]?.name ?? id.slice(0, 8);
+  }
+
+  function openGearAction(action) {
+    gearAction = action;
+    gearStep = 'actions';
+  }
+
+  function closeGearAction() {
+    gearAction = null;
+    gearStep = 'actions';
+  }
+
+  /** Can this entry be equipped? Weapons always, items only with a known slot. */
+  function canEquipAction(action) {
+    if (!action) return false;
+    if (action.kind === 'weapon') return true;
+    return Boolean(action.item?.slot && SLOT_FIELDS[action.item.slot]);
+  }
+
+  /** Equip into the main hand (two-handed weapons clear the off hand) or the item's slot. */
+  function equipFromSac(action) {
+    closeGearAction();
+    if (!action) return;
+    if (action.kind === 'weapon') {
+      saveSheet(equipWeapon(sheet, action.weapon, 'main'));
+      return;
+    }
+    const slot = action.item?.slot;
+    if (slot && SLOT_FIELDS[slot]) applySlotItem(slot, action.item);
+  }
+
+  function throwFromSac(action) {
+    closeGearAction();
+    if (!action) return;
+    if (action.kind === 'weapon') {
+      saveSheet({ ...sheet, weapons: (sheet?.weapons ?? []).filter((w) => w !== action.weapon) });
+      return;
+    }
+    saveSheet({ ...sheet, inventoryItems: (sheet?.inventoryItems ?? []).filter((i) => i !== action.item) });
+  }
+
+  /**
+   * Direct transfer to an ally's sheet: same idea as the card exchange but with
+   * no proposal/accept step — the entry lands in their sheet (realtime) and
+   * leaves ours.
+   */
+  async function giveToAlly(action, targetId) {
+    closeGearAction();
+    if (!action) return;
+    try {
+      const row = await fetchCharacterSheet(targetId, roomId);
+      const target = row?.data ?? createEmptyCharacterSheet();
+      const next =
+        action.kind === 'weapon'
+          ? { ...target, weapons: [{ ...action.weapon, equipped: false, hand: null }, ...(target.weapons ?? [])] }
+          : { ...target, inventoryItems: [action.item, ...(target.inventoryItems ?? [])] };
+      await saveCharacterSheet(targetId, roomId, next);
+      if (action.kind === 'weapon') {
+        saveSheet({ ...sheet, weapons: (sheet?.weapons ?? []).filter((w) => w !== action.weapon) });
+      } else {
+        saveSheet({ ...sheet, inventoryItems: (sheet?.inventoryItems ?? []).filter((i) => i !== action.item) });
+      }
+    } catch (err) {
+      alert('Erreur lors du transfert : ' + err.message);
+    }
   }
 
   // ─── Consume a consumable from the SAC view (−1 quantity) ──
@@ -1346,8 +1429,9 @@
                     (i) => i?.type === 'Arme' && (i?.weaponName || i?.name) === weapon.nom
                   )?.icon}
                   <div
-                    use:tooltip={stripHtml(weapon.notes) || weapon.nom}
-                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 cursor-help hover:bg-[#374151] transition-colors"
+                    use:tooltip={`${stripHtml(weapon.notes) || weapon.nom} — cliquer : équiper, donner, jeter`}
+                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 cursor-pointer ring-1 ring-transparent hover:ring-indigo-500 hover:bg-[#374151] transition-colors"
+                    onclick={() => openGearAction({ kind: 'weapon', weapon })}
                     style="border-left-color: {itemTypeColor('Arme')}"
                   >
                     {#if wIcon && isImageUrl(wIcon)}
@@ -1364,10 +1448,11 @@
                 {#each [...bagItems, ...unequippedGear] as item}
                   {@const consumable = !isEditing && item?.type === 'Consommable' && toNumber(item?.quantite ?? item?.quantity) !== 0}
                   {@const depleted = item?.type === 'Consommable' && toNumber(item?.quantite ?? item?.quantity) === 0}
+                  {@const gear = !isEditing && ['Armure', 'Équipement'].includes(item?.type)}
                   <div
-                    use:tooltip={itemNotes(item) !== '—' ? itemNotes(item) : item?.name}
-                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 {consumable ? 'cursor-pointer ring-1 ring-transparent hover:ring-[#4ade80]' : depleted ? 'cursor-not-allowed opacity-40 grayscale' : 'cursor-help'} hover:bg-[#374151] transition-colors"
-                    onclick={consumable ? () => (consumeTarget = item) : undefined}
+                    use:tooltip={`${itemNotes(item) !== '—' ? itemNotes(item) : item?.name}${gear ? ' — cliquer : équiper, donner, jeter' : ''}`}
+                    class="flex items-center gap-1.5 bg-[#111827] rounded-md pl-1.5 pr-2 py-1 border-l-2 {consumable ? 'cursor-pointer ring-1 ring-transparent hover:ring-[#4ade80]' : gear ? 'cursor-pointer ring-1 ring-transparent hover:ring-indigo-500' : depleted ? 'cursor-not-allowed opacity-40 grayscale' : 'cursor-help'} hover:bg-[#374151] transition-colors"
+                    onclick={consumable ? () => (consumeTarget = item) : gear ? () => openGearAction({ kind: 'item', item }) : undefined}
                     style="border-left-color: {itemTypeColor(item?.type)}"
                   >
                     {#if item?.icon && isImageUrl(item.icon)}
@@ -2378,7 +2463,75 @@
 
   <!-- Add popup: SAC view + ÉDITION INVENTAIRE / ARMES -->
   {#if itemAddTarget}
-    <ItemAddPopup mode={itemAddTarget === 'sac' ? 'all' : itemAddTarget} askQuantity onPick={addFromPopup} />
+    <ItemAddPopup mode={itemAddTarget === 'sac' ? 'all' : itemAddTarget} onPick={addFromPopup} />
+  {/if}
+
+  <!-- SAC equipment actions: Équiper / Donner / Jeter -->
+  {#if gearAction}
+    {@const aIcon = gearAction.kind === 'weapon' ? gearAction.weapon?.icon : gearAction.item?.icon}
+    {@const aName = gearAction.kind === 'weapon' ? gearAction.weapon?.nom : gearAction.item?.name}
+    <div class="fixed inset-0 bg-black/75 flex items-center justify-center z-[60]">
+      <div class="bg-[#1f2937] border border-[#374151] rounded-lg p-5 w-[92%] max-w-sm">
+        <div class="flex items-center gap-2.5 mb-3">
+          {#if aIcon && isImageUrl(aIcon)}
+            <img src={aIcon} alt="" class="w-8 h-8 rounded object-cover shrink-0" />
+          {:else if aIcon}
+            <span class="text-xl leading-none shrink-0">{aIcon}</span>
+          {:else}
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background: {itemTypeColor(gearAction.kind === 'weapon' ? 'Arme' : gearAction.item?.type)}"></span>
+          {/if}
+          <div class="min-w-0">
+            <div class="text-[15px] font-bold truncate">{aName || 'Sans nom'}</div>
+            <div class="text-[11px] text-[#9ca3af]">
+              {gearAction.kind === 'weapon'
+                ? `Arme${gearAction.weapon?.de ? ` · ${gearAction.weapon.de}` : ''}`
+                : (gearAction.item?.type || 'Objet') + (gearAction.item?.slot ? ` · ${gearAction.item.slot}` : '')}
+            </div>
+          </div>
+        </div>
+
+        {#if gearStep === 'ally'}
+          <div class="text-[11px] text-[#9ca3af] mb-2">Donner à :</div>
+          <div class="flex flex-wrap gap-1.5 mb-4">
+            {#each allyIds as id}
+              <button
+                onclick={() => giveToAlly(gearAction, id)}
+                class="px-2.5 py-1 bg-[#111827] hover:bg-[#374151] border border-[#374151] rounded-lg text-[11px] font-semibold text-gray-100 transition-colors"
+              >{allyName(id)}</button>
+            {/each}
+            {#if allyIds.length === 0}
+              <p class="text-[11px] text-gray-500 italic">Aucun autre joueur dans la partie.</p>
+            {/if}
+          </div>
+          <button
+            onclick={() => (gearStep = 'actions')}
+            class="w-full px-4 py-2 bg-[#111827] hover:bg-[#374151] text-[13px] font-semibold rounded-lg transition-colors"
+          >← Retour</button>
+        {:else}
+          <div class="flex flex-col gap-2">
+            <button
+              onclick={() => equipFromSac(gearAction)}
+              disabled={!canEquipAction(gearAction)}
+              title={canEquipAction(gearAction) ? 'Équiper (main principale / emplacement)' : "Cet objet n'a pas d'emplacement"}
+              class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-[13px] font-bold rounded-lg transition-colors"
+            >⚔️ Équiper</button>
+            <button
+              onclick={() => (gearStep = 'ally')}
+              disabled={allyIds.length === 0}
+              class="px-4 py-2 bg-[#111827] hover:bg-[#374151] disabled:opacity-40 disabled:cursor-not-allowed text-[13px] font-semibold rounded-lg transition-colors"
+            >🎁 Donner à un allié</button>
+            <button
+              onclick={() => throwFromSac(gearAction)}
+              class="px-4 py-2 bg-red-950 hover:bg-red-900 text-red-200 text-[13px] font-semibold rounded-lg transition-colors"
+            >🗑 Jeter</button>
+            <button
+              onclick={closeGearAction}
+              class="px-4 py-2 bg-[#111827] hover:bg-[#374151] text-[13px] font-semibold rounded-lg transition-colors"
+            >Annuler</button>
+          </div>
+        {/if}
+      </div>
+    </div>
   {/if}
 
   <!-- Delete Confirmation Modal -->

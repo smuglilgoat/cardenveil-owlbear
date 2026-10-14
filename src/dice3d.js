@@ -5,10 +5,27 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { groupDiceByRoll, meshDefsFor, rollValueForGroup, SIDES_TO_TYPE, MAX_VISIBLE_DICE, visibleRollChip } from './lib/diceRoll.js';
-import { reportRollResult } from './lib/rollBroadcast.js';
+import { reportRollResult, DICE_POPOVER_ID } from './lib/rollBroadcast.js';
+import OBR from '@owlbear-rodeo/sdk';
 import { initLogging, logEvent, logError } from './lib/appLog.js';
 
 initLogging('dice');
+
+// The popover ignores click-away (a roll must not be dismissed before it can be
+// read): it closes by itself after 8 s, or through this ✕ which only appears
+// once the dice have settled.
+const CLOSE_BUTTON_AFTER_MS = 3000;
+const closeButton = document.getElementById('dice-close');
+if (closeButton && OBR.isAvailable) {
+  setTimeout(() => {
+    closeButton.hidden = false;
+  }, CLOSE_BUTTON_AFTER_MS);
+  closeButton.addEventListener('click', () => {
+    OBR.popover
+      .close(DICE_POPOVER_ID)
+      .catch((err) => logEvent('warn', 'dice_popup_close_failed', { message: err?.message ?? String(err) }));
+  });
+}
 
 const params = new URLSearchParams(location.search);
 const label = params.get('label') || 'Lancer de dés';

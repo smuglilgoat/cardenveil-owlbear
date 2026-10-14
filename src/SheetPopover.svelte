@@ -14,6 +14,7 @@
     rollDice,
     saveCharacterSheet,
     raceLabel,
+    normalizeRaceName,
     skillModifier,
     skillRollModifier,
     computeDerived,
@@ -328,7 +329,33 @@
   let capCount = $derived(
     Math.max(1, Math.min(999, Math.round(capMult * capModValue)))
   );
-  let equippedWeapons = $derived(pickAttackWeapon(sheet?.weapons ?? []).equipped);
+  /**
+   * Racial natural weapons: always available for the attack roll without being
+   * an inventory entry (the Khajeet's claws). Marked equipped + main hand so
+   * pickAttackWeapon treats them like a weapon; they are appended LAST so an
+   * actually equipped main-hand weapon stays the default and the claws are the
+   * fallback when nothing is equipped.
+   */
+  const RACIAL_ATTACKS = /** @type {{[key: string]: Object}} */ ({
+    khajeet: {
+      nom: 'Griffes',
+      de: '1d6',
+      degats: 'tranchant',
+      proprietes: 'Finesse, Légère, Naturelle',
+      icon: '🐾',
+      bonus: '',
+      equipped: true,
+      hand: 'main',
+      racial: true,
+    },
+  });
+
+  let attackWeapons = $derived.by(() => {
+    const weapons = sheet?.weapons ?? [];
+    const racial = RACIAL_ATTACKS[String(normalizeRaceName(sheet?.identity?.race) ?? '')];
+    return racial ? [...weapons, racial] : weapons;
+  });
+  let equippedWeapons = $derived(pickAttackWeapon(attackWeapons).equipped);
 
   // restore last-used settings once the sheet is loaded
   let attackSettingsLoaded = false;
@@ -339,7 +366,9 @@
         const saved = JSON.parse(localStorage.getItem(`cardenveil-attack-${playerId}`) || '{}');
         if (typeof saved.adv === 'number') attackAdv = Math.max(-7, Math.min(7, saved.adv));
         if (typeof saved.engagement === 'number') attackEngagement = Math.max(0, Math.min(7, saved.engagement));
-        if (typeof saved.weapon === 'string') attackWeaponName = saved.weapon;
+        // The weapon is deliberately NOT restored: the panel always opens on the
+        // main-hand weapon (pickAttackWeapon falls back to it) and the choice
+        // made during the session stays until the popover is reloaded.
       } catch {
         /* corrupt settings — defaults */
       }
@@ -347,7 +376,7 @@
   });
 
   // Self-healing selection: stale saved name falls back to main hand → first equipped.
-  let selectedAttackWeapon = $derived(pickAttackWeapon(sheet?.weapons ?? [], attackWeaponName).weapon);
+  let selectedAttackWeapon = $derived(pickAttackWeapon(attackWeapons, attackWeaponName).weapon);
   let attackCalc = $derived(
     selectedAttackWeapon
       ? attackPreview(selectedAttackWeapon, sheet?.stats ?? {}, { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race })
@@ -450,7 +479,7 @@
     try {
       localStorage.setItem(
         `cardenveil-attack-${playerId}`,
-        JSON.stringify({ weapon: attackWeaponName, adv: attackAdv, engagement: attackEngagement })
+        JSON.stringify({ adv: attackAdv, engagement: attackEngagement })
       );
     } catch {
       /* storage unavailable */

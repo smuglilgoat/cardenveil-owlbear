@@ -78,20 +78,25 @@
       @keyframes pop {
         to { opacity: 1; transform: scale(1); }
       }
-      .hint { font-size: 10px; color: #6b7280; margin-top: 6px; }
-      .breakdown {
-        font-size: 10px;
-        color: #9ca3af;
-        margin-top: 8px;
-        white-space: pre-wrap;
-        text-align: left;
-        background: #111827;
-        border: 1px solid #374151;
-        border-radius: 6px;
-        padding: 6px 8px;
-        max-height: 120px;
-        overflow-y: auto;
-      }
+      .dice-close {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      border: 1px solid #4b5563;
+      background: #1f2937;
+      color: #9ca3af;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .dice-close:hover { color: #fff; border-color: #6b7280; }
       .error { color: #f87171; font-size: 13px; margin-top: 20px; }
       /* Max-value roll: gold flash */
       .die.crit {
@@ -150,7 +155,7 @@
       <div class="formula" id="formula"></div>
       <div class="dice-row" id="dice-row"></div>
       <div class="total" id="total"></div>
-      <div class="hint">Clic à l'extérieur pour fermer</div>
+      <button id="dice-close" class="dice-close" hidden title="Fermer">✕</button>
     </div>
     <script type="module" src="/src/dice3d.js"></script>
   </body>

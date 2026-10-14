@@ -35,10 +35,12 @@
     sanitizeHtml,
     withItemFromTemplate,
     withWeaponFromTemplate,
-    ensureRacialWeapon
+    importCharacterSheet,
+    tokensFromStats
   } from "./characterSheet.js";
   import ItemAddPopup from "./ItemAddPopup.svelte";
   import { tooltip } from "./tooltip.js";
+  import { importSheetArchive } from "./sheetAssets.js";
   import { logEvent, logError, setLogContext } from "./appLog.js";
   import { requestDiag } from "./diag.js";
   import {
@@ -311,33 +313,6 @@
     onAction({ type: 'SET_FATIGUE', playerId: myId, targetId: playerId, level });
   }
 
-  function setRace(playerId, race) {
-    onAction({ type: 'SET_RACE', playerId: myId, targetId: playerId, race: race || null });
-    // The sheet is what the attack engine reads (Gobelin crits, Khajeet
-    // griffes): keep it in step with the game-state race.
-    syncRaceToSheet(playerId, race);
-  }
-
-  /** Write the race into the player's sheet + grant its default weapon. */
-  async function syncRaceToSheet(playerId, race) {
-    try {
-      const row = await fetchCharacterSheet(playerId, OBR.room.id);
-      if (!row?.data) return; // no sheet yet — don't create one just for the race
-      const sheet = row.data;
-      const raceId = normalizeRaceName(race) ?? '';
-      const next = ensureRacialWeapon(
-        { ...sheet, identity: { ...(sheet.identity ?? {}), race: raceId } },
-        raceId
-      );
-      await saveCharacterSheet(playerId, OBR.room.id, next);
-      if (viewingSheet?.playerId === playerId) {
-        viewingSheet.sheet = next;
-      }
-    } catch (err) {
-      logError('gm_race_sheet_sync_failed', err, { playerId });
-    }
-  }
-
   function setMaxToken(playerId, stat, val) {
     onAction({ type: 'SET_MAX_TOKENS', playerId: myId, targetId: playerId, token: stat, val });
   }
@@ -527,13 +502,14 @@
   let gmWeapons = $derived(viewingSheet?.sheet?.weapons ?? []);
   let gmItems = $derived(viewingSheet?.sheet?.inventoryItems ?? []);
 
-  /** @param {string|null} name @param {boolean} isWeapon @param {number} [quantity] */
-  async function addItemToViewingSheet(name, isWeapon, quantity) {
+  /** @param {{name: string, isWeapon: boolean, quantity?: number, draft?: Object}|null} payload */
+  async function addItemToViewingSheet(payload) {
     showItemAdd = false;
-    if (name == null || !viewingSheet) return;
+    if (!payload || !viewingSheet) return;
+    const { name, isWeapon, quantity, draft } = payload;
     viewingSheet.sheet = isWeapon
-      ? withWeaponFromTemplate(viewingSheet.sheet, name)
-      : withItemFromTemplate(viewingSheet.sheet, name, quantity);
+      ? withWeaponFromTemplate(viewingSheet.sheet, name, draft)
+      : withItemFromTemplate(viewingSheet.sheet, name, quantity, draft);
     await saveViewingSheet();
   }
 
@@ -546,10 +522,7 @@
     if (!viewingSheet) return;
     sheetLoading = true;
     try {
-      viewingSheet.sheet = ensureRacialWeapon(
-        syncStatsFromEquipment(syncSkillBonuses(viewingSheet.sheet)),
-        viewingSheet.sheet.identity?.race
-      );
+      viewingSheet.sheet = syncStatsFromEquipment(syncSkillBonuses(viewingSheet.sheet));
       await saveCharacterSheet(viewingSheet.playerId, OBR.room.id, viewingSheet.sheet);
       viewingSheet.exists = true;
       viewingSheet.isEditing = false;
@@ -567,6 +540,51 @@
     } finally {
       sheetLoading = false;
     }
+  }
+
+  /**
+   * Import a sheet (.json / .zip) for the player whose sheet is open — same
+   * path as the player's own IMPORTER, plus the follow-ups the GM owns: race
+   * into the game state and tokens refreshed to stat mods + 1.
+   */
+  async function importViewingSheet() {
+    if (!viewingSheet) return;
+    const targetId = viewingSheet.playerId;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.zip';
+    input.onchange = async (e) => {
+      const file = e.currentTarget.files?.[0];
+      if (!file) return;
+      sheetLoading = true;
+      sheetError = '';
+      try {
+        const imported = file.name.toLowerCase().endsWith('.zip')
+          ? await importSheetArchive(targetId, OBR.room.id, await file.arrayBuffer())
+          : await importCharacterSheet(targetId, OBR.room.id, await file.text());
+        if (viewingSheet?.playerId === targetId) {
+          viewingSheet.sheet = imported.data;
+          viewingSheet.exists = true;
+          viewingSheet.isEditing = false;
+        }
+        const raceId = normalizeRaceName(imported.data?.identity?.race);
+        if (RACES.some((r) => r.id === raceId) && gameState?.players?.[targetId]?.race !== raceId) {
+          onAction({ type: 'SET_RACE', playerId: myId, targetId, race: raceId });
+        }
+        onAction({
+          type: 'SYNC_TOKENS',
+          playerId: myId,
+          targetId,
+          tokens: tokensFromStats(imported.data?.stats),
+        });
+      } catch (err) {
+        sheetError = `Erreur lors de l'import : ${err.message}`;
+        logError('gm_sheet_import_failed', err);
+      } finally {
+        sheetLoading = false;
+      }
+    };
+    input.click();
   }
 
   async function deleteViewingSheet() {
@@ -1202,16 +1220,9 @@
 
             <div class="flex items-center gap-2">
               <span class="text-xs text-gray-400 shrink-0">Race :</span>
-              <select
-                value={p.race ?? ''}
-                onchange={(e) => setRace(id, e.currentTarget.value)}
-                class="text-xs bg-gray-700 border border-gray-600 rounded px-1 py-0.5 text-gray-200"
-              >
-                <option value="">Aucune</option>
-                {#each RACES as r}
-                  <option value={r.id}>{r.label}</option>
-                {/each}
-              </select>
+              <!-- read-only: the race lives in the character sheet (ÉDITION →
+                   IDENTITÉ / import) and is synced to the game state from there -->
+              <span class="text-xs text-gray-200 font-semibold">{RACES.find((r) => r.id === p.race)?.label ?? p.race ?? 'Aucune'}</span>
             </div>
 
             <div>
@@ -1476,6 +1487,14 @@
             Fiche de personnage — {getPlayerName(viewingSheet.playerId)}
           </h2>
           <div class="flex gap-2">
+            <button
+              onclick={importViewingSheet}
+              disabled={sheetLoading}
+              use:tooltip={"Importer une fiche (.json ou .zip) pour " + getPlayerName(viewingSheet.playerId)}
+              class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded-lg disabled:opacity-50"
+            >
+              ⇩ Importer
+            </button>
             {#if viewingSheet.isEditing}
               <button
                 onclick={() => viewingSheet.isEditing = false}
@@ -1937,7 +1956,7 @@
         </div>
 
         {#if showItemAdd}
-          <ItemAddPopup onPick={addItemToViewingSheet} askQuantity />
+          <ItemAddPopup onPick={addItemToViewingSheet} />
         {/if}
       </div>
     </div>

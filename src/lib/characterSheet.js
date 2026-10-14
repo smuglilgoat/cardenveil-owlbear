@@ -487,20 +487,19 @@ export function findEquipmentTemplate(nom) {
 }
 
 /**
- * Add a catalogue item to a sheet's inventory (prepended: newest first).
- * `templateName` '' = blank Divers item. Returns a NEW sheet; shared by the
- * ÉDITION add-buttons, the in-sheet add popup and the GM sheet modal.
- * @param {Object} sheet - Character sheet
- * @param {string} templateName - Catalogue name ('' for a blank item)
+ * Item object derived from a catalogue template (no sheet involved). This is
+ * what the add popup pre-fills its form with, so the form and the creation
+ * share one set of defaults.
+ * @param {string} templateName - Catalogue name ('' = blank Divers item)
  * @param {number} [quantity] - Consumable quantity (1-99, defaults to the template)
- * @returns {Object} New sheet with the item added
+ * @returns {Object} Inventory item
  */
-export function withItemFromTemplate(sheet, templateName, quantity) {
+export function itemFromTemplate(templateName, quantity) {
   const tpl = findEquipmentTemplate(templateName);
   const fam = tpl?.family ?? '';
   const consumable = tpl?.kind === 'consommable';
   const qty = Math.max(1, Math.min(99, Math.round(Number(quantity) || tpl?.quantite || 1)));
-  const item = {
+  return {
     type: tpl ? (consumable ? 'Consommable' : 'Équipement') : 'Divers',
     icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[fam] ?? '') : '',
     slot: tpl?.slot ?? '',
@@ -516,19 +515,16 @@ export function withItemFromTemplate(sheet, templateName, quantity) {
         }),
     description: ''
   };
-  return { ...sheet, inventoryItems: [item, ...(sheet?.inventoryItems ?? [])] };
 }
 
 /**
- * Add a catalogue weapon to a sheet (prepended, unequipped).
- * `templateName` '' = blank weapon. Returns a NEW sheet.
- * @param {Object} sheet - Character sheet
- * @param {string} templateName - Catalogue name ('' for a blank weapon)
- * @returns {Object} New sheet with the weapon added
+ * Weapon object derived from a catalogue template (no sheet involved).
+ * @param {string} templateName - Catalogue name ('' = blank weapon)
+ * @returns {Object} Weapon
  */
-export function withWeaponFromTemplate(sheet, templateName) {
+export function weaponFromTemplate(templateName) {
   const tpl = findEquipmentTemplate(templateName);
-  const weapon = {
+  return {
     icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[tpl.family] ?? '') : '',
     nom: tpl?.nom ?? '',
     de: tpl?.de ?? '',
@@ -537,29 +533,58 @@ export function withWeaponFromTemplate(sheet, templateName) {
     forceAgi: '', critique: '', avantage: '',
     bonus: '', perfection: '', notes: '', equipped: false
   };
+}
+
+/**
+ * Add a catalogue item to a sheet's inventory (prepended: newest first).
+ * Returns a NEW sheet; shared by the ÉDITION add-buttons, the in-sheet add
+ * popup and the GM sheet modal.
+ * @param {Object} sheet - Character sheet
+ * @param {string} templateName - Catalogue name ('' for a blank item)
+ * @param {number} [quantity] - Consumable quantity (1-99, defaults to the template)
+ * @param {Object} [draft] - Values edited in the add form (win over the template)
+ * @returns {Object} New sheet with the item added
+ */
+export function withItemFromTemplate(sheet, templateName, quantity, draft) {
+  const item = { ...itemFromTemplate(templateName, quantity), ...(draft ?? {}) };
+  return { ...sheet, inventoryItems: [item, ...(sheet?.inventoryItems ?? [])] };
+}
+
+/**
+ * Add a catalogue weapon to a sheet (prepended, unequipped). Returns a NEW sheet.
+ * @param {Object} sheet - Character sheet
+ * @param {string} templateName - Catalogue name ('' for a blank weapon)
+ * @param {Object} [draft] - Values edited in the add form (win over the template)
+ * @returns {Object} New sheet with the weapon added
+ */
+export function withWeaponFromTemplate(sheet, templateName, draft) {
+  const weapon = { ...weaponFromTemplate(templateName), ...(draft ?? {}) };
   return { ...sheet, weapons: [weapon, ...(sheet?.weapons ?? [])] };
 }
 
-/** Default weapon granted by a race (id → catalogue weapon name). */
-const RACIAL_WEAPONS = {
-  khajeet: 'Griffe'
-};
+/** Signature of the stock Khajeet griffe the game used to auto-add. */
+const STOCK_GRIFFE = { nom: 'Griffe', de: '1d6', proprietes: 'Finesse, Légère, Naturelle', icon: '🐾' };
 
 /**
- * Grant a race's default weapon when it is missing: added to the sheet and
- * equipped in the main hand when both hands are free. Idempotent, pure.
+ * Remove the stock Khajeet griffe from a sheet's weapons: the claws are now a
+ * built-in attack option in the compact sheet (see SheetPopover), not an
+ * inventory entry. Only an untouched stock entry is removed — a renamed or
+ * edited one is kept.
  * @param {Object} sheet - Character sheet
- * @param {unknown} race - Race id (or free text)
- * @returns {Object} The same sheet, or a new one with the weapon added
+ * @returns {Object} The same sheet, or a new one without the stock griffe
  */
-export function ensureRacialWeapon(sheet, race) {
-  const weaponName = RACIAL_WEAPONS[normalizeRaceName(race)];
-  if (!weaponName || !sheet) return sheet;
-  if ((sheet.weapons ?? []).some((w) => w?.nom === weaponName)) return sheet;
-  const next = withWeaponFromTemplate(sheet, weaponName);
-  const hands = handSlots(next);
-  if (hands.main || hands.off) return next;
-  return equipWeapon(next, next.weapons[0], 'main');
+export function stripStockGriffe(sheet) {
+  const weapons = sheet?.weapons ?? [];
+  const kept = weapons.filter(
+    (w) =>
+      !(
+        w?.nom === STOCK_GRIFFE.nom &&
+        w?.de === STOCK_GRIFFE.de &&
+        (w?.proprietes ?? '') === STOCK_GRIFFE.proprietes &&
+        (w?.icon ?? '') === STOCK_GRIFFE.icon
+      )
+  );
+  return kept.length === weapons.length ? sheet : { ...sheet, weapons: kept };
 }
 
 /**
@@ -921,8 +946,9 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
     // the race id so game-side race lookups keep working.
     merged.identity.race = normalizeRaceName(merged.identity.race);
 
-    // Racial default weapon (e.g. Khajeet griffes) comes with the race
-    const synced = ensureRacialWeapon(syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(merged))), merged.identity.race);
+    // The race's natural weapons (Khajeet claws) are a built-in attack option in
+    // the compact sheet, not an inventory entry: nothing to grant here.
+    const synced = syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(merged)));
 
     const payloadBytes = JSON.stringify(synced).length;
     if (payloadBytes > MAX_SHEET_BYTES) {

@@ -1,14 +1,13 @@
 // Persistent page that opens each client's dice popup when a roll starts.
 import OBR from '@owlbear-rodeo/sdk';
-import { ROLL_CHANNEL } from './lib/rollBroadcast.js';
+import { ROLL_CHANNEL, DICE_POPOVER_ID } from './lib/rollBroadcast.js';
 import { initLogging, setLogContext, logEvent, logError } from './lib/appLog.js';
 import { initDiag } from './lib/diag.js';
 
 initLogging('background', { sessionStart: true });
 initDiag('background');
 
-const DICE_POPOVER_ID = 'cardenveil-dice';
-const CLOSE_AFTER_MS = 6000;
+const CLOSE_AFTER_MS = 8000; // was 6s: players could not read the result in time
 let closeTimer;
 let lastRollId = null;
 let diceStyle = localStorage.getItem('cardenveil-dice-style') || '';
@@ -36,8 +35,12 @@ function openDicePopover(params, anchor) {
   return OBR.popover.open({
     id: DICE_POPOVER_ID,
     url: `${window.location.origin}/dice.html?${params.toString()}`,
-    width: 520,
-    height: 440,
+    // ~30% smaller than the original 520x440
+    width: 364,
+    height: 308,
+    // click-away used to dismiss the popup before the dice settled: the popup
+    // now only closes by itself (8 s) or through its own ✕ (after 3 s)
+    disableClickAway: true,
     ...anchor
   });
 }

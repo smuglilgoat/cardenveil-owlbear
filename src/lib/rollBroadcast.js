@@ -4,6 +4,8 @@ import { logEvent } from './appLog.js';
 export const ROLL_CHANNEL = 'cardenveil-roll';
 // local (same-browser) channel the physics popup reports results on
 export const ROLL_RESULT_CHANNEL = 'cardenveil-roll-result';
+// popover id of the animated dice popup (opened by the background page)
+export const DICE_POPOVER_ID = 'cardenveil-dice';
 
 /**
  * Broadcast a roll to the room. In 3D mode the payload is a roll INTENT:
