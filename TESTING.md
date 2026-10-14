@@ -74,7 +74,7 @@ See `tests/httpie/README.md` for complete API test documentation.
 ## Test Coverage
 
 Current coverage (run `npm test` for the live count):
-- ✅ 220 unit tests across 7 suites
+- ✅ 260 unit tests across 9 suites
 - ✅ Game logic (all 35 actions)
 - ✅ Deck utilities
 - ✅ API client (realtime + dispatch fallback)

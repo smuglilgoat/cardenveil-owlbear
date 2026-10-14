@@ -124,7 +124,7 @@ one, then open a room.
 ### Tests and gates
 
 ```bash
-npm test               # 235 JEST unit tests (7 suites)
+npm test               # 260 JEST unit tests (9 suites)
 npm run test:unit      # unit tests only
 npm run test:watch     # watch mode
 npm run test:coverage  # coverage report

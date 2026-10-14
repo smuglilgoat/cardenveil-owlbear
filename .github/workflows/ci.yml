@@ -23,7 +23,7 @@ jobs:
 
       - run: npm ci
 
-      # 235 JEST unit tests (reducer, deck, api, character sheet, attack, dice)
+      # 260 JEST unit tests (reducer, deck, api, guards, sheet, attack, dice)
       - run: npm test
 
       # svelte-check (reference errors only) + production build of all 5 entries
