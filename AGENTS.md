@@ -63,6 +63,8 @@ The published docs live at **https://the-aerie.gitbook.io/the-aerie-docs** (`/` 
 - **Edit published content in GitBook**, not here — GitBook commits the result back, so a concurrent hand-edit conflicts. GitBook's API can only change content through change requests (open → edit → merge), never directly.
 - **Git Sync setup is mostly API-driven but GitHub auth is browser-only.** `POST /git/installations` + `PATCH` with `repositoryId`/`branch` configure it; `repositoryId` for `smuglilgoat/cardenveil-owlbear` is `1108442446`, branch `refs/heads/main`. The initial sync direction must be **Git → GitBook**; the other direction overwrites this repo.
 - Do not hand-write `gitbook-docs.yaml` space `key`s — GitBook generates them, and changing a key replaces the space with a new one.
+- **The mapping lives in `gitbook-docs.yaml`** (repo root): project directory `""`, each space at `content.directory`. Per-space installations are children of the site installation and **inherit its provider config** — patching a child's `providerConfiguration` returns 400. Move a space by setting `childInstallationProjectDirectories` on the site installation *and* editing `gitbook-docs.yaml` in the same commit; otherwise a sync in between mirrors an empty directory.
+- GitBook rewrites pages on export (`*` bullets, `_itals_`, bare links). That form is canonical — do not tidy it back.
 
 ## Conventions
 
