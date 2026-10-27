@@ -49,7 +49,7 @@ The plugin version has a single source: `src/version.js` (`APP_VERSION`) — use
 
 ## Documentation (GitBook)
 
-The published docs live at **https://the-aerie.gitbook.io/the-aerie-docs** (`/` = Documentation, `/changelog` = Changelog). The repo is the Git Sync source; two mapped directories, each a self-contained space with its own `.gitbook.yaml`, `README.md` and `SUMMARY.md`:
+The published docs live at **https://the-aerie.gitbook.io/cardenveil** (`/` = Documentation, `/changelog` = Changelog). The repo is the Git Sync source; two mapped directories, each a self-contained space with its own `.gitbook.yaml`, `README.md` and `SUMMARY.md`:
 
 | Directory | Space | Notes |
 |---|---|---|
