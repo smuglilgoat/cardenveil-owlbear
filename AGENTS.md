@@ -47,6 +47,23 @@ The plugin version has a single source: `src/version.js` (`APP_VERSION`) — use
 
 `scripts/generate-cards.js` pre-generates 104 card PNGs (52 normal + 52 crystallized) into `public/cards/` using `sharp`. This runs **automatically** via a custom Vite plugin (`generateCards()` in `vite.config.js`) on every build start. A dynamic manifest plugin generates `manifest.json` for OBR with dev/prod naming.
 
+## Documentation (GitBook)
+
+The published docs live at **https://the-aerie.gitbook.io/the-aerie-docs** (`/` = Documentation, `/changelog` = Changelog). The repo is the Git Sync source; two mapped directories, each a self-contained space with its own `.gitbook.yaml`, `README.md` and `SUMMARY.md`:
+
+| Directory | Space | Notes |
+|---|---|---|
+| `docs/documentation/` | Documentation | 16 pages, English except `game-rules/` (French, player-facing) |
+| `docs/changelog/` | Changelog | one page per release, `SUMMARY.md` groups by minor version |
+
+`docs/README.md` explains the layout. Rules that matter:
+
+- **`SUMMARY.md` is the navigation.** A page missing from it is not published — but it is **not** a privacy control. Keep internal material outside the mapped directories: `docs/agent-sessions/` and `docs/design/` are deliberately unmapped. Never "hide" a file by leaving it out of `SUMMARY.md`.
+- **Legacy files at the `docs/` root stay put.** `src/lib/attackRoll.js:1` and this file cite `docs/Reglejetdattaque.md` and `docs/debug-live-room.md`; moving them leaves dangling references. Edit the published page under `docs/documentation/` instead.
+- **Edit published content in GitBook**, not here — GitBook commits the result back, so a concurrent hand-edit conflicts. GitBook's API can only change content through change requests (open → edit → merge), never directly.
+- **Git Sync setup is mostly API-driven but GitHub auth is browser-only.** `POST /git/installations` + `PATCH` with `repositoryId`/`branch` configure it; `repositoryId` for `smuglilgoat/cardenveil-owlbear` is `1108442446`, branch `refs/heads/main`. The initial sync direction must be **Git → GitBook**; the other direction overwrites this repo.
+- Do not hand-write `gitbook-docs.yaml` space `key`s — GitBook generates them, and changing a key replaces the space with a new one.
+
 ## Conventions
 
 - Components in `src/lib/` as `.svelte` files, Tailwind utilities inline — no per-component CSS.
