@@ -2,7 +2,7 @@
 
 37 action types, all validated and applied atomically by `applyAction` in `src/lib/deck.js`; both server functions use the same reducer through thin shims. Every action returns `{ state, log }` and is a **no-op when its prerequisites fail** — an invalid action never throws and never half-applies.
 
-An action is `{ type, ...payload }`. The client dispatches it with `api.dispatch(roomId, action)`, which also attaches `actorId` and `actionId` (see [Conventions and gotchas](./conventions.md#write-path-guards)).
+An action is `{ type, ...payload }`. The client dispatches it with `api.dispatch(roomId, action)`, which also attaches `actorId` and `actionId` (see [Conventions and gotchas](conventions.md#write-path-guards)).
 
 ## Player and bootstrap (20)
 

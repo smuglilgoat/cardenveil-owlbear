@@ -1,61 +1,36 @@
-# Summary
+# Table of contents
 
 * [Notes de version](README.md)
-
-## 2.8
-
-* [2.8.0](2.8.0.md)
-
-## 2.7
-
-* [2.7.19](2.7.19.md)
-* [2.7.18](2.7.18.md)
-* [2.7.17](2.7.17.md)
-* [2.7.16](2.7.16.md)
-* [2.7.15](2.7.15.md)
-* [2.7.14](2.7.14.md)
-* [2.7.13](2.7.13.md)
-* [2.7.12](2.7.12.md)
-* [2.7.11](2.7.11.md)
-* [2.7.10](2.7.10.md)
-* [2.7.9](2.7.9.md)
-* [2.7.8](2.7.8.md)
-* [2.7.7](2.7.7.md)
-* [2.7.6](2.7.6.md)
-* [2.7.5](2.7.5.md)
-* [2.7.4](2.7.4.md)
-* [2.7.3](2.7.3.md)
-* [2.7.2](2.7.2.md)
-* [2.7.1](2.7.1.md)
-* [2.7.0](2.7.0.md)
-
-## 2.6
-
-* [2.6.3](2.6.3.md)
-* [2.6.2](2.6.2.md)
-* [2.6.1](2.6.1.md)
-* [2.6.0](2.6.0.md)
-
-## 2.5
-
-* [2.5.1](2.5.1.md)
-* [2.5.0](2.5.0.md)
-
-## 2.4
-
-* [2.4.0](2.4.0.md)
-
-## 2.3
-
-* [2.3.1](2.3.1.md)
-* [2.3.0](2.3.0.md)
-
-## 2.2
-
-* [2.2.0](2.2.0.md)
-
-## 2.1
-
-* [2.1.0](2.1.0.md)
-
-* [Notes complètes 2.6.1 → 2.7.18](consolidated-2.6.0-2.7.18.md)
+* [Cardenveil 2.8.0 — les 24 races et leurs traits](2.8.0.md)
+* [Cardenveil 2.7.19 — notes de version](2.7.19.md)
+* [Cardenveil 2.7.18 — notes de version](2.7.18.md)
+* [Cardenveil 2.7.17 — notes de version](2.7.17.md)
+* [Cardenveil 2.7.16 — notes de version](2.7.16.md)
+* [Cardenveil 2.7.15 — notes de version](2.7.15.md)
+* [Cardenveil 2.7.14 — notes de version](2.7.14.md)
+* [Cardenveil 2.7.13 — notes de version](2.7.13.md)
+* [Cardenveil 2.7.12 — notes de version](2.7.12.md)
+* [Cardenveil 2.7.11 — notes de version](2.7.11.md)
+* [Cardenveil 2.7.10 — notes de version](2.7.10.md)
+* [Cardenveil 2.7.9 — notes de version](2.7.9.md)
+* [Cardenveil 2.7.8 — notes de version](2.7.8.md)
+* [Cardenveil 2.7.7 — notes de version](2.7.7.md)
+* [Cardenveil 2.7.6 — notes de version](2.7.6.md)
+* [Cardenveil 2.7.5 — notes de version](2.7.5.md)
+* [Cardenveil 2.7.4 — notes de version](2.7.4.md)
+* [Cardenveil 2.7.3 — notes de version](2.7.3.md)
+* [Cardenveil 2.7.2 — notes de version](2.7.2.md)
+* [Cardenveil 2.7.1 — notes de version](2.7.1.md)
+* [Cardenveil 2.7.0 — notes de version](2.7.0.md)
+* [Cardenveil 2.6.3 — notes de version](2.6.3.md)
+* [Cardenveil 2.6.2 — notes de version](2.6.2.md)
+* [Cardenveil 2.6.1 — notes de version](2.6.1.md)
+* [Cardenveil 2.6.0 — notes de version](2.6.0.md)
+* [Cardenveil — Notes de version 2.5.1](2.5.1.md)
+* [Cardenveil — Notes de version 2.5.0](2.5.0.md)
+* [Cardenveil — Notes de version 2.4.0](2.4.0.md)
+* [Cardenveil — Notes de version 2.3.1](2.3.1.md)
+* [Cardenveil — Notes de version 2.3.0](2.3.0.md)
+* [Cardenveil — Notes de version 2.2.0](2.2.0.md)
+* [Cardenveil — Notes de version 2.1.0](2.1.0.md)
+* [Cardenveil — notes complètes (2.6.1 → 2.7.18)](consolidated-2.6.0-2.7.18.md)

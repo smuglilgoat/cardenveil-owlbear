@@ -25,20 +25,20 @@ It implements **resource management** (cards, tokens, exchanges, activity log) a
 
 ## Reading order
 
-| If you need to…                       | Read                                                                                                                              |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| get the whole picture                 | [System overview](./architecture/system-overview.md)                                                                |
-| change game state, actions or sync    | [Game state pipeline](./architecture/game-state.md), then [Action types](./reference/action-types.md) |
-| touch the character sheet             | [Character sheets](./architecture/character-sheets.md)                                                              |
-| find the file that owns a behaviour   | [File map](./reference/file-map.md)                                                                                 |
-| follow the house rules before editing | [Conventions and gotchas](./reference/conventions.md)                                                               |
-| work on races                         | [Race passives](./reference/race-passives.md)                                                                       |
-| debug inside a live room              | [Debug a live room](./operations/debug-live-room.md)                                                                |
-| build, check or commit                | [Contributing](./operations/contributing.md)                                                                        |
+| If you need to…                       | Read                                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| get the whole picture                 | [System overview](architecture/system-overview.md)                                                |
+| change game state, actions or sync    | [Game state pipeline](architecture/game-state.md), then [Action types](reference/action-types.md) |
+| touch the character sheet             | [Character sheets](architecture/character-sheets.md)                                              |
+| find the file that owns a behaviour   | [File map](reference/file-map.md)                                                                 |
+| follow the house rules before editing | [Conventions and gotchas](reference/conventions.md)                                               |
+| work on races                         | [Race passives](reference/race-passives.md)                                                       |
+| debug inside a live room              | [Debug a live room](operations/debug-live-room.md)                                                |
+| build, check or commit                | [Contributing](operations/contributing.md)                                                        |
 
 ## Sources of truth, in order of authority
 
 1. This documentation and `AGENTS.md`.
 2. `src/lib/deck.js` (game reducer) and `src/lib/characterSheet.js` (sheet schema).
-3. `CARDENVEIL.md` (game rules, French) and the [damage-roll rules](./game-rules/damage-rolls.md) (French).
+3. `CARDENVEIL.md` (game rules, French) and the [damage-roll rules](game-rules/damage-rolls.md) (French).
 4. `.agent/CONTINUITY.md` — the living decision log. Check the top entries first; some `CARDENVEIL.md` formulas are superseded there.

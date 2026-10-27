@@ -1,4 +1,4 @@
-# Summary
+# Table of contents
 
 * [Cardenveil](README.md)
 * [Architecture](architecture/README.md)

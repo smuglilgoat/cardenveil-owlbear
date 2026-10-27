@@ -26,7 +26,7 @@ Eight suites are pure logic: `actionGuard`, `api`, `attackRoll`, `characterSheet
 
 The ninth, `tests/unit/stateFunction.test.js`, is an **integration test of the real write path**, not pure logic: the Netlify handler is driven with a mocked Supabase client (an in-memory `game_rooms` row plus an emulation of the `apply_game_action` CAS). It is the suite that guards double application and token spoofing — a wrong splice there locks the whole table out or applies an action twice, and no pure-logic test would notice.
 
-**Component tests are not wired.** `jest.config.js` maps `^.+\.svelte$` to `svelte-jester`, but no `.svelte` test exists: component-level Jest tests were attempted and reverted, because svelte-jester's ESM path is unreachable through Jest 30's transform pipeline (`.agent/CONTINUITY.md`, 2026-10-13). Svelte components have no unit-test harness here — verify them in the browser (see [Debug a live room](./debug-live-room.md)) and keep the logic they call in testable modules.
+**Component tests are not wired.** `jest.config.js` maps `^.+\.svelte$` to `svelte-jester`, but no `.svelte` test exists: component-level Jest tests were attempted and reverted, because svelte-jester's ESM path is unreachable through Jest 30's transform pipeline (`.agent/CONTINUITY.md`, 2026-10-13). Svelte components have no unit-test harness here — verify them in the browser (see [Debug a live room](debug-live-room.md)) and keep the logic they call in testable modules.
 
 New non-trivial logic — a branch, a loop, a parser, money or security — gets a small test. Trivial changes need none.
 

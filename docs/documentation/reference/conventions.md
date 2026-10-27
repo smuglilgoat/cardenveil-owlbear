@@ -29,7 +29,7 @@ OBR popovers are **not draggable** and cannot be click-through (the SDK has no p
 
 Known limits, all accepted: the first claimant of an unclaimed identity owns it; an OBR GM can still reinitialise a room with `INIT_GAME` (deliberate GM-takeover path); a client that loses its token only re-claims after a GM `HARD_RESET`, which drops the player hashes (the GM running it gets a fresh token). An action older than the 50-id ring can be replayed — that window is deliberate.
 
-**Deploy order matters**: ship the client (Netlify) *before* redeploying the Edge Function, so every frame already sends a token when verification turns on.
+**Deploy order matters**: ship the client (Netlify) _before_ redeploying the Edge Function, so every frame already sends a token when verification turns on.
 
 ## Logging
 
