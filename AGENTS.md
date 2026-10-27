@@ -87,7 +87,7 @@ The live schema source of truth is **`createEmptyCharacterSheet()` in `src/lib/c
 
 - **Bidirectional sync**: Tokens and fatigue are synchronized between the character sheet and game state in both directions.
 - **Immediate updates**: Pins, action diamonds, and game-state token/fatigue changes save to Supabase immediately (via `$effect` in `CharacterSheet.svelte`); sheet edits save on ÉDITION Save.
-- **Real-time subscriptions**: Sheets subscribe to Supabase realtime channels; the compact popover additionally runs a 1.5s reconcile poll on `actionChecks` to guarantee cross-view sync (BroadcastChannel transport was removed as redundant).
+- **Real-time subscriptions**: Sheets subscribe to Supabase realtime channels. Sheet saves also broadcast on the same-origin `BroadcastChannel('cardenveil-sheet')` (`broadcastSheet()`/`onSheetBroadcast()` in `characterSheet.js`), so other frames of the same browser refresh immediately; the compact popover additionally runs a 1.5s reconcile poll on `actionChecks` as a fallback.
 
 ### Dice Rolling
 
@@ -128,22 +128,30 @@ The live schema source of truth is **`createEmptyCharacterSheet()` in `src/lib/c
 ### Supabase Table Schema
 
 ```sql
+-- player_id/room_id are TEXT to match OBR ids (same pattern as game_rooms;
+-- there is no game_rooms migration in this repo, so no FK)
 CREATE TABLE character_sheets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_id UUID NOT NULL REFERENCES game_rooms(id) ON DELETE CASCADE,
   player_id TEXT NOT NULL,
+  room_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  race TEXT,
+  level INTEGER DEFAULT 1,
   data JSONB NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(room_id, player_id)
+  CONSTRAINT unique_player_room_sheet UNIQUE (player_id, room_id)
 );
+
+CREATE INDEX idx_character_sheets_player ON character_sheets(player_id);
+CREATE INDEX idx_character_sheets_room ON character_sheets(room_id);
 
 -- Real-time subscription
 ALTER PUBLICATION supabase_realtime ADD TABLE character_sheets;
 
 -- Row Level Security (permissive, same as game_rooms)
 ALTER TABLE character_sheets ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all" ON character_sheets FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations" ON character_sheets FOR ALL USING (true) WITH CHECK (true);
 ```
 
 ### Future Enhancements
