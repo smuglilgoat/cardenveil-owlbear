@@ -1,5 +1,7 @@
 # Contributing
 
+The commands, the build gate and the branch rules for working on the plugin. The house rules you must follow while editing live in [Conventions and gotchas](../reference/conventions.md).
+
 ## Commands
 
 ```bash
@@ -35,7 +37,7 @@ New non-trivial logic — a branch, a loop, a parser, money or security — gets
 * Branch, then commit with [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`…). `main` is the deployed branch.
 * `npm test` and `npm run check` must pass before a PR — CI enforces both (the workflow runs `npm test` then `npm run build`, which runs the check).
 * UI text is **French**; code, comments and docs are English.
-* Game-state changes belong in `src/lib/deck.js` (never in a component), and anything player-visible gets a note in `docs/patch-notes/`.
+* Game-state changes belong in `src/lib/deck.js` (never in a component), and anything player-visible gets a note in `docs/changelog/` following the `cardenveil-release-notes` skill.
 
 ## Version bumps
 

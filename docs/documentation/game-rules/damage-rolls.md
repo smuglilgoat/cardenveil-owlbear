@@ -287,14 +287,14 @@ Les armes Finesse ont également la particularité de **ne pas exposer le person
 
 ```
 1. Récupérer :
-   - dé de l'arme
-   - bonus
-   - Seuil de Miss
-   - type d'arme
-   - nombre d'Avantages
-   - nombre de Désavantages
-   - niveau d'Engagement
-   - mod Force / Agilité / Esprit
+   * dé de l'arme
+   * bonus
+   * Seuil de Miss
+   * type d'arme
+   * nombre d'Avantages
+   * nombre de Désavantages
+   * niveau d'Engagement
+   * mod Force / Agilité / Esprit
 
 2. Ajouter les Désavantages provenant de l'Engagement.
 
@@ -327,15 +327,15 @@ Les armes Finesse ont également la particularité de **ne pas exposer le person
 15. Ajouter les bonus provenant des Engagements.
 
 16. Afficher :
-    - tous les dés lancés
-    - les dés gardés
-    - les critiques
-    - le nombre de critiques
-    - les explosions
-    - les bonus
-    - les bonus d'Engagement
-    - l'équation complète
-    - le résultat final
+    * tous les dés lancés
+    * les dés gardés
+    * les critiques
+    * le nombre de critiques
+    * les explosions
+    * les bonus
+    * les bonus d'Engagement
+    * l'équation complète
+    * le résultat final
 ```
 
 ## 16. Cas spécial : Gobelin

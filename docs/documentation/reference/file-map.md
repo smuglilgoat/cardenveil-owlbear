@@ -13,7 +13,7 @@ CARDENVEIL.md        ← game design, French (some formulas superseded)
 docs/system-overview.md          ← full architecture map (this GitBook is its structure)
 docs/Reglejetdattaque.md         ← damage-roll spec, implemented by attackRoll.js
 docs/patch.md                    ← clarifications appended to that spec (cited by attackRoll.js)
-docs/patch-notes/*.md            ← release notes per version
+docs/changelog/*.md              ← release notes per version
 .agent/CONTINUITY.md             ← living decision log; read the top entries first
 ```
 

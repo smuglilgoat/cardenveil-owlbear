@@ -69,10 +69,7 @@ Cards have two shapes:
 
 ## The 37 action types
 
-Every mutation goes through these. Each validates its own prerequisites and returns `{ state, log }`, or a no-op when invalid. The full table is in [Action types](../reference/action-types.md).
-
-* **Player and bootstrap (20)** — `INIT_GAME`, `REGISTER_PLAYER`, `REGISTER_PARTY`, `DRAW`, `DISCARD`, `CRYSTALLIZE`, `DRAW_FORCE`, `USE_AGILITE`, `USE_ESPRIT`, `PROPOSE_EXCHANGE`, `ACCEPT_EXCHANGE`, `DECLINE_EXCHANGE`, `SPEND_TOKEN`, `TOGGLE_GRAY`, `DRAW_SPADE`, `HALFLING_CHOOSE`, `SPORELIN_EXCHANGE`, `USE_CAPACITY`, `GIVE_TOKEN`, `DEVOUR_MIND`.
-* **GM, or self-service (17)** — `GIVE_CARDS`, `DEAL_ALL`, `SWAP_CARD`, `ADD_TOKEN`, `SET_MAX_HAND`, `SET_DRAW_RANGE`, `SET_MAX_TOKENS`, `REST_ALL`, `HARD_RESET`, `IMPORT_STATE`, `CREATE_GM_CHAR`, `REMOVE_GM_CHAR`, `SET_FATIGUE`, `SET_RACE`, `CANCEL_EXCHANGE`, `SYNC_TOKENS`, `SET_INITIATIVE_URL`. `SET_INITIATIVE_URL` is strictly GM; `SET_RACE` and `SYNC_TOKENS` accept either the GM or the player themselves (`isSelf`), which is how the sheet import syncs a race and the token counts.
+Every mutation goes through these. Each validates its own prerequisites and returns `{ state, log }`, or a no-op when invalid. Twenty are player and bootstrap actions; the other seventeen are GM actions, except `SET_RACE` and `SYNC_TOKENS`, which a player may also send for their own record (`isSelf`) — that is how the sheet import syncs a race and the token counts. The full table, with what each action does, is in [Action types](../reference/action-types.md).
 
 ## Reducer rules worth knowing
 
