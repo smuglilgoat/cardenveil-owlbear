@@ -10,7 +10,9 @@ never published.
 
 Each mapped directory is a self-contained space: its own `.gitbook.yaml`,
 `README.md` (first page) and `SUMMARY.md` (navigation). `SUMMARY.md` is the
-authoritative navigation — a page missing from it is not published.
+authoritative navigation — a page missing from it is not published. GitBook
+regenerates it on export as a flat list labelled with the page titles, so do not
+hand-maintain its labels or grouping.
 
 Edit published content in GitBook. GitBook commits the result back to this repo,
 so expect a conflict if the same page is also edited here. Keep every referenced
