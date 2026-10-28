@@ -16,7 +16,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, stripStockGriffe, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, raceTraits, RACE_TRAITS, racePvBonus, effectiveStats, raceRollAdvantage, rollD20Keep, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec, saveCharacterSheet, fetchCharacterSheet } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, stripStockGriffe, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, raceTraits, RACE_TRAITS, racePvBonus, effectiveStats, raceRollAdvantage, rollD20Keep, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec, saveCharacterSheet, fetchCharacterSheet, healSheetBase } = await import('../../src/lib/characterSheet.js');
 const { RACES } = await import('../../src/lib/deck.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
@@ -716,6 +716,59 @@ describe('Character Sheet dice helpers', () => {
       expect(mockClient.rpc).toHaveBeenCalledTimes(1); // no conflict round-trip
       expect(mockClient.rpc.mock.calls[0][1].p_expected_version).toBe(5);
       expect(saved.version).toBe(6);
+    });
+
+    // A frame whose mount fetch failed (outage) still gets its sheet from
+    // realtime/broadcast. Adopting that row heals the missing base, so the save
+    // merges instead of being refused until the frame is remounted.
+    it('saves after an adoption heals a missing base', async () => {
+      const doc = sheet({ notes: 'from realtime' });
+      healSheetBase('cas-heal', 'room-1', 5, doc);
+      mockClient.rpc
+        .mockResolvedValueOnce({ data: { conflict: true, version: 6, data: sheet({ notes: 'from realtime', pinnedSkills: ['arcanes'] }) }, error: null })
+        .mockResolvedValueOnce({ data: { version: 7, data: {} }, error: null });
+
+      const saved = await saveCharacterSheet('cas-heal', 'room-1', { ...doc, notes: 'edited' });
+
+      expect(mockClient.rpc).toHaveBeenCalledTimes(2);
+      const retried = mockClient.rpc.mock.calls[1][1];
+      expect(retried.p_expected_version).toBe(6);
+      expect(retried.p_data.notes).toBe('edited'); // local edit kept
+      expect(retried.p_data.pinnedSkills).toEqual(['arcanes']); // the other frame's too
+      expect(saved.version).toBe(7);
+    });
+
+    // Healing fills a gap, it never advances: an existing base describes the
+    // document the local copy came from, and a newer row must not replace it or
+    // the CAS is bypassed again.
+    it('does not advance an existing base when healing', async () => {
+      mockFetchChain({ data: { version: 4, data: sheet({ notes: 'old' }) }, error: null });
+      await fetchCharacterSheet('cas-heal-adv', 'room-1');
+      healSheetBase('cas-heal-adv', 'room-1', 9, sheet({ notes: 'newer' }));
+      mockClient.rpc.mockResolvedValueOnce({ data: { version: 10, data: sheet() }, error: null });
+
+      await saveCharacterSheet('cas-heal-adv', 'room-1', sheet({ notes: 'local' }));
+
+      expect(mockClient.rpc.mock.calls[0][1].p_expected_version).toBe(4);
+    });
+
+    // No row yet: the caller seeds from the empty sheet, so that is its base —
+    // version 0, so the first save inserts. If another frame created the row
+    // first, the merge keeps its fields; against a `{}` base every leaf of a
+    // default sheet looks like a local change and would overwrite them.
+    it('records the empty sheet as the base while the row does not exist', async () => {
+      mockFetchChain({ data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } });
+      expect(await fetchCharacterSheet('cas-new', 'room-1')).toBeNull();
+
+      mockClient.rpc
+        .mockResolvedValueOnce({ data: { conflict: true, version: 2, data: sheet({ notes: 'gm imported' }) }, error: null })
+        .mockResolvedValueOnce({ data: { version: 3, data: {} }, error: null });
+
+      await saveCharacterSheet('cas-new', 'room-1', sheet({ identity: { nom: 'Yves', niveau: 3, race: 'nain' } }));
+
+      const retried = mockClient.rpc.mock.calls[1][1].p_data;
+      expect(retried.notes).toBe('gm imported'); // the server's field survives
+      expect(retried.identity.race).toBe('nain'); // the local edit is applied
     });
 
     // The version is the server's: the client used to send expected + 1, so a

@@ -971,7 +971,12 @@ export async function fetchCharacterSheet(playerId, roomId, { trackBase = true }
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // No rows returned - sheet doesn't exist yet
+        // No rows returned - sheet doesn't exist yet. An applying caller seeds
+        // its local copy from that empty sheet, so that is its base: the empty
+        // document, not `{}` (against `{}` every leaf of a default sheet looks
+        // like a local change, so the first-save race would overwrite the row
+        // another frame just created instead of merging onto it).
+        if (trackBase) healSheetBase(playerId, roomId, 0, createEmptyCharacterSheet());
         return null;
       }
       throw error;
@@ -997,12 +1002,13 @@ export async function fetchCharacterSheet(playerId, roomId, { trackBase = true }
 // This map remembers the document each local copy was derived from, keyed by
 // player:room, so the 13 whole-document call sites keep their signature. It is
 // fed by a fetch that the caller applies (`trackBase`, see
-// fetchCharacterSheet), by a conflict snapshot and by a successful save — never
-// by realtime: a realtime row is not necessarily applied to the caller's local
-// document (the sheet is on hold while ÉDITION is open, the GM modal is a
-// snapshot), and a base that ran ahead of the local document would let the
-// stale document be written without a conflict — the very lost update this
-// replaces. A base one version behind only costs one extra merge round-trip.
+// fetchCharacterSheet), by a row the caller adopts as its local copy (realtime,
+// same-origin broadcast — see healSheetBase), by a conflict snapshot and by a
+// successful save — never by a fetch whose row the caller does not apply (the
+// popover's reconcile poll): a base that ran ahead of the local document would
+// let the stale document be written without a conflict — the very lost update
+// this replaces. A base one version behind only costs one extra merge
+// round-trip.
 // A conflict against a base that was never recorded is refused (see
 // saveCharacterSheet): merging against no base would present a silent
 // whole-document overwrite as a merge.
@@ -1037,6 +1043,28 @@ function rememberSheetBase(playerId, roomId, version, data) {
 /** Drop the remembered base (sheet deleted or re-created). */
 export function forgetSheetBase(playerId, roomId) {
   SHEET_BASES.delete(sheetBaseKey(playerId, roomId));
+}
+
+/**
+ * Record a base for a document the caller just adopted as its local copy (a
+ * realtime row it applied, a same-origin broadcast, or the empty sheet a
+ * `PGRST116` fetch stands for) — but only when this frame has no base yet.
+ *
+ * Healing is what makes the base-less refusal recoverable: without it a frame
+ * whose mount fetch failed (or that lost the first-save race) refuses every
+ * later save until it is remounted. It can never make the base run ahead of the
+ * local document, because it never replaces an existing base: an existing base
+ * is only advanced by a fetch the caller applies, a save, or a conflict
+ * snapshot. A frame that merely refreshed (the popover's reconcile poll, which
+ * applies `actionChecks` only) is not an adoption and must call neither.
+ * @param {string} playerId - OBR player ID
+ * @param {string} roomId - OBR room ID
+ * @param {number} version - Row version the document was read at
+ * @param {Object} data - The document the local copy was just set to
+ */
+export function healSheetBase(playerId, roomId, version, data) {
+  if (SHEET_BASES.has(sheetBaseKey(playerId, roomId))) return;
+  rememberSheetBase(playerId, roomId, version, data);
 }
 
 /** Denormalized columns every write carries (same values as the old upsert). */
@@ -1086,7 +1114,7 @@ async function saveCharacterSheetUnversioned(playerId, roomId, sheet) {
   if (error) throw error;
 
   rememberSheetBase(playerId, roomId, data?.version, data?.data ?? sheet);
-  broadcastSheet({ playerId, roomId, data: sheet });
+  broadcastSheet({ playerId, roomId, data: sheet, version: data?.version });
   return data;
 }
 
@@ -1122,7 +1150,7 @@ export async function saveCharacterSheet(playerId, roomId, sheetData) {
       if (!data?.conflict) {
         const saved = { ...row, version: data?.version ?? expected + 1 };
         rememberSheetBase(playerId, roomId, saved.version, sheet);
-        broadcastSheet({ playerId, roomId, data: sheet });
+        broadcastSheet({ playerId, roomId, data: sheet, version: saved.version });
         return saved;
       }
 
@@ -2034,7 +2062,7 @@ function sheetChannelInstance() {
 /**
  * Broadcast a saved sheet to same-origin frames (main ↔ compact popover).
  * JSON round-trip strips Svelte $state reactivity before posting.
- * @param {{playerId: string, roomId: string, data: Object}} message
+ * @param {{playerId: string, roomId: string, data: Object, version?: number}} message
  */
 export function broadcastSheet(message) {
   try {
@@ -2046,7 +2074,7 @@ export function broadcastSheet(message) {
 
 /**
  * Listen for sheet broadcasts. Returns an unsubscribe function.
- * @param {(message: {playerId: string, roomId: string, data: Object}) => void} callback
+ * @param {(message: {playerId: string, roomId: string, data: Object, version?: number}) => void} callback
  * @returns {() => void}
  */
 export function onSheetBroadcast(callback) {

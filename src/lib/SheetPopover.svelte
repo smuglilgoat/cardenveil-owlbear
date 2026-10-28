@@ -10,6 +10,7 @@
     SKILL_GROUPS,
     SKILL_LABELS,
     fetchCharacterSheet,
+    healSheetBase,
     isDiceFormula,
     rollDice,
     saveCharacterSheet,
@@ -64,7 +65,12 @@
     sheet = { ...sheet, notes: notesDraft };
     saveInFlight = true;
     saveCharacterSheet(playerId, roomId, sheet)
-      .catch((err) => logError('sheet_popover_save_failed', err))
+      .catch((err) => {
+        // 10 of 13 save sites are silent; a refused save (no merge base after an
+        // outage) must reach the player, same alert as the full sheet.
+        logError('sheet_popover_save_failed', err);
+        alert('Erreur lors de la sauvegarde: ' + err.message);
+      })
       .finally(() => {
         saveInFlight = false;
       });
@@ -119,7 +125,12 @@
     // fetch hangs (e.g. a paused Supabase project).
     setLogContext({ roomId, playerId });
     const unsubscribe = subscribeToCharacterSheet(playerId, roomId, (newData) => {
-      if (newData) sheet = newData.data;
+      if (newData) {
+        sheet = newData.data;
+        // The local copy is now this row: if the mount fetch failed this frame
+        // had no save base and every save would be refused for good.
+        healSheetBase(playerId, roomId, newData.version, newData.data);
+      }
     });
 
     fetchCharacterSheet(playerId, roomId)
@@ -134,6 +145,7 @@
     const offBroadcast = onSheetBroadcast((msg) => {
       if (msg?.playerId === playerId && msg?.roomId === roomId && msg?.data && !saveInFlight) {
         sheet = msg.data;
+        healSheetBase(playerId, roomId, msg.version, msg.data);
       }
     });
 
@@ -256,7 +268,10 @@
     sheet = next;
     saveInFlight = true;
     saveCharacterSheet(playerId, roomId, next)
-      .catch((err) => logError('sheet_popover_save_failed', err))
+      .catch((err) => {
+        logError('sheet_popover_save_failed', err);
+        alert('Erreur lors de la sauvegarde: ' + err.message);
+      })
       .finally(() => {
         saveInFlight = false;
       });

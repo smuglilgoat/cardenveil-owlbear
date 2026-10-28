@@ -30,6 +30,7 @@
     isTwoHanded,
     fetchCharacterSheet,
     saveCharacterSheet,
+    healSheetBase,
     deleteCharacterSheet,
     importCharacterSheet,
     createEmptyCharacterSheet,
@@ -205,11 +206,15 @@
       const unsubscribe = subscribeToCharacterSheet(playerId, roomId, (newData) => {
         if (newData && !isEditing) {
           sheet = newData.data;
+          // Adoption, not a refresh: the local copy is this row now. Only fills
+          // a missing base (an applied mount fetch already recorded one).
+          healSheetBase(playerId, roomId, newData.version, newData.data);
         }
       });
       const offBroadcast = onSheetBroadcast((msg) => {
         if (msg?.playerId === playerId && msg?.roomId === roomId && msg?.data && !isEditing) {
           sheet = msg.data;
+          healSheetBase(playerId, roomId, msg.version, msg.data);
         }
       });
       // Physics popups (3D mode) report the roll result back — log it once
