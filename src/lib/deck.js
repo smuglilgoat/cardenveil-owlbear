@@ -573,12 +573,21 @@ export function applyAction(state, action) {
       if (!ex) return { state, log: null };
       const sender = state.players[ex.from];
       if (!sender) return { state, log: null };
+      // Same refund as DECLINE_EXCHANGE (card + the Social token spent to
+      // propose), clamped to the effective cap: REST_ALL or a SET_RACE away
+      // from Humain can refill/shrink the Social pool while the exchange is
+      // pending, so a bare +1 could push the sender over their cap.
+      const socialCap = maxTokensFor(sender).social ?? 0;
       const s = {
         ...state,
         pendingExchanges: state.pendingExchanges.filter(e => e.id !== ex.id),
         players: {
           ...state.players,
-          [ex.from]: { ...sender, hand: [...sender.hand, ex.fromCard] },
+          [ex.from]: {
+            ...sender,
+            hand: [...sender.hand, ex.fromCard],
+            tokens: { ...sender.tokens, social: Math.min(sender.tokens.social + 1, socialCap) },
+          },
         },
       };
       return { state: s, log: null };

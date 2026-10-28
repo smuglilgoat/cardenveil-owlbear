@@ -520,9 +520,11 @@ describe('Game Logic', () => {
     });
 
     describe('DECLINE_EXCHANGE', () => {
-      it('should remove pending exchange and return card', () => {
+      it('should remove pending exchange, return card and refund the Social token', () => {
         const card = makeCard('♠', '5');
         initialState.players['player-1'].hand = [];
+        // The proposal already spent one Social token (3 → 2).
+        initialState.players['player-1'].tokens.social = 2;
         initialState.pendingExchanges = [{
           id: 'ex-1',
           from: 'player-1',
@@ -538,6 +540,80 @@ describe('Game Logic', () => {
         
         expect(state.pendingExchanges.length).toBe(0);
         expect(state.players['player-1'].hand.length).toBe(1);
+        expect(state.players['player-1'].tokens.social).toBe(3);
+      });
+    });
+
+    describe('CANCEL_EXCHANGE', () => {
+      // GM cancelling a pending exchange must undo the proposal exactly as a
+      // decline does: the card goes back AND the Social token is refunded.
+      function pendingExchange() {
+        const card = makeCard('♠', '5');
+        initialState.players['player-1'].hand = [];
+        initialState.players['player-1'].tokens.social = 2;
+        initialState.pendingExchanges = [{
+          id: 'ex-1',
+          from: 'player-1',
+          to: 'player-2',
+          fromCard: card,
+        }];
+        return card;
+      }
+
+      it('should return the card and refund the Social token', () => {
+        const card = pendingExchange();
+
+        const { state } = applyAction(initialState, {
+          type: 'CANCEL_EXCHANGE',
+          playerId: 'gm-player',
+          exchangeId: 'ex-1',
+        });
+
+        expect(state.pendingExchanges).toHaveLength(0);
+        expect(state.players['player-1'].hand.map((c) => c.id)).toEqual([card.id]);
+        expect(state.players['player-1'].tokens.social).toBe(3);
+      });
+
+      it('should never refund above the Social cap', () => {
+        pendingExchange();
+        initialState.players['player-1'].tokens.social = 3; // already at cap (REST_ALL)
+
+        const { state } = applyAction(initialState, {
+          type: 'CANCEL_EXCHANGE',
+          playerId: 'gm-player',
+          exchangeId: 'ex-1',
+        });
+
+        expect(state.players['player-1'].tokens.social).toBe(3);
+      });
+
+      it('should be a no-op for a non-GM', () => {
+        pendingExchange();
+
+        const { state } = applyAction(initialState, {
+          type: 'CANCEL_EXCHANGE',
+          playerId: 'player-1',
+          exchangeId: 'ex-1',
+        });
+
+        expect(state).toBe(initialState);
+        expect(state.pendingExchanges).toHaveLength(1);
+        expect(state.players['player-1'].hand).toHaveLength(0);
+        expect(state.players['player-1'].tokens.social).toBe(2);
+      });
+
+      it('should be a no-op for an unknown exchange id', () => {
+        pendingExchange();
+
+        const { state } = applyAction(initialState, {
+          type: 'CANCEL_EXCHANGE',
+          playerId: 'gm-player',
+          exchangeId: 'does-not-exist',
+        });
+
+        expect(state).toBe(initialState);
+        expect(state.pendingExchanges).toHaveLength(1);
+        expect(state.players['player-1'].tokens.social).toBe(2);
       });
     });
 
