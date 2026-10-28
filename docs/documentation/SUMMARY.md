@@ -1,0 +1,18 @@
+# Table of contents
+
+* [Cardenveil](README.md)
+* [Architecture](architecture/README.md)
+  * [System overview](architecture/system-overview.md)
+  * [Game state pipeline](architecture/game-state.md)
+  * [Character sheets](architecture/character-sheets.md)
+  * [Cross-frame transports](architecture/transports.md)
+* [Reference](reference/README.md)
+  * [File map](reference/file-map.md)
+  * [Action types](reference/action-types.md)
+  * [Conventions and gotchas](reference/conventions.md)
+  * [Race passives](reference/race-passives.md)
+* [Operations](operations/README.md)
+  * [Debug a live room](operations/debug-live-room.md)
+  * [Contributing](operations/contributing.md)
+* [Règles du jeu](game-rules/README.md)
+  * [Jets de dégâts](game-rules/damage-rolls.md)

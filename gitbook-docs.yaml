@@ -1,0 +1,17 @@
+$schema: https://api.gitbook.com/gitbook-docs.yaml
+site:
+  title: Cardenveil
+  structure:
+    - type: space
+      key: space-1
+      title: Documentation
+      path: documentation
+      default: true
+      content:
+        directory: ./docs/documentation
+    - type: space
+      key: space-2
+      title: Changelog
+      path: changelog
+      content:
+        directory: ./docs/changelog

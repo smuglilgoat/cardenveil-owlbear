@@ -236,7 +236,7 @@ prerequisites and is a no-op-if-invalid `{ state, log }` return:
 `USE_AGILITE`, `USE_ESPRIT`, `PROPOSE_EXCHANGE`, `ACCEPT_EXCHANGE`,
 `DECLINE_EXCHANGE`, `SPEND_TOKEN`, `TOGGLE_GRAY`, `DRAW_SPADE` (Tieffelin
 free draw), `HALFLING_CHOOSE`, `SPORELIN_EXCHANGE`, `USE_CAPACITY`
-(log-only), `SET_INITIATIVE_URL` (GM sets, everyone sees), `GIVE_TOKEN`
+(log-only), `GIVE_TOKEN`
 (Hobgoblin — or GM — hands one of their own tokens to an ally),
 `DEVOUR_MIND` (Illithid: +1 Esprit, 30-min cooldown).
 
@@ -245,9 +245,13 @@ free draw), `HALFLING_CHOOSE`, `SPORELIN_EXCHANGE`, `USE_CAPACITY`
 `SWAP_CARD`, `ADD_TOKEN`, `SET_MAX_HAND`, `SET_DRAW_RANGE`, `SET_MAX_TOKENS`,
 `REST_ALL` (tokens = max), `HARD_RESET` (fresh state, keep name+race),
 `IMPORT_STATE`, `CREATE_GM_CHAR`, `REMOVE_GM_CHAR`, `SET_FATIGUE`,
-`SET_RACE`, `CANCEL_EXCHANGE`, `SYNC_TOKENS` (self or GM; sets tokens =
-maxTokens = values sent from the sheet — stat mods + 1, so the GM's
-`REST_ALL` restores stat-derived token counts).
+`SET_INITIATIVE_URL` (the initiative-tracker URL everyone sees),
+`CANCEL_EXCHANGE`.
+
+**GM, or a player on their own record** (`isSelf`): `SET_RACE` (assign a race,
+validated against `RACE_IDS`; the character-sheet import path uses self-service),
+`SYNC_TOKENS` (tokens = maxTokens = values sent from the sheet — stat mods + 1,
+so the GM's `REST_ALL` restores stat-derived token counts).
 
 Rules baked into the reducer worth knowing:
 
@@ -428,7 +432,7 @@ French.
   overlay the tabletop — an opaque background would block it. Each popover
   entry must `@import "tailwindcss"` or it renders unstyled.
 - JSDoc type-checking is on via `jsconfig.json` (`checkJs: true`).
-- **260 unit tests** (9 suites, run `npm test`) cover the pure logic (`deck`,
+- **280 unit tests** (9 suites, run `npm test`) cover the pure logic (`deck`,
   `characterSheet`, `api`, `attackRoll`, `diceRoll`, `gameLogic`,
   `sheetAssets`). Run `npm run test:unit`.
 - Form inputs intentionally skip `<label>` elements (a11y warnings accepted —
@@ -488,6 +492,6 @@ netlify/functions/_gameLogic.js, _supabaseClient.js  ← reducer/client shims
 supabase/functions/action/{index.ts, _gameLogic.ts, _deck.js(symlink→src/lib/deck.js)}
 supabase/migrations/20240101_create_character_sheets.sql
 supabase/migrations/20260910_create_character_assets_bucket.sql
-tests/unit/*                   ← 260 JEST unit tests (9 suites)
+tests/unit/*                   ← 280 JEST unit tests (9 suites)
 scripts/generate-cards.js      ← sharp SVG→PNG card generator
 ```
