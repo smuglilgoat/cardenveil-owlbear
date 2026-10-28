@@ -35,11 +35,22 @@ const mockSupabase = {
   ),
 };
 
+// Realtime health listeners api.js registers (the heartbeat watchdog path).
+const mockHealthListeners = new Set();
+
 jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
   supabase: mockSupabase,
-  onRealtimeHealth: () => () => {},
+  onRealtimeHealth: (cb) => {
+    mockHealthListeners.add(cb);
+    return () => mockHealthListeners.delete(cb);
+  },
   realtimeProblem: () => '',
 }));
+
+/** Deliver a heartbeat problem the way supabaseClient's onHeartbeat would. */
+function emitHealthProblem(status) {
+  for (const listener of [...mockHealthListeners]) listener(status);
+}
 
 // Import after mocking
 const { fetchState, startRealtime, stopRealtime, recoverConnection, dispatch, isConnected } = await import('../../src/lib/api.js');
@@ -346,7 +357,7 @@ describe('API Client', () => {
       stopRealtime();
     });
 
-    it('keeps growing the reconnect backoff instead of resetting it', () => {
+    it('doubles the backoff on each successive drop', () => {
       jest.useFakeTimers();
       startRealtime('test-room', jest.fn());
       mockChannel.emitStatus('SUBSCRIBED');
@@ -381,6 +392,85 @@ describe('API Client', () => {
       expect(mockSupabase.channel.mock.calls.length).toBe(afterFirstRetry);
       jest.advanceTimersByTime(1000);
       expect(mockSupabase.channel.mock.calls.length).toBe(afterFirstRetry + 1);
+
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
+    it('does not let the heartbeat watchdog cancel a scheduled backoff', () => {
+      jest.useFakeTimers();
+      startRealtime('test-room', jest.fn());
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      // Climb to the 30 s step so the watchdog (2.5 s) would win the race.
+      for (const delay of [1000, 2000, 4000, 8000]) {
+        mockChannel.emitStatus('CHANNEL_ERROR');
+        jest.advanceTimersByTime(delay);
+      }
+      mockChannel.emitStatus('CHANNEL_ERROR'); // next recovery is 30 s away
+      const scheduled = mockSupabase.channel.mock.calls.length;
+
+      emitHealthProblem('timeout');
+      jest.advanceTimersByTime(2500); // the watchdog used to reconnect here
+      expect(mockSupabase.channel.mock.calls.length).toBe(scheduled);
+
+      jest.advanceTimersByTime(27500); // 30 s after the drop: the backoff fires
+      expect(mockSupabase.channel.mock.calls.length).toBe(scheduled + 1);
+
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
+    it('still reconnects at once on tab refocus while a backoff is pending', () => {
+      jest.useFakeTimers();
+      startRealtime('test-room', jest.fn());
+      mockChannel.emitStatus('SUBSCRIBED');
+      mockChannel.emitStatus('CHANNEL_ERROR'); // 1 s backoff pending
+      const before = mockSupabase.channel.mock.calls.length;
+
+      recoverConnection(); // the visibilitychange path
+
+      // No timer advanced: the user coming back gets an immediate resync.
+      expect(mockSupabase.channel.mock.calls.length).toBe(before + 1);
+
+      // Forcing it keeps the ladder: this resubscribe is a failed recovery too.
+      const forced = mockSupabase.channel.mock.calls.length;
+      mockChannel.emitStatus('SUBSCRIBED');
+      mockChannel.emitStatus('CHANNEL_ERROR');
+      jest.advanceTimersByTime(1000); // 2 s step, not 1 s
+      expect(mockSupabase.channel.mock.calls.length).toBe(forced);
+      jest.advanceTimersByTime(1000);
+      expect(mockSupabase.channel.mock.calls.length).toBe(forced + 1);
+
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
+    it('grants a fresh recovery budget on a successful subscribe after exhaustion', () => {
+      jest.useFakeTimers();
+      const onConn = jest.fn();
+      startRealtime('test-room', jest.fn(), onConn);
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      const steps = [1000, 2000, 4000, 8000];
+      for (let i = 0; i < 30; i++) {
+        mockChannel.emitStatus('CHANNEL_ERROR');
+        jest.advanceTimersByTime(steps[i] ?? 30000);
+      }
+      mockChannel.emitStatus('CHANNEL_ERROR'); // attempt 31: budget exhausted
+      expect(onConn).toHaveBeenLastCalledWith('permanently_disconnected');
+
+      // The transport comes back (e.g. tab refocus re-subscribes): the budget
+      // must not leave the client dead at 30.
+      recoverConnection();
+      mockChannel.emitStatus('SUBSCRIBED');
+      jest.advanceTimersByTime(30000); // the pre-fix death cadence
+      mockChannel.emitStatus('CHANNEL_ERROR');
+
+      const channels = mockSupabase.channel.mock.calls.length;
+      jest.advanceTimersByTime(30000); // 30 s step (uptime was under 60 s)
+      expect(mockSupabase.channel.mock.calls.length).toBe(channels + 1);
+      expect(onConn).not.toHaveBeenLastCalledWith('permanently_disconnected');
 
       stopRealtime();
       jest.useRealTimers();

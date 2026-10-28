@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
 const createClient = jest.fn(() => ({ realtime: { connect: jest.fn() } }));
 jest.unstable_mockModule('@supabase/supabase-js', () => ({ createClient }));
 
-await import('../../src/lib/supabaseClient.js');
+const { onRealtimeHealth, realtimeProblem } = await import('../../src/lib/supabaseClient.js');
 
 const realtimeOptions = createClient.mock.calls[0][2].realtime;
 
@@ -25,5 +25,44 @@ describe('supabaseClient realtime options', () => {
 
   it('keeps the health callback wired to the heartbeat', () => {
     expect(typeof realtimeOptions.heartbeatCallback).toBe('function');
+  });
+});
+
+describe('supabaseClient heartbeat problems', () => {
+  const heartbeat = realtimeOptions.heartbeatCallback;
+  let seen;
+  let unsubscribe;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    seen = [];
+    unsubscribe = onRealtimeHealth((status) => seen.push(status));
+  });
+
+  afterEach(() => {
+    unsubscribe();
+    jest.useRealTimers();
+  });
+
+  it('collapses repeated problems of one status into one signal per window', () => {
+    // A sick connection reports a problem on every heartbeat (10 s). A window
+    // no wider than the interval would turn each beat into a read + reconnect.
+    heartbeat('timeout');
+    heartbeat('timeout');
+    jest.advanceTimersByTime(10000); // exactly one heartbeat interval
+    heartbeat('timeout');
+    expect(seen).toEqual(['timeout']);
+
+    jest.advanceTimersByTime(10000); // past the window: one reminder is enough
+    heartbeat('timeout');
+    expect(seen).toEqual(['timeout', 'timeout']);
+  });
+
+  it('reports a new problem after a healthy heartbeat cleared the last one', () => {
+    heartbeat('error');
+    heartbeat('ok');
+    heartbeat('timeout');
+    expect(seen).toEqual(['error', 'timeout']);
+    expect(realtimeProblem()).toBe('timeout');
   });
 });

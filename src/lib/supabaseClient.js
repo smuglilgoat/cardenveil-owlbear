@@ -35,7 +35,13 @@ const healthListeners = new Set();
 let lastProblem = '';
 /** @type {number} */
 let lastProblemAt = 0;
-const PROBLEM_MIN_INTERVAL_MS = 5000;
+/**
+ * Bursts of identical heartbeat problems collapse into one signal inside this
+ * window. Must be wider than `heartbeatIntervalMs` (10 s): with a shorter
+ * window every single heartbeat of a sick connection passes, and each one costs
+ * a catch-up REST read plus a reconnect attempt.
+ */
+const PROBLEM_MIN_INTERVAL_MS = 15000;
 
 /**
  * Subscribe to Realtime *connection* problems (not per-channel state).
@@ -58,7 +64,12 @@ export function realtimeProblem() {
 
 function onHeartbeat(status) {
   if (status !== 'error' && status !== 'timeout' && status !== 'disconnected') {
-    if (status === 'ok') lastProblem = '';
+    // Stamp the change too: the window for the next problem is measured from
+    // when this one cleared, never from the previous problem.
+    if (status === 'ok' && lastProblem) {
+      lastProblem = '';
+      lastProblemAt = Date.now();
+    }
     return;
   }
   const now = Date.now();

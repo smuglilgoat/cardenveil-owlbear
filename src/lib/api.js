@@ -7,7 +7,13 @@ let realtimeChannel = null;
 let onStateCallback = null;
 let onConnectionCallback = null;
 let reconnectTimer = null;
+/** Backoff level (index into BACKOFF_STEPS_MS). Reset only once a connection
+ *  proved healthy — see scheduleReconnect(). */
 let reconnectAttempt = 0;
+/** Failed recoveries since the last successful subscribe: the budget behind
+ *  permanently_disconnected. A subscribe that works proves the transport is
+ *  back, so it starts a fresh budget even when the backoff level stays high. */
+let failedRecoveries = 0;
 /** When the current subscription became live; 0 while not subscribed. */
 let connectedAt = 0;
 let isSubscribed = false;
@@ -125,17 +131,20 @@ function scheduleReconnect() {
   const uptimeMs = connectionUptime();
   connectedAt = 0;
   if (uptimeMs >= HEALTHY_CONNECTION_MS) reconnectAttempt = 0;
-  if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
+  if (failedRecoveries >= MAX_RECONNECT_ATTEMPTS) {
     if (!permanentlyDisconnected) {
       permanentlyDisconnected = true;
-      logEvent('error', 'realtime_permanently_disconnected', { detail: { attempts: reconnectAttempt } });
+      logEvent('error', 'realtime_permanently_disconnected', { detail: { attempts: failedRecoveries } });
       if (onConnectionCallback) onConnectionCallback('permanently_disconnected');
     }
     return;
   }
   const delay = nextBackoffMs();
   reconnectAttempt++;
-  logEvent('warn', 'realtime_reconnect_scheduled', { detail: { delay, attempt: reconnectAttempt } });
+  failedRecoveries++;
+  logEvent('warn', 'realtime_reconnect_scheduled', {
+    detail: { delay, attempt: reconnectAttempt, failedRecoveries },
+  });
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     if (currentRoomId && onStateCallback) {
@@ -331,6 +340,7 @@ function teardownRealtime(keepCounters = false) {
   if (!keepCounters) {
     currentRoomId = null;
     reconnectAttempt = 0;
+    failedRecoveries = 0;
     permanentlyDisconnected = false;
     lastServerState = null;
     pendingActions = [];
@@ -363,6 +373,11 @@ function watchRealtimeHealth() {
       clearHealthTimer();
       healthTimer = setTimeout(() => {
         healthTimer = null;
+        // A backoff is already waiting to reconnect. Reconnecting now would
+        // cancel it (startRealtime tears the timer down) and pin the delay near
+        // 1 s in exactly the sick-socket case the backoff exists for; the
+        // scheduled reconnect also re-reads the state on SUBSCRIBED.
+        if (reconnectTimer) return;
         recoverConnection();
       }, HEALTH_CATCH_UP_MS);
     });
@@ -372,6 +387,12 @@ function watchRealtimeHealth() {
 /**
  * Re-subscribe + resync after a silent drop (also used on tab refocus).
  * Safe to call at any time: a no-op when the room was never started.
+ *
+ * User-initiated calls (visibilitychange, online) are expected to force an
+ * immediate re-subscribe: that cancels a pending backoff timer, but keeps both
+ * the backoff level and the recovery budget, so a failing socket still escalates.
+ * The heartbeat watchdog must not use this while a backoff is pending — see
+ * watchRealtimeHealth().
  */
 export function recoverConnection() {
   if (!currentRoomId || !onStateCallback) return;
@@ -444,9 +465,12 @@ export function startRealtime(roomId, onState, onConnectionChange) {
           detail: { attempt: reconnectAttempt },
         });
         isSubscribed = true;
-        // Not a reset: reconnectAttempt is cleared only once this connection
-        // has proven itself (see scheduleReconnect).
+        // The backoff level is NOT reset here: it is cleared only once this
+        // connection has proven itself (see scheduleReconnect). The recovery
+        // budget is a different thing — a successful subscribe proves the
+        // transport works, so it must not leave the client stuck at 30.
         connectedAt = Date.now();
+        failedRecoveries = 0;
         permanentlyDisconnected = false;
         if (onConnectionCallback) onConnectionCallback('connected');
         if (wasReconnect) {
