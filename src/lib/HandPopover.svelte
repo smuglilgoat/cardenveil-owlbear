@@ -23,6 +23,7 @@
   let party = $state([]);
   let gameState = $state(null);
   let active = $state(null);
+  let loadError = $state('');
 
   // Fold: the bar is always visible, the cards are shown above it or not
   let folded = $state(false);
@@ -154,9 +155,10 @@
     }
   }
 
-  // Re-fit after anything that changes a rendered band.
+  // Re-fit after anything that changes a rendered band. loadError is here so a
+  // retry that clears the error re-fits once the bar/fan are back in the DOM.
   $effect(() => {
-    void [folded, allCards.length, modal, ready, tokensOpen, action];
+    void [folded, allCards.length, modal, ready, tokensOpen, action, loadError];
     requestAnimationFrame(() => fitPopover());
   });
 
@@ -219,13 +221,23 @@
       const params = new URLSearchParams(window.location.search);
       const playerIdParam = params.get('playerId');
       popoverId = params.get('popoverId');
-      myId = playerIdParam || await OBR.player.getId();
-      roomId = OBR.room.id;
-      setLogContext({ roomId, playerId: myId });
-      party = await OBR.party.getPlayers();
-      // Room viewport for the size clamps (see viewportW/H comment).
-      viewportW = await OBR.viewport.getWidth();
-      viewportH = await OBR.viewport.getHeight();
+
+      // OBR.onReady drops the returned promise, so nothing here may throw:
+      // every failure routes to loadError, which the template renders with a
+      // retry button (mirrors CardGame.svelte).
+      try {
+        myId = playerIdParam || await OBR.player.getId();
+        roomId = OBR.room.id;
+        setLogContext({ roomId, playerId: myId });
+        party = await OBR.party.getPlayers();
+        // Room viewport for the size clamps (see viewportW/H comment).
+        viewportW = await OBR.viewport.getWidth();
+        viewportH = await OBR.viewport.getHeight();
+      } catch (e) {
+        loadError = e?.message ?? String(e);
+        logError('hand_popover_init_failed', e, { roomId });
+        return; // half-initialised: no realtime, no party subscription
+      }
       ready = true;
 
       // Footprint data: where the interactive content starts inside the
@@ -242,20 +254,34 @@
         });
       }, 400);
 
-      let state = await fetchState(roomId);
-      if (state) {
-        gameState = state;
-      }
-
-      startRealtime(roomId, (newState) => {
-        gameState = newState;
-      });
+      await reload();
 
       unsubParty = OBR.party.onChange((p) => {
         party = p;
       });
     });
   });
+
+  /**
+   * Read the room state, then (re)subscribe. Safe to re-run: startRealtime
+   * tears the previous channel down first, and a failure keeps the previous
+   * gameState untouched (fetchState throws rather than returning a wrong null).
+   */
+  async function reload() {
+    loadError = '';
+    try {
+      const state = await fetchState(roomId);
+      if (state) {
+        gameState = state;
+      }
+      startRealtime(roomId, (newState) => {
+        gameState = newState;
+      });
+    } catch (e) {
+      loadError = e?.message ?? String(e);
+      logError('hand_popover_load_failed', e, { roomId });
+    }
+  }
 
   onDestroy(() => {
     stopRealtime();
@@ -597,7 +623,21 @@
   class="magic-hand w-full h-full flex flex-col select-none overflow-visible relative"
   style="background: transparent;"
 >
-  {#if !ready || !player}
+  {#if loadError}
+    <div class="flex-1 flex flex-col items-center justify-center gap-2 p-2">
+      <p class="text-red-400 text-xs text-center">Impossible de charger l'état de la partie.</p>
+      <p class="text-gray-500 text-[10px] text-center font-mono break-words">{loadError}</p>
+      <!-- Only the state read is retryable; an OBR init failure needs a reopen. -->
+      {#if ready}
+        <button
+          onclick={reload}
+          class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs rounded-lg"
+        >
+          Réessayer
+        </button>
+      {/if}
+    </div>
+  {:else if !ready || !player}
     <div class="flex-1 flex items-center justify-center">
       <p class="text-xs text-gray-400">Chargement...</p>
     </div>
