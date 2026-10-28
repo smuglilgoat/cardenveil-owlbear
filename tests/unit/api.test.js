@@ -148,7 +148,7 @@ describe('API Client', () => {
       // The failure must be visible in app_logs.
       await new Promise((resolve) => setTimeout(resolve, 0));
       const rows = mockAppLogInsert.mock.calls.map(([row]) => row);
-      const fallback = rows.find((row) => row.event === 'fetch_state_fallback_netlify');
+      const fallback = rows.find((row) => row.event === 'fetch_state_failed');
       expect(fallback).toBeDefined();
       expect(fallback.message).toBe('PGRST000');
       expect(fallback.detail.error).toBe('connection refused');
@@ -311,6 +311,52 @@ describe('API Client', () => {
       await flush();
 
       expect(global.fetch).toHaveBeenCalledTimes(2); // both runs reached the POST fallback
+      expect(fallbackRows()).toHaveLength(0);
+    });
+
+    it('distinguishes the Edge Function failure class by name', async () => {
+      const flush = () => new Promise((r) => setTimeout(r, 0));
+      // Supabase's FunctionsError sets no `.code` — only `.name`. Collapsing
+      // every failure to one constant would throw away the only diagnostic we
+      // have (FunctionsHttpError / RelayError / FetchError).
+      const invokeError = (name, raw) => Object.assign(new Error(raw), { name });
+      const fallbackRows = () =>
+        mockAppLogInsert.mock.calls
+          .map(([row]) => row)
+          .filter((row) => row.event === 'dispatch_fallback_netlify');
+
+      mockSupabase.functions.invoke.mockResolvedValueOnce({
+        data: null,
+        error: invokeError('FunctionsHttpError', 'Edge Function returned a non-2xx status code'),
+      });
+      global.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ version: 2 }) });
+      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+      await flush();
+
+      mockSupabase.functions.invoke.mockResolvedValueOnce({
+        data: null,
+        error: invokeError('FunctionsFetchError', 'Failed to send a request to the Edge Function'),
+      });
+      global.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ version: 3 }) });
+      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+      await flush();
+
+      const messages = fallbackRows().map((row) => row.message);
+      expect(messages).toContain('FunctionsHttpError');
+      expect(messages).toContain('FunctionsFetchError');
+      expect(messages).not.toContain('edge_function_failed');
+
+      // Same class, different raw text: one dedupe slot, not one per failure.
+      mockAppLogInsert.mockClear();
+      mockSupabase.functions.invoke.mockResolvedValueOnce({
+        data: null,
+        error: invokeError('FunctionsFetchError', 'fetch failed: ECONNRESET'),
+      });
+      global.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ version: 4 }) });
+      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+      await flush();
+
+      expect(global.fetch).toHaveBeenCalledTimes(3); // all three reached the POST fallback
       expect(fallbackRows()).toHaveLength(0);
     });
   });

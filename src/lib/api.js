@@ -86,11 +86,11 @@ export async function fetchState(roomId) {
 function readFailure(cause) {
   // Coarse, stable message: appLog dedupes on level|event|message, so the raw
   // error text would spend one log slot per distinct failure (MAX_PER_SESSION).
-  logEvent('warn', 'fetch_state_fallback_netlify', {
+  logEvent('warn', 'fetch_state_failed', {
     message: cause?.code != null ? String(cause.code) : 'read_failed',
     detail: { error: cause?.message ?? String(cause) },
   });
-  return new Error('State fetch failed: Supabase unreachable');
+  return new Error('State fetch failed');
 }
 
 function nextBackoffMs() {
@@ -605,8 +605,10 @@ export async function dispatch(roomId, action) {
     if (useFallback) {
       // Coarse, stable message (appLog dedupes on level|event|message); the raw
       // error text varies per failure and would spend one log slot each time.
+      // Edge Function errors carry no `.code` — their `.name` is the class that
+      // discriminates them (FunctionsHttpError / RelayError / FetchError).
       logEvent('warn', 'dispatch_fallback_netlify', {
-        message: lastError?.code != null ? String(lastError.code) : 'edge_function_failed',
+        message: String(lastError?.code ?? lastError?.name ?? 'edge_function_failed'),
         detail: { action: action?.type, error: lastError?.message ?? String(lastError) },
       });
       for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
