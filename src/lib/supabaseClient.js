@@ -1,28 +1,33 @@
 import { createClient } from '@supabase/supabase-js';
 
+/** Vite env object; `?? {}` only so the module stays importable outside Vite
+ *  (unit tests import it without the bundler's `import.meta.env`). */
+const env = import.meta.env ?? {};
+
 /**
  * Supabase client shared by every Cardenveil frame.
  *
- * `worker: true` + `heartbeatCallback` are Supabase's documented mitigations
- * for *silent* Realtime disconnections: browsers throttle timers in
- * backgrounded tabs/iframes, the main-thread heartbeat is delayed, the server
- * drops the socket and no status event ever reaches the app (the UI then keeps
- * showing stale state until a page reload). The worker keeps the heartbeat
- * alive off the main thread, and the callback gives an explicit reconnect
- * signal when the connection still dies (network loss, laptop sleep…).
- * Docs: supabase.com/docs/guides/troubleshooting/
- *       realtime-handling-silent-disconnections-in-backgrounded-applications
+ * `worker: false` on purpose. `worker: true` was meant to survive browser
+ * timer throttling in backgrounded tabs, but realtime-js disables the socket's
+ * own heartbeat when a worker is used (`autoSendHeartbeat = !worker`), making
+ * the Blob Worker the only heartbeat source. Inside Owlbear's sandboxed
+ * iframes the worker does not reliably run, so nothing heartbeats, the server
+ * closes the socket every ~30 s (`1006`, channel `CLOSED`) and the health
+ * callback stays silent. The socket's own heartbeat is the reliable path here.
+ *
+ * `heartbeatIntervalMs: 10000` — the socket default is 30 s (RealtimeClient
+ * defaults to 25 s), too close to the server's idle tolerance; 10 s gives the
+ * server three chances before it would time out. The heartbeat callback now
+ * actually reports 'error' | 'timeout' | 'disconnected', so the health
+ * watchdog in api.js sees a sick connection again.
  */
-export const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY,
-  {
-    realtime: {
-      worker: true,
-      heartbeatCallback: (status) => onHeartbeat(status),
-    },
-  }
-);
+export const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY, {
+  realtime: {
+    worker: false,
+    heartbeatIntervalMs: 10000,
+    heartbeatCallback: (status) => onHeartbeat(status),
+  },
+});
 
 /** @type {Set<(status: string) => void>} */
 const healthListeners = new Set();

@@ -202,10 +202,11 @@ open in live rooms.
   action. A write is refused when the token does not match, and a replayed
   `actionId` is ignored instead of applied twice. Recovery from a lost token is
   a GM **HARD_RESET**. See AGENTS.md for the limits of this scheme.
-- **Realtime resilience.** `worker: true` + `heartbeatCallback` (Supabase's
-  documented fix for silent disconnects in backgrounded tabs), backoff with a
-  catch-up fetch after reconnects, and request timeouts so no network call can
-  freeze the UI.
+- **Realtime resilience.** The socket's own heartbeat is kept on (`worker: false`
+  — with a worker, realtime-js disables it, and the worker does not run inside
+  OBR's sandboxed iframes) with a 10 s interval plus `heartbeatCallback`;
+  backoff with a catch-up fetch after reconnects, and request timeouts so no
+  network call can freeze the UI.
 - **Popovers are not draggable** in OBR. The hand fan measures its own content
   and calls `setHeight`/`setWidth`; it folds into its bar instead of being moved.
 

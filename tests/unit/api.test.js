@@ -363,6 +363,78 @@ describe('API Client', () => {
       stopRealtime();
       jest.useRealTimers();
     });
+
+    it('keeps growing the backoff when the socket dies right after resubscribing', () => {
+      jest.useFakeTimers();
+      startRealtime('test-room', jest.fn());
+
+      mockChannel.emitStatus('SUBSCRIBED');
+      mockChannel.emitStatus('CHANNEL_ERROR'); // failed recovery #1 → 1 s
+      jest.advanceTimersByTime(1000);
+
+      // Subscribing is not a recovery: a connection that dies again at once
+      // must not reset the counter to 0 (that was the flat 1 s reconnect loop).
+      mockChannel.emitStatus('SUBSCRIBED');
+      mockChannel.emitStatus('CHANNEL_ERROR'); // failed recovery #2 → 2 s
+      const afterFirstRetry = mockSupabase.channel.mock.calls.length;
+      jest.advanceTimersByTime(1000);
+      expect(mockSupabase.channel.mock.calls.length).toBe(afterFirstRetry);
+      jest.advanceTimersByTime(1000);
+      expect(mockSupabase.channel.mock.calls.length).toBe(afterFirstRetry + 1);
+
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
+    it('resets the backoff once a connection stayed up past the healthy threshold', () => {
+      jest.useFakeTimers();
+      startRealtime('test-room', jest.fn());
+
+      mockChannel.emitStatus('SUBSCRIBED');
+      mockChannel.emitStatus('CHANNEL_ERROR'); // failed recovery #1 → 1 s
+      jest.advanceTimersByTime(1000);
+      mockChannel.emitStatus('SUBSCRIBED');
+      mockChannel.emitStatus('CHANNEL_ERROR'); // failed recovery #2 → 2 s
+      jest.advanceTimersByTime(2000);
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      // Healthy for longer than HEALTHY_CONNECTION_MS (60 s): the next drop is
+      // a transient blip, so the backoff starts over from 1 s.
+      jest.advanceTimersByTime(61000);
+      mockChannel.emitStatus('CHANNEL_ERROR');
+      const before = mockSupabase.channel.mock.calls.length;
+      jest.advanceTimersByTime(1000);
+      expect(mockSupabase.channel.mock.calls.length).toBe(before + 1);
+
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
+    it('gives up after MAX_RECONNECT_ATTEMPTS consecutive failed recoveries', () => {
+      jest.useFakeTimers();
+      const onConn = jest.fn();
+      startRealtime('test-room', jest.fn(), onConn);
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      // 1, 2, 4, 8 s then MAX_BACKOFF_MS (30 s) for every further attempt.
+      const steps = [1000, 2000, 4000, 8000];
+      for (let i = 0; i < 30; i++) {
+        mockChannel.emitStatus('CHANNEL_ERROR');
+        jest.advanceTimersByTime(steps[i] ?? 30000);
+      }
+      expect(mockSupabase.channel.mock.calls.length).toBe(31);
+
+      mockChannel.emitStatus('CHANNEL_ERROR'); // attempt 31: budget exhausted
+      const channels = mockSupabase.channel.mock.calls.length;
+      jest.advanceTimersByTime(120000);
+
+      expect(mockSupabase.channel.mock.calls.length).toBe(channels);
+      expect(onConn).toHaveBeenLastCalledWith('permanently_disconnected');
+
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
     it('drops the optimistic entry when realtime delivers the confirmed state first', async () => {
       let realtimeCb = null;
       mockChannel.on.mockImplementationOnce((_event, _config, cb) => {

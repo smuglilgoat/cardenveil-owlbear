@@ -8,6 +8,8 @@ let onStateCallback = null;
 let onConnectionCallback = null;
 let reconnectTimer = null;
 let reconnectAttempt = 0;
+/** When the current subscription became live; 0 while not subscribed. */
+let connectedAt = 0;
 let isSubscribed = false;
 let currentRoomId = null;
 let permanentlyDisconnected = false;
@@ -21,6 +23,9 @@ let pendingActions = [];
 const BACKOFF_STEPS_MS = [1000, 2000, 4000, 8000];
 const MAX_BACKOFF_MS = 30000;
 const MAX_RECONNECT_ATTEMPTS = 30;
+/** A connection that survives this long counts as recovered and resets the
+ *  backoff; one that dies sooner is a failed recovery and keeps it growing. */
+const HEALTHY_CONNECTION_MS = 60000;
 const FETCH_TIMEOUT_MS = 8000;
 const INVOKE_TIMEOUT_MS = 10000;
 const HEALTH_CATCH_UP_MS = 2500;
@@ -105,9 +110,21 @@ function nextBackoffMs() {
     : MAX_BACKOFF_MS;
 }
 
+/** How long the current subscription has been live (0 when not subscribed). */
+function connectionUptime() {
+  return connectedAt ? Date.now() - connectedAt : 0;
+}
+
 function scheduleReconnect() {
   if (reconnectTimer) return;
   if (!currentRoomId) return;
+  // The backoff counts *consecutive* failed recoveries. Subscribing is not a
+  // recovery: the socket subscribes, dies ~30 s later and would otherwise reset
+  // the counter to 0 every cycle, pinning the delay at 1 s forever. Only a
+  // connection that stayed up for HEALTHY_CONNECTION_MS counts.
+  const uptimeMs = connectionUptime();
+  connectedAt = 0;
+  if (uptimeMs >= HEALTHY_CONNECTION_MS) reconnectAttempt = 0;
   if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
     if (!permanentlyDisconnected) {
       permanentlyDisconnected = true;
@@ -309,6 +326,7 @@ function teardownRealtime(keepCounters = false) {
     realtimeChannel = null;
   }
   isSubscribed = false;
+  connectedAt = 0;
   connectionGeneration++;
   if (!keepCounters) {
     currentRoomId = null;
@@ -335,7 +353,12 @@ function watchRealtimeHealth() {
   if (!healthUnsub) {
     healthUnsub = onRealtimeHealth((status) => {
       if (!currentRoomId) return;
-      logEvent('warn', 'realtime_health_problem', { message: status });
+      // appLog dedupes on level|event|message and caps the session: one row per
+      // status per 30 s, never one per heartbeat.
+      logEvent('warn', 'realtime_heartbeat_problem', {
+        message: status,
+        detail: { subscribed: isSubscribed, uptimeMs: connectionUptime() },
+      });
       if (onConnectionCallback) onConnectionCallback('disconnected');
       clearHealthTimer();
       healthTimer = setTimeout(() => {
@@ -414,12 +437,16 @@ export function startRealtime(roomId, onState, onConnectionChange) {
       if (myGen !== connectionGeneration) return;
 
       if (status === 'SUBSCRIBED') {
+        // A subscribe that followed a scheduled reconnect: read the row we may
+        // have missed while the socket was down.
         const wasReconnect = reconnectAttempt > 0;
         logEvent('info', wasReconnect ? 'realtime_reconnected' : 'realtime_subscribed', {
           detail: { attempt: reconnectAttempt },
         });
         isSubscribed = true;
-        reconnectAttempt = 0;
+        // Not a reset: reconnectAttempt is cleared only once this connection
+        // has proven itself (see scheduleReconnect).
+        connectedAt = Date.now();
         permanentlyDisconnected = false;
         if (onConnectionCallback) onConnectionCallback('connected');
         if (wasReconnect) {
@@ -434,12 +461,15 @@ export function startRealtime(roomId, onState, onConnectionChange) {
             .catch((e) => logError('realtime_catchup_failed', e));
         }
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        logEvent('warn', 'realtime_channel_error', { message: status, detail: { error: err?.message } });
+        logEvent('warn', 'realtime_channel_error', {
+          message: status,
+          detail: { error: err?.message, uptimeMs: connectionUptime() },
+        });
         isSubscribed = false;
         if (onConnectionCallback) onConnectionCallback('disconnected');
         scheduleReconnect();
       } else if (status === 'CLOSED') {
-        logEvent('warn', 'realtime_channel_closed', {});
+        logEvent('warn', 'realtime_channel_closed', { detail: { uptimeMs: connectionUptime() } });
         isSubscribed = false;
         if (onConnectionCallback) onConnectionCallback('disconnected');
         scheduleReconnect();
