@@ -17,7 +17,6 @@ let healthTimer = null;
 
 let lastServerState = null;
 let pendingActions = [];
-let lastReadAt = 0;
 
 const BACKOFF_STEPS_MS = [1000, 2000, 4000, 8000];
 const MAX_BACKOFF_MS = 30000;
@@ -25,20 +24,9 @@ const MAX_RECONNECT_ATTEMPTS = 30;
 const FETCH_TIMEOUT_MS = 8000;
 const INVOKE_TIMEOUT_MS = 10000;
 const HEALTH_CATCH_UP_MS = 2500;
-const READ_THROTTLE_MS = 2000;
 
 export function isConnected() {
   return isSubscribed;
-}
-
-/**
- * A read younger than READ_THROTTLE_MS is fresh enough to skip a catch-up
- * resync: the Realtime handler ignores every row with version <= currentVersion,
- * so the pushed row stays the source of truth and a catch-up read only covers
- * rows missed while the socket was down.
- */
-function recentlyRead() {
-  return lastServerState != null && Date.now() - lastReadAt < READ_THROTTLE_MS;
 }
 
 /**
@@ -66,7 +54,6 @@ export async function fetchState(roomId) {
     return fetchStateFromNetlify(roomId, read.error);
   }
 
-  lastReadAt = Date.now();
   const row = read.data;
   // Same short-circuit the ETag/304 gave us: the version already matches, so
   // keep the cached object (identity matters to the caller) and the pending
@@ -82,8 +69,11 @@ export async function fetchState(roomId) {
 
 /** Last resort when the Supabase read fails: the Netlify function's GET path. */
 async function fetchStateFromNetlify(roomId, cause) {
+  // Coarse, stable message: appLog dedupes on level|event|message, so the raw
+  // error text would spend one log slot per distinct failure (MAX_PER_SESSION).
   logEvent('warn', 'fetch_state_fallback_netlify', {
-    message: cause?.message ?? String(cause),
+    message: cause?.code != null ? String(cause.code) : 'read_failed',
+    detail: { error: cause?.message ?? String(cause) },
   });
   let res;
   try {
@@ -101,7 +91,6 @@ async function fetchStateFromNetlify(roomId, cause) {
     throw new Error(`State fetch failed: ${res.status}`);
   }
   const data = await res.json();
-  lastReadAt = Date.now();
   if (data.version != null) currentVersion = data.version;
   if (!data.state) return null;
   const state = hydrateState(data.state);
@@ -327,7 +316,6 @@ function teardownRealtime(keepCounters = false) {
     permanentlyDisconnected = false;
     lastServerState = null;
     pendingActions = [];
-    lastReadAt = 0;
     // A stopped frame must not claim to know a version: a stale version makes
     // the next fetch send a bogus If-None-Match (304) and drops realtime rows.
     currentVersion = 0;
@@ -371,17 +359,11 @@ export function recoverConnection() {
     startRealtime(currentRoomId, onStateCallback, onConnectionCallback);
     return;
   }
-  if (recentlyRead()) {
-    logEvent('info', 'catch_up_throttled', { detail: { source: 'recover' } });
-    onStateCallback(lastServerState);
-    if (onConnectionCallback) onConnectionCallback('connected');
-    return;
-  }
   const gen = connectionGeneration;
   return fetchState(currentRoomId)
     .then((state) => {
       if (gen !== connectionGeneration) return;
-      if (state && onStateCallback) onStateCallback(state);
+      if (state && onStateCallback) onStateCallback(replayPending(state));
       if (onConnectionCallback) onConnectionCallback('connected');
     })
     .catch((err) => {
@@ -442,18 +424,12 @@ export function startRealtime(roomId, onState, onConnectionChange) {
         if (onConnectionCallback) onConnectionCallback('connected');
         if (wasReconnect) {
           const catchUpGen = myGen;
-          // A read inside the throttle window makes this resync redundant: the
-          // Realtime handler already drops rows at or below currentVersion, so
-          // skipping it cannot render stale or duplicated state.
-          if (recentlyRead()) {
-            logEvent('info', 'catch_up_throttled', { detail: { source: 'reconnect' } });
-            if (onStateCallback) onStateCallback(lastServerState);
-            return;
-          }
+          // This read is the only way to recover a row written while the socket
+          // was down: postgres_changes does not replay missed rows.
           fetchState(roomId)
             .then((state) => {
               if (catchUpGen !== connectionGeneration) return;
-              if (state && onStateCallback) onStateCallback(state);
+              if (state && onStateCallback) onStateCallback(replayPending(state));
             })
             .catch((e) => logError('realtime_catchup_failed', e));
         }

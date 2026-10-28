@@ -51,7 +51,7 @@ describe('API Client', () => {
     // test would otherwise satisfy this test's first fetch with the wrong body
     global.fetch.mockReset();
     gameRoomsResult = { data: null, error: null };
-    // api.js keeps module state (version, cached state, throttle window):
+    // api.js keeps module state (version, cached state, pending actions):
     // stop it so each test starts from a known frame.
     stopRealtime();
     jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -317,39 +317,9 @@ describe('API Client', () => {
       jest.useRealTimers();
     });
 
-    it('reads once for two rapid reconnections (throttled catch-up)', async () => {
-      jest.useFakeTimers();
-      gameRoomsResult = {
-        data: { version: 9, state: { players: {}, discard: [], pendingExchanges: [], logs: [] } },
-        error: null,
-      };
-      const onState = jest.fn();
-
-      const reconnect = async () => {
-        mockChannel.emitStatus('CHANNEL_ERROR');
-        jest.advanceTimersByTime(1000);
-        mockChannel.emitStatus('SUBSCRIBED');
-        await jest.advanceTimersByTimeAsync(0);
-      };
-
-      startRealtime('test-room', onState);
-      mockChannel.emitStatus('SUBSCRIBED');
-
-      await reconnect();
-      expect(mockGameRoomsRead).toHaveBeenCalledTimes(1);
-      onState.mockClear();
-
-      // Second drop 1 s after the read: inside the throttle window.
-      await reconnect();
-      expect(mockGameRoomsRead).toHaveBeenCalledTimes(1);
-      // The UI must not sit stale: the cached state is re-emitted instead.
-      expect(onState).toHaveBeenCalled();
-
-      stopRealtime();
-      jest.useRealTimers();
-    });
-
-    it('reuses the cached state when recoverConnection is called inside the throttle window', async () => {
+    it('re-reads the state when recoverConnection runs right after a read', async () => {
+      // The read is the only recovery for a row missed while the socket was
+      // down, so no read-window throttle may suppress it.
       gameRoomsResult = {
         data: { version: 3, state: { players: {}, discard: [], pendingExchanges: [], logs: [] } },
         error: null,
@@ -362,11 +332,15 @@ describe('API Client', () => {
       const first = await fetchState('test-room');
       expect(first).not.toBeNull();
       mockGameRoomsRead.mockClear();
+      gameRoomsResult = {
+        data: { version: 4, state: { players: {}, discard: [], pendingExchanges: [], logs: [] } },
+        error: null,
+      };
 
-      recoverConnection();
+      await recoverConnection();
 
-      expect(mockGameRoomsRead).not.toHaveBeenCalled();
-      expect(onState).toHaveBeenCalledWith(first);
+      expect(mockGameRoomsRead).toHaveBeenCalledTimes(1);
+      expect(onState).toHaveBeenCalledTimes(1);
       expect(onConn).toHaveBeenLastCalledWith('connected');
 
       stopRealtime();
@@ -440,6 +414,62 @@ describe('API Client', () => {
       const shown = onState.mock.calls.at(-1)[0].players['player-1'].hand;
       expect(shown).toHaveLength(1);
       expect(shown[0]._pending).toBeUndefined();
+
+      stopRealtime();
+    });
+
+    it('keeps the optimistic entry when a same-version read short-circuits', async () => {
+      let realtimeCb = null;
+      mockChannel.on.mockImplementationOnce((_event, _config, cb) => {
+        realtimeCb = cb;
+        return mockChannel;
+      });
+
+      const onState = jest.fn();
+      startRealtime('test-room', onState);
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      const row = (version, hand) => ({
+        version,
+        state: {
+          players: {
+            'player-1': {
+              name: 'P',
+              hand,
+              crystallized: [],
+              tokens: { force: 3, agilite: 3, esprit: 3, social: 3 },
+              maxTokens: { force: 3, agilite: 3, esprit: 3, social: 3 },
+            },
+          },
+          discard: [],
+          pendingExchanges: [],
+          logs: [],
+        },
+      });
+
+      gameRoomsResult = { data: row(1, []), error: null };
+      await fetchState('test-room');
+
+      let resolveInvoke;
+      mockSupabase.functions.invoke.mockImplementationOnce(
+        () => new Promise((resolve) => { resolveInvoke = resolve; })
+      );
+      const dispatching = dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+
+      // Same version as currentVersion: fetchState returns the cached state
+      // without re-hydrating, and must NOT clear the pending optimistic action.
+      gameRoomsResult = { data: row(1, []), error: null };
+      await fetchState('test-room');
+
+      // A row for another player's write (version 2, no draw for player-1).
+      realtimeCb({ new: row(2, []) });
+
+      const shown = onState.mock.calls.at(-1)[0].players['player-1'].hand;
+      expect(shown).toHaveLength(1);
+      expect(shown[0]._pending).toBe(true);
+
+      resolveInvoke({ data: { version: 2 }, error: null });
+      await dispatching;
 
       stopRealtime();
     });
