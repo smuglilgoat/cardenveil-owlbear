@@ -1,3 +1,11 @@
+[build]
+  # Skip the production deploy when the change cannot affect the running
+  # plugin. Netlify prices a production deploy at 15 credits (Free plan: 300
+  # credits/month, hard limit), and a docs-only push used to cost exactly as
+  # much as a release — 19 of the 48 deploys in October were docs-only.
+  # Exit 0 = "nothing to build" (skip), exit 1 = "build it".
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- src netlify supabase public scripts package.json vite.config.js svelte.config.js tailwind.config.js jsconfig.json babel.config.js jest.config.js index.html hand.html sheet.html dice.html background.html"
+
 [functions]
   directory = "netlify/functions"
 
