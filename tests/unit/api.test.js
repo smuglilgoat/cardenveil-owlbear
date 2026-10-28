@@ -136,36 +136,29 @@ describe('API Client', () => {
       expect(cached).toBe(first);
     });
 
-    it('should fall back to Netlify only when the Supabase read fails', async () => {
-      gameRoomsResult = { data: null, error: { message: 'PGRST000 connection refused' } };
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ version: 5, state: roomState }),
-      });
-
-      const result = await fetchState('test-room');
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/state?roomId=test-room'),
-        expect.any(Object)
-      );
-      expect(result.players).toBeDefined();
-
-      // A recurrence must be visible in app_logs.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      const events = mockAppLogInsert.mock.calls.map(([row]) => row.event);
-      expect(events).toContain('fetch_state_fallback_netlify');
-    });
-
-    it('should throw error on failed request', async () => {
-      gameRoomsResult = { data: null, error: { message: 'network down' } };
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-      });
+    it('throws (never returns null) when the Supabase read fails, without calling Netlify', async () => {
+      // The Netlify GET path is retired (410): calling it would burn a billable
+      // invocation to learn what we already know. Throwing — not null — is the
+      // point: null means "no room" and the GM would dispatch INIT_GAME.
+      gameRoomsResult = { data: null, error: { code: 'PGRST000', message: 'connection refused' } };
 
       await expect(fetchState('test-room')).rejects.toThrow();
+      expect(global.fetch).not.toHaveBeenCalled();
+
+      // The failure must be visible in app_logs.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const rows = mockAppLogInsert.mock.calls.map(([row]) => row);
+      const fallback = rows.find((row) => row.event === 'fetch_state_fallback_netlify');
+      expect(fallback).toBeDefined();
+      expect(fallback.message).toBe('PGRST000');
+      expect(fallback.detail.error).toBe('connection refused');
+    });
+
+    it('throws when the Supabase read itself rejects', async () => {
+      mockGameRoomsRead.mockRejectedValueOnce(new Error('network down'));
+
+      await expect(fetchState('test-room')).rejects.toThrow();
+      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 
@@ -290,6 +283,35 @@ describe('API Client', () => {
           body: expect.any(String),
         })
       );
+    });
+
+    it('logs a coarse, stable message when the write fallback fires', async () => {
+      const flush = () => new Promise((r) => setTimeout(r, 0));
+      const invokeError = (raw) => Object.assign(new Error(raw), { code: 'FUNC_TIMEOUT' });
+      const fallbackRows = () =>
+        mockAppLogInsert.mock.calls
+          .map(([row]) => row)
+          .filter((row) => row.event === 'dispatch_fallback_netlify');
+
+      mockSupabase.functions.invoke.mockResolvedValueOnce({ data: null, error: invokeError('boom one') });
+      global.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ version: 2 }) });
+      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+      await flush();
+
+      expect(fallbackRows()).toHaveLength(1);
+      expect(fallbackRows()[0].message).toBe('FUNC_TIMEOUT');
+      expect(fallbackRows()[0].detail.error).toBe('boom one');
+
+      // A different raw error text must produce the same log key, so appLog's
+      // dedupe keeps it to one slot: nothing new is inserted the second time.
+      mockAppLogInsert.mockClear();
+      mockSupabase.functions.invoke.mockResolvedValueOnce({ data: null, error: invokeError('boom two') });
+      global.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ version: 3 }) });
+      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+      await flush();
+
+      expect(global.fetch).toHaveBeenCalledTimes(2); // both runs reached the POST fallback
+      expect(fallbackRows()).toHaveLength(0);
     });
   });
 

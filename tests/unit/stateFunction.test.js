@@ -21,6 +21,7 @@ jest.unstable_mockModule('../../netlify/functions/_supabaseClient.js', () => ({
 function makeFakeSupabase(initialRow = null) {
   const rpcCalls = [];
   let row = initialRow;
+  let fromCalls = 0;
   const chain = {
     select: () => chain,
     eq: () => chain,
@@ -30,7 +31,11 @@ function makeFakeSupabase(initialRow = null) {
   return {
     rpcCalls,
     getRow: () => row,
-    from: () => chain,
+    getFromCalls: () => fromCalls,
+    from: () => {
+      fromCalls++;
+      return chain;
+    },
     rpc: async (name, args) => {
       rpcCalls.push({ name, args });
       const currentVersion = row?.version ?? 0;
@@ -60,6 +65,24 @@ const bodyOf = async (res) => JSON.parse(await res.text());
 describe('netlify /api/state write path', () => {
   beforeEach(() => {
     fake = null;
+  });
+
+  it('answers GET with 410 Gone without touching the database', async () => {
+    // The read path lives in Supabase. A stale bundle still polling here must
+    // get a permanent answer (410, never retried) and cost no query.
+    fake = makeFakeSupabase();
+    const res = await handler(
+      new Request('https://example.test/api/state?roomId=room-1', { method: 'GET' })
+    );
+    const body = await bodyOf(res);
+
+    expect(res.status).toBe(410);
+    expect(body.error).toBe('deprecated');
+    expect(body.message).toMatch(/Supabase/);
+    expect(res.headers.get('Content-Type')).toContain('application/json');
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(fake.getFromCalls()).toBe(0);
+    expect(fake.rpcCalls).toHaveLength(0);
   });
 
   it('mints a token on a first write and stores only its hash', async () => {

@@ -171,7 +171,7 @@ src/
     diag.js        # live-room diagnostics (🔍 Diag)
     CardGame.svelte / GMDashboard.svelte / PlayerHand.svelte
     CharacterSheet.svelte / SheetPopover.svelte / HandPopover.svelte …
-netlify/functions/         # GET/POST fallback server + reducer shim
+netlify/functions/         # POST write fallback (GET → 410) + reducer shim
 supabase/functions/action/ # primary write path (Edge Function) + reducer shim
 supabase/migrations/       # character sheets, storage bucket, app logs
 tests/unit/                # JEST unit tests

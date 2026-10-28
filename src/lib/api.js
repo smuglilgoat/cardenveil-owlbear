@@ -47,7 +47,7 @@ export function isConnected() {
  *
  * A missing room (or a null state) returns null rather than throwing: callers
  * read null as "no room yet" and the GM then dispatches INIT_GAME. Conflating
- * an error with "no room" would wipe a live game.
+ * an error with "no room" would wipe a live game — so a failed read throws.
  */
 export async function fetchState(roomId) {
   let read;
@@ -59,10 +59,10 @@ export async function fetchState(roomId) {
       .abortSignal(timeoutSignal(FETCH_TIMEOUT_MS))
       .maybeSingle();
   } catch (err) {
-    return fetchStateFromNetlify(roomId, err);
+    throw readFailure(err);
   }
   if (read.error) {
-    return fetchStateFromNetlify(roomId, read.error);
+    throw readFailure(read.error);
   }
 
   const row = read.data;
@@ -78,36 +78,19 @@ export async function fetchState(roomId) {
   return state;
 }
 
-/** Last resort when the Supabase read fails: the Netlify function's GET path. */
-async function fetchStateFromNetlify(roomId, cause) {
+/**
+ * The Netlify GET path is retired (410), so there is nothing left to fall back
+ * to: calling it would spend an invocation to learn what we already know.
+ * Log first, then throw — never null, which the caller reads as "no room".
+ */
+function readFailure(cause) {
   // Coarse, stable message: appLog dedupes on level|event|message, so the raw
   // error text would spend one log slot per distinct failure (MAX_PER_SESSION).
   logEvent('warn', 'fetch_state_fallback_netlify', {
     message: cause?.code != null ? String(cause.code) : 'read_failed',
     detail: { error: cause?.message ?? String(cause) },
   });
-  let res;
-  try {
-    res = await fetch(`/api/state?roomId=${encodeURIComponent(roomId)}`, {
-      headers: currentVersion ? { 'If-None-Match': String(currentVersion) } : {},
-      signal: timeoutSignal(FETCH_TIMEOUT_MS),
-    });
-  } catch (err) {
-    logEvent('warn', 'fetch_state_failed', { message: err?.message ?? String(err), detail: { timeoutMs: FETCH_TIMEOUT_MS } });
-    throw new Error('State fetch timed out');
-  }
-  if (res.status === 304) return lastServerState;
-  if (!res.ok) {
-    logEvent('warn', 'fetch_state_failed', { message: `HTTP ${res.status}` });
-    throw new Error(`State fetch failed: ${res.status}`);
-  }
-  const data = await res.json();
-  if (data.version != null) currentVersion = data.version;
-  if (!data.state) return null;
-  const state = hydrateState(data.state);
-  lastServerState = state;
-  pendingActions = [];
-  return state;
+  return new Error('State fetch failed: Supabase unreachable');
 }
 
 function nextBackoffMs() {
@@ -344,8 +327,8 @@ function teardownRealtime(keepCounters = false) {
     permanentlyDisconnected = false;
     lastServerState = null;
     pendingActions = [];
-    // A stopped frame must not claim to know a version: a stale version makes
-    // the next fetch send a bogus If-None-Match (304) and drops realtime rows.
+    // A stopped frame must not claim to know a version: a stale one would make
+    // the next read short-circuit and drop realtime rows.
     currentVersion = 0;
   }
 }
@@ -620,9 +603,11 @@ export async function dispatch(roomId, action) {
     }
 
     if (useFallback) {
+      // Coarse, stable message (appLog dedupes on level|event|message); the raw
+      // error text varies per failure and would spend one log slot each time.
       logEvent('warn', 'dispatch_fallback_netlify', {
-        message: lastError?.message ?? String(lastError),
-        detail: { action: action?.type },
+        message: lastError?.code != null ? String(lastError.code) : 'edge_function_failed',
+        detail: { action: action?.type, error: lastError?.message ?? String(lastError) },
       });
       for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
         try {

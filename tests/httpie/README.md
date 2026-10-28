@@ -18,7 +18,9 @@ pip install httpie
 
 ## Usage
 
-### Get Game State
+### Get Game State — retired
+The Netlify GET read path was removed (state is read from Supabase REST); the
+endpoint now answers `410 Gone` and never queries the database:
 ```bash
 http GET http://localhost:8888/.netlify/functions/state roomId==test-room-123
 ```
@@ -121,17 +123,10 @@ http POST http://localhost:8888/.netlify/functions/state \
   action:='{"type":"HARD_RESET","playerId":"gm-player-id"}'
 ```
 
-## Testing with Conditional Requests (ETag)
+## Read requests no longer return state
 
-```bash
-# First request - get state and ETag
-http GET http://localhost:8888/.netlify/functions/state roomId==test-room-123
-
-# Second request with If-None-Match header (should return 304 if unchanged)
-http GET http://localhost:8888/.netlify/functions/state \
-  roomId==test-room-123 \
-  If-None-Match:1
-```
+There is no ETag / `If-None-Match` handling left: `GET` is permanent `410 Gone`
+(POST is unaffected — it is still the write fallback).
 
 ## Testing Conflict Resolution
 

@@ -172,9 +172,10 @@ Key files:
   **`apply_game_action` RPC** (`p_room_id`, `p_expected_version`,
   `p_new_version`, `p_state`) with a retry loop of 10 (exponential backoff,
   409 on exhaustion).
-- **`netlify/functions/state.js`** — Netlify fallback server: GET (ETag
-  `If-None-Match` version → 304 on match) and POST (same reducer + same RPC
-  retry loop). Used as fallback and for the initial catch-up fetch.
+- **`netlify/functions/state.js`** — Netlify **write-only** fallback: POST (same
+  reducer + same RPC retry loop) for a write whose Edge Function response was
+  lost. GET is retired and answers **410 Gone** — clients read state from
+  Supabase REST, so a stale bundle can no longer spend Netlify invocations.
 
 ### Data model
 
@@ -482,7 +483,7 @@ src/lib/TokenPanel.svelte      ← token bar
 
 src/app.css src/hand.css src/sheetPopover.css   ← one Tailwind entry per page/shell
 
-netlify/functions/state.js     ← GET/POST fallback server
+netlify/functions/state.js     ← POST write fallback (GET → 410) server
 netlify/functions/_gameLogic.js, _supabaseClient.js  ← reducer/client shims
 supabase/functions/action/{index.ts, _gameLogic.ts, _deck.js(symlink→src/lib/deck.js)}
 supabase/migrations/20240101_create_character_sheets.sql

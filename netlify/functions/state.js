@@ -29,27 +29,13 @@ export default async (request) => {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
 
+  // Retired read path: state is read from Supabase REST. 410 is permanent, so
+  // a stale bundle (or a proxy) stops retrying instead of spending invocations.
   if (request.method === 'GET') {
-    const url = new URL(request.url);
-    const roomId = url.searchParams.get('roomId');
-    if (!roomId) return json({ error: 'roomId required' }, 400);
-
-    const { data, error } = await supabase
-      .from('game_rooms')
-      .select('version, state')
-      .eq('room_id', roomId)
-      .single();
-
-    if (error || !data) return json({ version: 0, state: null });
-
-    const clientVersion = request.headers.get('If-None-Match');
-    if (clientVersion && String(data.version) === clientVersion) {
-      return new Response(null, { status: 304, headers: corsHeaders() });
-    }
-
-    return json({ version: data.version, state: data.state }, 200, {
-      'ETag': String(data.version),
-    });
+    return json({
+      error: 'deprecated',
+      message: 'State reads are served by Supabase, not this function. Read the game_rooms row directly.',
+    }, 410);
   }
 
   if (request.method === 'POST') {
