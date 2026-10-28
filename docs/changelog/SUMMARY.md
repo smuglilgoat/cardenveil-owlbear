@@ -1,6 +1,7 @@
 # Table of contents
 
 * [Notes de version](README.md)
+* [Cardenveil 2.8.1 — connexion stable et fiche fiable](2.8.1.md)
 * [Cardenveil 2.8.0 — les 24 races et leurs traits](2.8.0.md)
 * [Cardenveil 2.7.19 — vérification des écritures et actions sans doublon](2.7.19.md)
 * [Cardenveil 2.7.18 — popup de dés et sélecteur d'arme](2.7.18.md)
