@@ -3,8 +3,14 @@
   # plugin. Netlify prices a production deploy at 15 credits (Free plan: 300
   # credits/month, hard limit), and a docs-only push used to cost exactly as
   # much as a release — 19 of the 48 deploys in October were docs-only.
-  # Exit 0 = "nothing to build" (skip), exit 1 = "build it".
-  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- src netlify supabase public scripts package.json vite.config.js svelte.config.js tailwind.config.js jsconfig.json babel.config.js jest.config.js index.html hand.html sheet.html dice.html background.html"
+  #
+  # Exit 0 = "nothing to build" (skip the deploy), exit 1 = "build it".
+  # The path list is an ALLOWLIST of everything that can change the built
+  # output: the source, the server functions, the static assets and every
+  # root-level file the build reads. Note `netlify.toml` must be listed
+  # explicitly — `netlify` alone only matches the directory and would let a
+  # change to this file slip through unnoticed.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- src netlify netlify.toml supabase public scripts package.json package-lock.json vite.config.js svelte.config.js jsconfig.json babel.config.js jest.config.js index.html hand.html sheet.html dice.html background.html"
 
 [functions]
   directory = "netlify/functions"
