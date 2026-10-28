@@ -12,14 +12,27 @@ const mockChannel = {
   }),
 };
 
+// game_rooms read chain (the state read path) — resolves to gameRoomsResult.
+let gameRoomsResult = { data: null, error: null };
+const mockGameRoomsRead = jest.fn(() => Promise.resolve(gameRoomsResult));
+const mockGameRoomsQuery = {
+  select: jest.fn(() => mockGameRoomsQuery),
+  eq: jest.fn(() => mockGameRoomsQuery),
+  abortSignal: jest.fn(() => mockGameRoomsQuery),
+  maybeSingle: mockGameRoomsRead,
+};
+// appLog sink: assert-free no-op so logging paths never throw in tests
+const mockAppLogInsert = jest.fn(() => Promise.resolve({ error: null }));
+
 const mockSupabase = {
   channel: jest.fn(() => mockChannel),
   removeChannel: jest.fn(),
   functions: {
     invoke: jest.fn(),
   },
-  // appLog sink: assert-free no-op so logging paths never throw in tests
-  from: jest.fn(() => ({ insert: jest.fn(() => Promise.resolve({ error: null })) })),
+  from: jest.fn((table) =>
+    table === 'game_rooms' ? mockGameRoomsQuery : { insert: mockAppLogInsert }
+  ),
 };
 
 jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
@@ -29,7 +42,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { fetchState, startRealtime, stopRealtime, dispatch, isConnected } = await import('../../src/lib/api.js');
+const { fetchState, startRealtime, stopRealtime, recoverConnection, dispatch, isConnected } = await import('../../src/lib/api.js');
 
 describe('API Client', () => {
   beforeEach(() => {
@@ -37,6 +50,10 @@ describe('API Client', () => {
     // reset (not just clear): a leftover mockResolvedValueOnce from a previous
     // test would otherwise satisfy this test's first fetch with the wrong body
     global.fetch.mockReset();
+    gameRoomsResult = { data: null, error: null };
+    // api.js keeps module state (version, cached state, throttle window):
+    // stop it so each test starts from a known frame.
+    stopRealtime();
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -47,21 +64,73 @@ describe('API Client', () => {
   });
 
   describe('fetchState', () => {
-    it('should fetch state successfully', async () => {
-      const mockState = {
-        version: 1,
-        state: {
-          players: {},
-          discard: [],
-          pendingExchanges: [],
-          logs: [],
-        },
-      };
+    const roomState = {
+      players: {},
+      discard: [],
+      pendingExchanges: [],
+      logs: [],
+    };
 
+    it('should read state from Supabase', async () => {
+      gameRoomsResult = { data: { version: 1, state: roomState }, error: null };
+
+      const result = await fetchState('test-room');
+
+      expect(mockSupabase.from).toHaveBeenCalledWith('game_rooms');
+      expect(mockGameRoomsQuery.select).toHaveBeenCalledWith('version, state');
+      expect(mockGameRoomsQuery.eq).toHaveBeenCalledWith('room_id', 'test-room');
+      expect(mockGameRoomsRead).toHaveBeenCalledTimes(1);
+      expect(result).toBeDefined();
+      expect(result.players).toBeDefined();
+    });
+
+    it('should not call the Netlify function on the happy path', async () => {
+      // THE regression test for the credit burn: every state read used to be
+      // one billable /api/state invocation.
+      gameRoomsResult = { data: { version: 1, state: roomState }, error: null };
+
+      await fetchState('test-room');
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should return null (not throw) when the room does not exist', async () => {
+      // CardGame reads null as "no room yet" and dispatches INIT_GAME. Throwing
+      // here would stop a GM's game from ever initialising.
+      gameRoomsResult = { data: null, error: null };
+
+      await expect(fetchState('test-room')).resolves.toBeNull();
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should return null when the room exists but has no state', async () => {
+      gameRoomsResult = { data: { version: 4, state: null }, error: null };
+
+      await expect(fetchState('test-room')).resolves.toBeNull();
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should return the cached state when the version is unchanged', async () => {
+      gameRoomsResult = { data: { version: 7, state: roomState }, error: null };
+      const first = await fetchState('test-room');
+      expect(first.players).toBeDefined();
+
+      gameRoomsResult = { data: { version: 7, state: roomState }, error: null };
+      const cached = await fetchState('test-room');
+
+      // An unchanged version must not be conflated with "the room has no
+      // state": callers treat null as "no room" and would dispatch a
+      // game-wiping INIT_GAME. Identity is load-bearing too — returning the
+      // same object keeps the pending optimistic actions untouched.
+      expect(cached).toBe(first);
+    });
+
+    it('should fall back to Netlify only when the Supabase read fails', async () => {
+      gameRoomsResult = { data: null, error: { message: 'PGRST000 connection refused' } };
       global.fetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => mockState,
+        json: async () => ({ version: 5, state: roomState }),
       });
 
       const result = await fetchState('test-room');
@@ -70,41 +139,16 @@ describe('API Client', () => {
         expect.stringContaining('/api/state?roomId=test-room'),
         expect.any(Object)
       );
-      expect(result).toBeDefined();
       expect(result.players).toBeDefined();
-    });
 
-    it('should return the cached state on 304 Not Modified', async () => {
-      const mockState = {
-        version: 7,
-        state: {
-          players: {},
-          discard: [],
-          pendingExchanges: [],
-          logs: [],
-        },
-      };
-
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => mockState,
-      });
-      const first = await fetchState('test-room');
-      expect(first.players).toBeDefined();
-
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 304,
-      });
-      const cached = await fetchState('test-room');
-
-      // 304 must not be conflated with "the room has no state": callers treat
-      // null as "no room" and would dispatch a game-wiping INIT_GAME.
-      expect(cached).toBe(first);
+      // A recurrence must be visible in app_logs.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const events = mockAppLogInsert.mock.calls.map(([row]) => row.event);
+      expect(events).toContain('fetch_state_fallback_netlify');
     });
 
     it('should throw error on failed request', async () => {
+      gameRoomsResult = { data: null, error: { message: 'network down' } };
       global.fetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -147,16 +191,10 @@ describe('API Client', () => {
   });
 
   describe('dispatch', () => {
-    it('should send action to Supabase function', async () => {
-      mockSupabase.functions.invoke.mockResolvedValueOnce({
-        data: { version: 2 },
-        error: null,
-      });
-
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
+    beforeEach(() => {
+      // dispatch reads the current state first (Supabase), then applies
+      gameRoomsResult = {
+        data: {
           version: 1,
           state: {
             players: { 'player-1': { hand: [], crystallized: [] } },
@@ -164,7 +202,15 @@ describe('API Client', () => {
             pendingExchanges: [],
             logs: [],
           },
-        }),
+        },
+        error: null,
+      };
+    });
+
+    it('should send action to Supabase function', async () => {
+      mockSupabase.functions.invoke.mockResolvedValueOnce({
+        data: { version: 2 },
+        error: null,
       });
 
       const action = { type: 'DRAW', playerId: 'player-1' };
@@ -217,25 +263,11 @@ describe('API Client', () => {
         error: new Error('Supabase error'),
       });
 
-      global.fetch
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            version: 1,
-            state: {
-              players: { 'player-1': { hand: [], crystallized: [] } },
-              discard: [],
-              pendingExchanges: [],
-              logs: [],
-            },
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: async () => ({ version: 2 }),
-        });
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ version: 2 }),
+      });
 
       const action = { type: 'DRAW', playerId: 'player-1' };
       await dispatch('test-room', action);
@@ -261,32 +293,83 @@ describe('API Client', () => {
 
     it('runs the catch-up fetch after a reconnection, not on the first subscribe', async () => {
       jest.useFakeTimers();
-      global.fetch.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ version: 9, state: { players: {}, discard: [], pendingExchanges: [], logs: [] } }),
-      });
+      gameRoomsResult = {
+        data: { version: 9, state: { players: {}, discard: [], pendingExchanges: [], logs: [] } },
+        error: null,
+      };
       const onState = jest.fn();
 
       startRealtime('test-room', onState);
       mockChannel.emitStatus('SUBSCRIBED');
-      expect(global.fetch).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(mockGameRoomsRead).not.toHaveBeenCalled();
 
       // Channel drops → backoff timer → startRealtime() from scheduleReconnect
       mockChannel.emitStatus('CHANNEL_ERROR');
       jest.advanceTimersByTime(1000);
       mockChannel.emitStatus('SUBSCRIBED');
+      await jest.advanceTimersByTimeAsync(0);
 
-      jest.useRealTimers();
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/state?roomId=test-room'),
-        expect.any(Object)
-      );
+      expect(mockGameRoomsRead).toHaveBeenCalledTimes(1);
       expect(onState).toHaveBeenCalled();
 
       stopRealtime();
       jest.useRealTimers();
+    });
+
+    it('reads once for two rapid reconnections (throttled catch-up)', async () => {
+      jest.useFakeTimers();
+      gameRoomsResult = {
+        data: { version: 9, state: { players: {}, discard: [], pendingExchanges: [], logs: [] } },
+        error: null,
+      };
+      const onState = jest.fn();
+
+      const reconnect = async () => {
+        mockChannel.emitStatus('CHANNEL_ERROR');
+        jest.advanceTimersByTime(1000);
+        mockChannel.emitStatus('SUBSCRIBED');
+        await jest.advanceTimersByTimeAsync(0);
+      };
+
+      startRealtime('test-room', onState);
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      await reconnect();
+      expect(mockGameRoomsRead).toHaveBeenCalledTimes(1);
+      onState.mockClear();
+
+      // Second drop 1 s after the read: inside the throttle window.
+      await reconnect();
+      expect(mockGameRoomsRead).toHaveBeenCalledTimes(1);
+      // The UI must not sit stale: the cached state is re-emitted instead.
+      expect(onState).toHaveBeenCalled();
+
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
+    it('reuses the cached state when recoverConnection is called inside the throttle window', async () => {
+      gameRoomsResult = {
+        data: { version: 3, state: { players: {}, discard: [], pendingExchanges: [], logs: [] } },
+        error: null,
+      };
+      const onState = jest.fn();
+      const onConn = jest.fn();
+      startRealtime('test-room', onState, onConn);
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      const first = await fetchState('test-room');
+      expect(first).not.toBeNull();
+      mockGameRoomsRead.mockClear();
+
+      recoverConnection();
+
+      expect(mockGameRoomsRead).not.toHaveBeenCalled();
+      expect(onState).toHaveBeenCalledWith(first);
+      expect(onConn).toHaveBeenLastCalledWith('connected');
+
+      stopRealtime();
     });
 
     it('keeps growing the reconnect backoff instead of resetting it', () => {
@@ -335,7 +418,7 @@ describe('API Client', () => {
         },
       });
 
-      global.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => row(1, []) });
+      gameRoomsResult = { data: row(1, []), error: null };
       await fetchState('test-room');
 
       let resolveInvoke;
