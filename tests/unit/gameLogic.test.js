@@ -542,6 +542,47 @@ describe('Game Logic', () => {
         expect(state.players['player-1'].hand.length).toBe(1);
         expect(state.players['player-1'].tokens.social).toBe(3);
       });
+
+      it('should refund exactly one token when the sender is below the cap', () => {
+        // Humain Social cap is 5 (base 3 + 2): 2 → 3 proves this is a +1 and
+        // not a blind clamp to the cap.
+        initialState.players['player-1'].race = 'humain';
+        initialState.players['player-1'].tokens.social = 2;
+        initialState.pendingExchanges = [{
+          id: 'ex-1',
+          from: 'player-1',
+          to: 'player-2',
+          fromCard: makeCard('♠', '5'),
+        }];
+
+        const { state } = applyAction(initialState, {
+          type: 'DECLINE_EXCHANGE',
+          playerId: 'player-2',
+          exchangeId: 'ex-1',
+        });
+
+        expect(state.players['player-1'].tokens.social).toBe(3);
+      });
+
+      it('should never refund above the Social cap', () => {
+        // GM ran REST_ALL while the exchange was pending: the sender is back at
+        // the cap, so the refund must not push them to cap + 1.
+        initialState.players['player-1'].tokens.social = 3;
+        initialState.pendingExchanges = [{
+          id: 'ex-1',
+          from: 'player-1',
+          to: 'player-2',
+          fromCard: makeCard('♠', '5'),
+        }];
+
+        const { state } = applyAction(initialState, {
+          type: 'DECLINE_EXCHANGE',
+          playerId: 'player-2',
+          exchangeId: 'ex-1',
+        });
+
+        expect(state.players['player-1'].tokens.social).toBe(3);
+      });
     });
 
     describe('CANCEL_EXCHANGE', () => {
