@@ -697,7 +697,8 @@
     const entries = await Promise.all(
       missing.map(async (a) => {
         try {
-          const row = await fetchCharacterSheet(a.id, roomId);
+          // Portrait only: the ally's document is not applied here.
+          const row = await fetchCharacterSheet(a.id, roomId, { trackBase: false });
           return [a.id, row?.data?.portrait ?? ''];
         } catch {
           return [a.id, ''];

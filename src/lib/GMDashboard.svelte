@@ -227,7 +227,8 @@
         playerChecks = { ...playerChecks, [id]: payload?.data?.actionChecks ?? {} };
       });
       checkUnsubs.set(id, un);
-      fetchCharacterSheet(id, OBR.room.id)
+      // Diamonds only: the player's document is not applied on the GM frame.
+      fetchCharacterSheet(id, OBR.room.id, { trackBase: false })
         .then((row) => { playerChecks = { ...playerChecks, [id]: row?.data?.actionChecks ?? {} }; })
         .catch(() => {});
     }

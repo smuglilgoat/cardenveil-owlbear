@@ -600,7 +600,6 @@ describe('Character Sheet dice helpers', () => {
         p_player_id: 'cas-1',
         p_room_id: 'room-1',
         p_expected_version: 0,
-        p_new_version: 1,
         p_data: mine,
         p_name: 'Yves',
         p_race: null,
@@ -619,7 +618,7 @@ describe('Character Sheet dice helpers', () => {
       const saved = await saveCharacterSheet('cas-2', 'room-1', sheet({ notes: 'local' }));
 
       expect(mockClient.rpc.mock.calls[0][1].p_expected_version).toBe(4);
-      expect(mockClient.rpc.mock.calls[0][1].p_new_version).toBe(5);
+      expect(mockClient.rpc.mock.calls[0][1]).not.toHaveProperty('p_new_version');
       expect(saved.version).toBe(5);
     });
 
@@ -680,6 +679,85 @@ describe('Character Sheet dice helpers', () => {
 
       await expect(saveCharacterSheet('cas-5', 'room-1', sheet({ notes: 'local' }))).rejects.toThrow(/kept conflicting/);
       expect(mockClient.rpc).toHaveBeenCalledTimes(3);
+    });
+
+    // The compact popover's reconcile poll refetches every 1.5 s and applies
+    // only `actionChecks`. Advancing the base there made the next save send the
+    // newest expected version with a one-generation-old document: CAS passed
+    // and the other frame's edit was destroyed with no conflict.
+    it('does not bypass the CAS for a fetch the caller does not apply', async () => {
+      const doc4 = sheet({ notes: 'old notes', actionChecks: { action: false, bonus: false, reaction: false } });
+      const doc5 = sheet({ notes: 'new notes', actionChecks: { action: false, bonus: false, reaction: false } });
+
+      mockFetchChain({ data: { version: 4, data: doc4 }, error: null });
+      await fetchCharacterSheet('cas-poll', 'room-1'); // mount: applies the row
+      mockFetchChain({ data: { version: 5, data: doc5 }, error: null });
+      await fetchCharacterSheet('cas-poll', 'room-1', { trackBase: false }); // poll: does not
+
+      mockClient.rpc
+        .mockResolvedValueOnce({ data: { conflict: true, version: 5, data: doc5 }, error: null })
+        .mockResolvedValueOnce({ data: { version: 6, data: {} }, error: null });
+
+      await saveCharacterSheet('cas-poll', 'room-1', { ...doc4, actionChecks: { ...doc4.actionChecks, action: true } });
+
+      expect(mockClient.rpc.mock.calls[0][1].p_expected_version).toBe(4); // not 5
+      const retried = mockClient.rpc.mock.calls[1][1].p_data;
+      expect(retried.notes).toBe('new notes'); // the other frame's edit survives
+      expect(retried.actionChecks.action).toBe(true); // and the local toggle
+    });
+
+    it('advances the base for a fetch the caller does apply', async () => {
+      mockFetchChain({ data: { version: 5, data: sheet() }, error: null });
+      await fetchCharacterSheet('cas-apply', 'room-1');
+      mockClient.rpc.mockResolvedValueOnce({ data: { version: 6, data: sheet() }, error: null });
+
+      const saved = await saveCharacterSheet('cas-apply', 'room-1', sheet({ notes: 'local' }));
+
+      expect(mockClient.rpc).toHaveBeenCalledTimes(1); // no conflict round-trip
+      expect(mockClient.rpc.mock.calls[0][1].p_expected_version).toBe(5);
+      expect(saved.version).toBe(6);
+    });
+
+    // The version is the server's: the client used to send expected + 1, so a
+    // caller sending the same version twice kept the row's version unchanged
+    // and a second client could then write over it.
+    it('never sends the next version to the RPC', async () => {
+      mockClient.rpc.mockResolvedValueOnce({ data: { version: 7, data: sheet() }, error: null });
+
+      await saveCharacterSheet('cas-ver', 'room-1', sheet({ notes: 'local' }));
+
+      expect(Object.keys(mockClient.rpc.mock.calls[0][1])).not.toContain('p_new_version');
+    });
+
+    // Merging against no base calls every differing leaf a local change: the
+    // local default sheet would overwrite the server's real one and log it as a
+    // merge. Refuse loudly instead (one attempt, no retry loop).
+    it('refuses to merge when the local copy has no base', async () => {
+      mockClient.rpc.mockResolvedValue({
+        data: { conflict: true, version: 5, data: sheet({ notes: 'server notes' }) },
+        error: null,
+      });
+
+      await expect(saveCharacterSheet('cas-nobase', 'room-1', sheet({ notes: '' })))
+        .rejects.toThrow(/base unknown/);
+      expect(mockClient.rpc).toHaveBeenCalledTimes(1);
+    });
+
+    // A real "cannot reach the database" outage or a Postgres error forwarded
+    // from inside the function body must not downgrade the save to the
+    // unguarded upsert.
+    it.each([
+      ['PGRST002', 'Could not query the database for the schema cache'],
+      ['42883', 'function public.foo(text) does not exist'],
+      ['23505', 'duplicate key value violates unique constraint'],
+      [undefined, 'TypeError: Failed to fetch'],
+    ])('throws for %s instead of falling back to the unguarded upsert', async (code, message) => {
+      mockClient.rpc.mockResolvedValueOnce({ data: null, error: { code, message } });
+
+      // PostgREST errors are plain objects, not Error instances.
+      await expect(saveCharacterSheet('cas-err', 'room-1', sheet({ notes: 'local' })))
+        .rejects.toMatchObject({ code, message });
+      expect(mockClient.from).not.toHaveBeenCalled();
     });
   });
 

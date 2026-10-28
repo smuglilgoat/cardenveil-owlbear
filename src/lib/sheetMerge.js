@@ -26,8 +26,10 @@
  * - Arrays of objects (weapons, inventoryItems, capacities, actions, feats…)
  *   are merged per item, by identity (`id`, else `nom`/`name`, else the item's
  *   JSON), so two frames editing different items — or different fields of the
- *   same item — both survive. A one-sided deletion only wins if the other side
- *   did not edit that item.
+ *   same item — both survive. Same-named items are paired positionally within
+ *   their group and all occurrences are kept; a disagreement there is recorded
+ *   as a `duplicate-key` conflict. A one-sided deletion only wins if the other
+ *   side did not edit that item.
  *
  * Pure: no Supabase, no logging. The caller applies the result and reports
  * `conflicts`.
@@ -101,13 +103,28 @@ function itemKey(item) {
   return `json:${JSON.stringify(item)}`;
 }
 
+/**
+ * Index items by identity, keeping EVERY occurrence: same-named items (13 live
+ * sheets have two "Serpe") are paired positionally within their group as
+ * `nom:Serpe`, `nom:Serpe#2`, … — keying by name alone silently dropped all but
+ * the first.
+ * @param {Array} list - Items to index
+ * @returns {{ index: Map, bare: Map, totals: Map }} occurrence key → item,
+ *   occurrence key → shared key, shared key → occurrences in this list
+ */
 function indexByKey(list) {
   const index = new Map();
+  const bare = new Map();
+  const totals = new Map();
   for (const item of list) {
     const key = itemKey(item);
-    if (!index.has(key)) index.set(key, item);
+    const occurrence = (totals.get(key) ?? 0) + 1;
+    totals.set(key, occurrence);
+    const occurrenceKey = occurrence === 1 ? key : `${key}#${occurrence}`;
+    index.set(occurrenceKey, item);
+    bare.set(occurrenceKey, key);
   }
-  return index;
+  return { index, bare, totals };
 }
 
 function mergeArray(base, mine, theirs, path, conflicts) {
@@ -127,33 +144,46 @@ function mergeArray(base, mine, theirs, path, conflicts) {
   const theirsIndex = indexByKey(theirs);
   const out = [];
 
-  for (const key of new Set([...baseIndex.keys(), ...mineIndex.keys(), ...theirsIndex.keys()])) {
+  // Shared keys with more than one item on any side: their pairing is
+  // positional, so a disagreement there is recorded even when one side wins.
+  const collisions = new Set();
+  for (const { totals } of [baseIndex, mineIndex, theirsIndex]) {
+    for (const [key, count] of totals) if (count > 1) collisions.add(key);
+  }
+
+  for (const key of new Set([...baseIndex.index.keys(), ...mineIndex.index.keys(), ...theirsIndex.index.keys()])) {
     const itemPath = `${path}[${key}]`;
-    const inBase = baseIndex.has(key);
-    const inMine = mineIndex.has(key);
-    const inTheirs = theirsIndex.has(key);
+    const inBase = baseIndex.index.has(key);
+    const inMine = mineIndex.index.has(key);
+    const inTheirs = theirsIndex.index.has(key);
 
     if (inMine && inTheirs) {
+      const local = mineIndex.index.get(key);
+      const remote = theirsIndex.index.get(key);
+      const shared = mineIndex.bare.get(key);
+      if (!deepEqual(local, remote) && collisions.has(shared)) {
+        conflicts.push({ path: itemPath, reason: 'duplicate-key' });
+      }
       out.push(mergeValue(
-        inBase ? baseIndex.get(key) : undefined,
-        mineIndex.get(key),
-        theirsIndex.get(key),
+        inBase ? baseIndex.index.get(key) : undefined,
+        local,
+        remote,
         itemPath,
         conflicts,
       ));
       continue;
     }
     if (inMine) {
-      if (!inBase) out.push(mineIndex.get(key)); // added locally
-      else if (!deepEqual(mineIndex.get(key), baseIndex.get(key))) {
-        out.push(mineIndex.get(key)); // edited locally, deleted on the server
+      if (!inBase) out.push(mineIndex.index.get(key)); // added locally
+      else if (!deepEqual(mineIndex.index.get(key), baseIndex.index.get(key))) {
+        out.push(mineIndex.index.get(key)); // edited locally, deleted on the server
         conflicts.push({ path: itemPath, reason: 'delete-vs-edit' });
       }
       continue;
     }
     if (inTheirs) {
-      if (!inBase) out.push(theirsIndex.get(key)); // added on the server
-      else if (!deepEqual(theirsIndex.get(key), baseIndex.get(key))) {
+      if (!inBase) out.push(theirsIndex.index.get(key)); // added on the server
+      else if (!deepEqual(theirsIndex.index.get(key), baseIndex.index.get(key))) {
         conflicts.push({ path: itemPath, reason: 'delete-vs-edit' }); // deleted locally, edited on the server
       }
     }

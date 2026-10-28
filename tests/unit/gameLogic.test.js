@@ -583,6 +583,59 @@ describe('Game Logic', () => {
 
         expect(state.players['player-1'].tokens.social).toBe(3);
       });
+
+      // Pin the racial cap: a hardcoded 3 (or the raw base cap) passes every
+      // other case of this suite.
+      it('should refund a Humain up to their +2 Social cap', () => {
+        initialState.players['player-1'].race = 'humain';
+        initialState.pendingExchanges = [{
+          id: 'ex-1',
+          from: 'player-1',
+          to: 'player-2',
+          fromCard: makeCard('♠', '5'),
+        }];
+
+        const atFour = () => {
+          initialState.players['player-1'].tokens.social = 4;
+          return applyAction(initialState, {
+            type: 'DECLINE_EXCHANGE',
+            playerId: 'player-2',
+            exchangeId: 'ex-1',
+          }).state;
+        };
+
+        expect(atFour().players['player-1'].tokens.social).toBe(5);
+
+        // Already at the Humain cap of 5, not the base cap of 3.
+        initialState.players['player-1'].tokens.social = 5;
+        const atCap = applyAction(initialState, {
+          type: 'DECLINE_EXCHANGE',
+          playerId: 'player-2',
+          exchangeId: 'ex-1',
+        }).state;
+        expect(atCap.players['player-1'].tokens.social).toBe(5);
+      });
+
+      // A cap missing the key must never DESTROY the token held (with `?? 0`
+      // the clamp to 0 wiped it).
+      it('should never destroy the held token when the cap has no social key', () => {
+        initialState.players['player-1'].maxTokens = { force: 3, agilite: 3 };
+        initialState.players['player-1'].tokens.social = 2;
+        initialState.pendingExchanges = [{
+          id: 'ex-1',
+          from: 'player-1',
+          to: 'player-2',
+          fromCard: makeCard('♠', '5'),
+        }];
+
+        const { state } = applyAction(initialState, {
+          type: 'DECLINE_EXCHANGE',
+          playerId: 'player-2',
+          exchangeId: 'ex-1',
+        });
+
+        expect(state.players['player-1'].tokens.social).toBe(2);
+      });
     });
 
     describe('CANCEL_EXCHANGE', () => {
@@ -626,6 +679,19 @@ describe('Game Logic', () => {
         });
 
         expect(state.players['player-1'].tokens.social).toBe(3);
+      });
+
+      it('should never destroy the held token when the cap has no social key', () => {
+        pendingExchange();
+        initialState.players['player-1'].maxTokens = { force: 3, agilite: 3 };
+
+        const { state } = applyAction(initialState, {
+          type: 'CANCEL_EXCHANGE',
+          playerId: 'gm-player',
+          exchangeId: 'ex-1',
+        });
+
+        expect(state.players['player-1'].tokens.social).toBe(2);
       });
 
       it('should be a no-op for a non-GM', () => {

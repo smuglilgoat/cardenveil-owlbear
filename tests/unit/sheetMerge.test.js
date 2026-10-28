@@ -163,4 +163,52 @@ describe('mergeSheet', () => {
 
     expect(sheet.capacities[0]).toEqual({ nom: 'Leyline', cost: { total: 7 }, usage: 'Action, 1/tour' });
   });
+
+  // 13 live sheets carry two weapons with the same name (no weapon has an id),
+  // so a name-only key used to keep the first and DROP the rest silently.
+  it('keeps every same-named item and both edits', () => {
+    const base = { weapons: [{ nom: 'Serpe', de: '1d6' }, { nom: 'Serpe', de: '1d8' }] };
+    const mine = { weapons: [{ nom: 'Serpe', de: '2d6' }, { nom: 'Serpe', de: '1d8' }] };
+    const theirs = { weapons: [{ nom: 'Serpe', de: '1d6' }, { nom: 'Serpe', de: '2d8' }] };
+
+    const { sheet, conflicts } = mergeSheet(base, mine, theirs);
+
+    expect(sheet.weapons).toEqual([{ nom: 'Serpe', de: '2d6' }, { nom: 'Serpe', de: '2d8' }]);
+    expect(conflicts.filter((c) => c.reason === 'duplicate-key').length).toBeGreaterThan(0);
+  });
+
+  it('never drops an item when one side has more same-named items', () => {
+    const base = { weapons: [{ nom: 'Serpe', de: '1d6' }] };
+    const mine = { weapons: [{ nom: 'Serpe', de: '1d6' }] };
+    const theirs = { weapons: [{ nom: 'Serpe', de: '1d6' }, { nom: 'Serpe', de: '1d8' }] };
+
+    const { sheet } = mergeSheet(base, mine, theirs);
+
+    expect(sheet.weapons).toHaveLength(2);
+    expect(sheet.weapons.map((w) => w.de)).toEqual(['1d6', '1d8']);
+  });
+
+  it('keeps a same-named item added locally', () => {
+    const base = { weapons: [{ nom: 'Serpe', de: '1d6' }] };
+    const mine = { weapons: [{ nom: 'Serpe', de: '1d6' }, { nom: 'Serpe', de: '1d10' }] };
+    const theirs = { weapons: [{ nom: 'Serpe', de: '1d6', notes: 'autre frame' }] };
+
+    const { sheet } = mergeSheet(base, mine, theirs);
+
+    expect(sheet.weapons).toHaveLength(2);
+    expect(sheet.weapons[1]).toEqual({ nom: 'Serpe', de: '1d10' });
+  });
+
+  it('reports no duplicate-key conflict when the twins agree on both sides', () => {
+    const twins = () => [{ nom: 'Serpe', de: '1d6' }, { nom: 'Serpe', de: '1d8' }];
+
+    const { sheet, conflicts } = mergeSheet(
+      { weapons: twins() },
+      { weapons: [...twins(), { nom: 'Hache', de: '1d6' }] },
+      { weapons: [...twins(), { nom: 'Arc', de: '1d6' }] },
+    );
+
+    expect(sheet.weapons.map((w) => w.nom)).toEqual(['Serpe', 'Serpe', 'Hache', 'Arc']);
+    expect(conflicts).toEqual([]);
+  });
 });

@@ -953,9 +953,14 @@ export function createEmptyCharacterSheet() {
  * Fetch a character sheet for a specific player in a room
  * @param {string} playerId - OBR player ID
  * @param {string} roomId - OBR room ID
+ * @param {{ trackBase?: boolean }} [options] - `trackBase: false` for a fetch
+ *   whose row is NOT applied to the caller's local copy (a portrait or
+ *   actionChecks read, the popover's reconcile poll): advancing the base to a
+ *   document the caller is not using would let the caller's stale copy be
+ *   written without a conflict, which is the lost update the CAS prevents.
  * @returns {Promise<Object|null>} Character sheet data or null if not found
  */
-export async function fetchCharacterSheet(playerId, roomId) {
+export async function fetchCharacterSheet(playerId, roomId, { trackBase = true } = {}) {
   try {
     const { data, error } = await supabase
       .from('character_sheets')
@@ -973,8 +978,8 @@ export async function fetchCharacterSheet(playerId, roomId) {
     }
 
     // Fetched documents are what local edits start from: they are the base of
-    // the next save's three-way merge.
-    rememberSheetBase(playerId, roomId, data.version, data.data);
+    // the next save's three-way merge. Only when the caller applies this row.
+    if (trackBase) rememberSheetBase(playerId, roomId, data.version, data.data);
     return data;
   } catch (err) {
     logError('sheet_fetch_failed', err, { roomId, playerId });
@@ -991,19 +996,23 @@ export async function fetchCharacterSheet(playerId, roomId) {
 //
 // This map remembers the document each local copy was derived from, keyed by
 // player:room, so the 13 whole-document call sites keep their signature. It is
-// fed by fetch, by a conflict snapshot and by a successful save — never by
-// realtime: a realtime row is not necessarily applied to the caller's local
+// fed by a fetch that the caller applies (`trackBase`, see
+// fetchCharacterSheet), by a conflict snapshot and by a successful save — never
+// by realtime: a realtime row is not necessarily applied to the caller's local
 // document (the sheet is on hold while ÉDITION is open, the GM modal is a
 // snapshot), and a base that ran ahead of the local document would let the
 // stale document be written without a conflict — the very lost update this
 // replaces. A base one version behind only costs one extra merge round-trip.
-// Known limit: `fetch` does advance the base (that is the document a
-// fetch-then-edit caller works from), so a caller that refetches without
-// applying the row to its local copy writes that one-generation-old copy
-// unmerged — exactly what happened before the CAS, not a regression.
+// A conflict against a base that was never recorded is refused (see
+// saveCharacterSheet): merging against no base would present a silent
+// whole-document overwrite as a merge.
 const SHEET_BASES = new Map();
 const MAX_SHEET_SAVE_ATTEMPTS = 3;
-const MISSING_RPC_CODES = new Set(['PGRST202', '42883']);
+// Only PGRST202 is unambiguous: it is PostgREST's own "function not in the
+// schema cache". 42883 is Postgres' undefined_function, forwarded verbatim from
+// INSIDE a function body — and PGRST002 is a "cannot reach the database" outage;
+// neither may downgrade a save to the unguarded upsert.
+const MISSING_RPC_CODE = 'PGRST202';
 let casMissingLogged = false;
 
 const sheetBaseKey = (playerId, roomId) => `${playerId}:${roomId}`;
@@ -1047,8 +1056,8 @@ function sheetRow(playerId, roomId, sheet) {
  * applied yet and the caller must fall back to the plain upsert.
  */
 function isMissingRpc(error) {
-  if (MISSING_RPC_CODES.has(error?.code)) return true;
-  return /could not find the function|function .* does not exist|schema cache/i.test(String(error?.message ?? ''));
+  if (error?.code === MISSING_RPC_CODE) return true;
+  return /could not find the function/i.test(String(error?.message ?? ''));
 }
 
 function callApplySheet(row, expectedVersion) {
@@ -1059,7 +1068,6 @@ function callApplySheet(row, expectedVersion) {
     p_player_id: row.player_id,
     p_room_id: row.room_id,
     p_expected_version: expectedVersion,
-    p_new_version: expectedVersion + 1,
     p_data: row.data,
     p_name: row.name,
     p_race: row.race,
@@ -1121,11 +1129,23 @@ export async function saveCharacterSheet(playerId, roomId, sheetData) {
       // Another frame saved first: keep its document and re-apply only what
       // changed locally, instead of overwriting it.
       const base = SHEET_BASES.get(sheetBaseKey(playerId, roomId));
-      const merged = mergeSheet(base?.data ?? {}, sheet, data.data ?? {});
+      // No base = the local copy was never derived from a fetched document (the
+      // fetch failed, or this caller only read a field). Merging against {}
+      // would call every differing leaf a local change and clobber the server's
+      // real sheet while logging it as a merge — refuse instead of destroying.
+      if (!base) {
+        logEvent('warn', 'sheet_save_no_base', {
+          message: 'save refused: local copy has no known base, refetch the sheet first',
+          roomId,
+          playerId,
+        });
+        throw new Error('character sheet base unknown — refetch before saving');
+      }
+      const merged = mergeSheet(base.data, sheet, data.data ?? {});
       if (merged.conflicts.length) {
         const paths = merged.conflicts.slice(0, 10).map((conflict) => conflict.path).join(', ');
         logEvent('warn', 'sheet_merge_conflict', {
-          message: `${merged.conflicts.length} field(s) changed on both sides, local wins: ${paths}`,
+          message: `${merged.conflicts.length} field(s) needed a merge decision: ${paths}`,
           roomId,
           playerId,
         });

@@ -554,8 +554,9 @@ export function applyAction(state, action) {
       // Refund the Social token spent to propose, clamped to the effective cap:
       // REST_ALL or a SET_RACE away from Humain can refill/shrink the Social
       // pool while the exchange is pending, so a bare +1 could push the sender
-      // over their cap. Mirrors CANCEL_EXCHANGE.
-      const socialCap = maxTokensFor(sender).social ?? 0;
+      // over their cap. Mirrors CANCEL_EXCHANGE. A missing cap key falls back to
+      // what they held: a refund must never destroy the token.
+      const socialCap = maxTokensFor(sender).social ?? sender.tokens.social;
       const s = {
         ...state,
         pendingExchanges: state.pendingExchanges.filter(e => e.id !== ex.id),
@@ -581,8 +582,9 @@ export function applyAction(state, action) {
       // Same refund as DECLINE_EXCHANGE (card + the Social token spent to
       // propose), clamped to the effective cap: REST_ALL or a SET_RACE away
       // from Humain can refill/shrink the Social pool while the exchange is
-      // pending, so a bare +1 could push the sender over their cap.
-      const socialCap = maxTokensFor(sender).social ?? 0;
+      // pending, so a bare +1 could push the sender over their cap. A missing
+      // cap key falls back to what they held: never destroy the token.
+      const socialCap = maxTokensFor(sender).social ?? sender.tokens.social;
       const s = {
         ...state,
         pendingExchanges: state.pendingExchanges.filter(e => e.id !== ex.id),

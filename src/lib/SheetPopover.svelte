@@ -142,7 +142,9 @@
     async function reconcile() {
       if (!sheet || document.hidden || saveInFlight) return;
       try {
-        const data = await fetchCharacterSheet(playerId, roomId);
+        // Reconcile read only: the row is NOT applied to `sheet`, so it must
+        // not advance the save base (fetch without it → CAS → merge).
+        const data = await fetchCharacterSheet(playerId, roomId, { trackBase: false });
         const remote = data?.data?.actionChecks;
         if (remote && JSON.stringify(remote) !== JSON.stringify(sheet.actionChecks ?? {})) {
           sheet = { ...sheet, actionChecks: remote };
