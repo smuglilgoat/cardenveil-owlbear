@@ -3,13 +3,20 @@ import { jest } from '@jest/globals';
 jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
   supabase: {
     from: jest.fn(),
+    // Before the 20261028 migration is deployed PostgREST answers PGRST202
+    // (function not in the schema cache); saveCharacterSheet then falls back to
+    // the plain upsert, which is what the pre-existing tests exercise.
+    rpc: jest.fn().mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST202', message: 'Could not find the function public.apply_character_sheet in the schema cache' },
+    }),
     channel: jest.fn(),
     removeChannel: jest.fn(),
   },
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, stripStockGriffe, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, raceTraits, RACE_TRAITS, racePvBonus, effectiveStats, raceRollAdvantage, rollD20Keep, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, stripStockGriffe, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, raceTraits, RACE_TRAITS, racePvBonus, effectiveStats, raceRollAdvantage, rollD20Keep, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec, saveCharacterSheet, fetchCharacterSheet } = await import('../../src/lib/characterSheet.js');
 const { RACES } = await import('../../src/lib/deck.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
@@ -19,6 +26,14 @@ function mockUpsertChain(result) {
   const upsert = jest.fn().mockReturnValue({ select });
   mockClient.from.mockReturnValue({ upsert });
   return { upsert };
+}
+
+function mockFetchChain(result) {
+  const chain = { select: jest.fn(), eq: jest.fn(), single: jest.fn().mockResolvedValue(result) };
+  chain.select.mockReturnValue(chain);
+  chain.eq.mockReturnValue(chain);
+  mockClient.from.mockReturnValue(chain);
+  return chain;
 }
 
 describe('Character Sheet dice helpers', () => {
@@ -553,6 +568,118 @@ describe('Character Sheet dice helpers', () => {
     it('should reject invalid JSON structure', async () => {
       await expect(importCharacterSheet('player-1', 'room-1', JSON.stringify({ foo: 1 })))
         .rejects.toThrow('missing identity or stats');
+    });
+  });
+
+  describe('saveCharacterSheet (compare-and-swap)', () => {
+    const sheet = (over = {}) => ({ identity: { nom: 'Yves', niveau: 3 }, notes: '', ...over });
+    // Pre-migration reality: PostgREST does not know the RPC yet.
+    const missingRpc = {
+      data: null,
+      error: { code: 'PGRST202', message: 'Could not find the function public.apply_character_sheet in the schema cache' },
+    };
+
+    beforeEach(() => {
+      mockClient.from.mockReset();
+      mockClient.rpc.mockReset();
+      mockClient.rpc.mockResolvedValue(missingRpc);
+    });
+
+    afterEach(() => {
+      mockClient.rpc.mockReset();
+      mockClient.rpc.mockResolvedValue(missingRpc);
+    });
+
+    it('creates the row on the first save (expected version 0)', async () => {
+      const mine = sheet({ notes: 'local' });
+      mockClient.rpc.mockResolvedValueOnce({ data: { version: 1, data: mine }, error: null });
+
+      const saved = await saveCharacterSheet('cas-1', 'room-1', mine);
+
+      expect(mockClient.rpc).toHaveBeenCalledWith('apply_character_sheet', {
+        p_player_id: 'cas-1',
+        p_room_id: 'room-1',
+        p_expected_version: 0,
+        p_new_version: 1,
+        p_data: mine,
+        p_name: 'Yves',
+        p_race: null,
+        p_level: 3,
+      });
+      expect(saved.version).toBe(1);
+      expect(saved.data).toBe(mine);
+      expect(mockClient.from).not.toHaveBeenCalled();
+    });
+
+    it('saves with the version the sheet was fetched at', async () => {
+      mockFetchChain({ data: { version: 4, data: sheet() }, error: null });
+      await fetchCharacterSheet('cas-2', 'room-1');
+      mockClient.rpc.mockResolvedValueOnce({ data: { version: 5, data: sheet() }, error: null });
+
+      const saved = await saveCharacterSheet('cas-2', 'room-1', sheet({ notes: 'local' }));
+
+      expect(mockClient.rpc.mock.calls[0][1].p_expected_version).toBe(4);
+      expect(mockClient.rpc.mock.calls[0][1].p_new_version).toBe(5);
+      expect(saved.version).toBe(5);
+    });
+
+    it('merges both edits and retries when another frame saved first', async () => {
+      const base = sheet({ stats: { force: 10 } });
+      mockFetchChain({ data: { version: 4, data: base }, error: null });
+      await fetchCharacterSheet('cas-3', 'room-1');
+
+      mockClient.rpc
+        .mockResolvedValueOnce({ data: { conflict: true, version: 5, data: sheet({ stats: { force: 14 } }) }, error: null })
+        .mockResolvedValueOnce({ data: { version: 6, data: {} }, error: null });
+
+      const saved = await saveCharacterSheet('cas-3', 'room-1', sheet({ notes: 'local', stats: { force: 10 } }));
+
+      expect(mockClient.rpc).toHaveBeenCalledTimes(2);
+      const retried = mockClient.rpc.mock.calls[1][1];
+      expect(retried.p_expected_version).toBe(5);
+      expect(retried.p_data.notes).toBe('local'); // local edit kept
+      expect(retried.p_data.stats.force).toBe(14); // server edit kept
+      expect(saved.version).toBe(6);
+    });
+
+    it('falls back to the unversioned upsert while the RPC is not deployed', async () => {
+      mockClient.rpc.mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST202',
+          message: 'Could not find the function public.apply_character_sheet in the schema cache',
+        },
+      });
+      const { upsert } = mockUpsertChain({ data: { id: 'row-1', data: sheet() }, error: null });
+
+      const saved = await saveCharacterSheet('cas-4', 'room-1', sheet({ notes: 'local' }));
+
+      expect(upsert).toHaveBeenCalledTimes(1);
+      expect(upsert.mock.calls[0][0].data.notes).toBe('local');
+      expect(saved.id).toBe('row-1');
+    });
+
+    it('takes a snapshot of the base so an in-place edit is still a local change', async () => {
+      mockFetchChain({ data: { version: 4, data: sheet() }, error: null });
+      const row = await fetchCharacterSheet('cas-6', 'room-1');
+      row.data.notes = 'edited in place'; // the caller keeps editing the fetched object
+
+      mockClient.rpc
+        .mockResolvedValueOnce({ data: { conflict: true, version: 5, data: sheet({ notes: 'other frame' }) }, error: null })
+        .mockResolvedValueOnce({ data: { version: 6, data: {} }, error: null });
+
+      await saveCharacterSheet('cas-6', 'room-1', row.data);
+
+      expect(mockClient.rpc.mock.calls[1][1].p_data.notes).toBe('edited in place');
+    });
+
+    it('gives up after a bounded number of conflicting attempts', async () => {
+      mockFetchChain({ data: { version: 4, data: sheet() }, error: null });
+      await fetchCharacterSheet('cas-5', 'room-1');
+      mockClient.rpc.mockResolvedValue({ data: { conflict: true, version: 5, data: sheet() }, error: null });
+
+      await expect(saveCharacterSheet('cas-5', 'room-1', sheet({ notes: 'local' }))).rejects.toThrow(/kept conflicting/);
+      expect(mockClient.rpc).toHaveBeenCalledTimes(3);
     });
   });
 

@@ -5,6 +5,7 @@
 import { supabase } from './supabaseClient.js';
 import { logError, logEvent } from './appLog.js';
 import { RACES } from './deck.js';
+import { mergeSheet } from './sheetMerge.js';
 
 // ─── Shared UI constants (used by CharacterSheet + SheetPopover) ───
 // French display labels for stat keys
@@ -971,6 +972,9 @@ export async function fetchCharacterSheet(playerId, roomId) {
       throw error;
     }
 
+    // Fetched documents are what local edits start from: they are the base of
+    // the next save's three-way merge.
+    rememberSheetBase(playerId, roomId, data.version, data.data);
     return data;
   } catch (err) {
     logError('sheet_fetch_failed', err, { roomId, playerId });
@@ -978,36 +982,160 @@ export async function fetchCharacterSheet(playerId, roomId) {
   }
 }
 
+// ─── Save concurrency: version + three-way merge ───────────────────────────
+// A save writes the WHOLE document, so two frames that read the same sheet and
+// each edit a field used to clobber each other with no error. Saves now go
+// through the `apply_character_sheet` compare-and-swap RPC (migration
+// 20261028): on a version conflict the local delta is re-applied on top of the
+// server's newer document with `mergeSheet()` and the RPC is retried.
+//
+// This map remembers the document each local copy was derived from, keyed by
+// player:room, so the 13 whole-document call sites keep their signature. It is
+// fed by fetch, by a conflict snapshot and by a successful save — never by
+// realtime: a realtime row is not necessarily applied to the caller's local
+// document (the sheet is on hold while ÉDITION is open, the GM modal is a
+// snapshot), and a base that ran ahead of the local document would let the
+// stale document be written without a conflict — the very lost update this
+// replaces. A base one version behind only costs one extra merge round-trip.
+// Known limit: `fetch` does advance the base (that is the document a
+// fetch-then-edit caller works from), so a caller that refetches without
+// applying the row to its local copy writes that one-generation-old copy
+// unmerged — exactly what happened before the CAS, not a regression.
+const SHEET_BASES = new Map();
+const MAX_SHEET_SAVE_ATTEMPTS = 3;
+const MISSING_RPC_CODES = new Set(['PGRST202', '42883']);
+let casMissingLogged = false;
+
+const sheetBaseKey = (playerId, roomId) => `${playerId}:${roomId}`;
+
+function rememberSheetBase(playerId, roomId, version, data) {
+  if (!data) return;
+  // Snapshot, not the live object: callers keep editing the document they
+  // saved (Svelte $state proxies, edit buffers), and a base mutated in place
+  // would look like "no local change" on the next conflict.
+  let snapshot = data;
+  try {
+    snapshot = JSON.parse(JSON.stringify(data));
+  } catch {
+    /* circular / unserialisable: keep the reference rather than fail the save */
+  }
+  SHEET_BASES.set(sheetBaseKey(playerId, roomId), {
+    version: Number.isFinite(Number(version)) ? Number(version) : 0,
+    data: snapshot,
+  });
+}
+
+/** Drop the remembered base (sheet deleted or re-created). */
+export function forgetSheetBase(playerId, roomId) {
+  SHEET_BASES.delete(sheetBaseKey(playerId, roomId));
+}
+
+/** Denormalized columns every write carries (same values as the old upsert). */
+function sheetRow(playerId, roomId, sheet) {
+  return {
+    player_id: playerId,
+    room_id: roomId,
+    name: sheet.identity?.nom || '',
+    race: sheet.identity?.race || null,
+    level: sheet.identity?.niveau || 1,
+    data: sheet,
+  };
+}
+
 /**
- * Save (upsert) a character sheet
+ * True when PostgREST says the RPC is absent — i.e. the migration has not been
+ * applied yet and the caller must fall back to the plain upsert.
+ */
+function isMissingRpc(error) {
+  if (MISSING_RPC_CODES.has(error?.code)) return true;
+  return /could not find the function|function .* does not exist|schema cache/i.test(String(error?.message ?? ''));
+}
+
+function callApplySheet(row, expectedVersion) {
+  if (typeof supabase.rpc !== 'function') {
+    return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'rpc unavailable' } });
+  }
+  return supabase.rpc('apply_character_sheet', {
+    p_player_id: row.player_id,
+    p_room_id: row.room_id,
+    p_expected_version: expectedVersion,
+    p_new_version: expectedVersion + 1,
+    p_data: row.data,
+    p_name: row.name,
+    p_race: row.race,
+    p_level: row.level,
+  });
+}
+
+/** Pre-migration write path: whole-document upsert, no concurrency guard. */
+async function saveCharacterSheetUnversioned(playerId, roomId, sheet) {
+  const { data, error } = await supabase
+    .from('character_sheets')
+    .upsert({ ...sheetRow(playerId, roomId, sheet), updated_at: new Date().toISOString() }, { onConflict: 'player_id,room_id' })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  rememberSheetBase(playerId, roomId, data?.version, data?.data ?? sheet);
+  broadcastSheet({ playerId, roomId, data: sheet });
+  return data;
+}
+
+/**
+ * Save a character sheet through the compare-and-swap RPC, merging on conflict.
+ * Falls back to the plain upsert while the migration is not deployed.
  * @param {string} playerId - OBR player ID
  * @param {string} roomId - OBR room ID
  * @param {Object} sheetData - Complete character sheet data
- * @returns {Promise<Object>} Saved character sheet
+ * @returns {Promise<Object>} Saved character sheet row
  */
 export async function saveCharacterSheet(playerId, roomId, sheetData) {
   try {
-    const record = {
-      player_id: playerId,
-      room_id: roomId,
-      name: sheetData.identity?.nom || '',
-      race: sheetData.identity?.race || null,
-      level: sheetData.identity?.niveau || 1,
-      data: sheetData,
-      updated_at: new Date().toISOString()
-    };
+    let sheet = sheetData;
+    let expected = SHEET_BASES.get(sheetBaseKey(playerId, roomId))?.version ?? 0;
 
-    const { data, error } = await supabase
-      .from('character_sheets')
-      .upsert(record, { onConflict: 'player_id,room_id' })
-      .select()
-      .single();
+    for (let attempt = 0; attempt < MAX_SHEET_SAVE_ATTEMPTS; attempt++) {
+      const row = sheetRow(playerId, roomId, sheet);
+      const { data, error } = await callApplySheet(row, expected);
 
-    if (error) throw error;
+      if (error) {
+        if (!isMissingRpc(error)) throw error;
+        if (!casMissingLogged) {
+          casMissingLogged = true;
+          logEvent('warn', 'sheet_save_rpc_missing', {
+            message: 'apply_character_sheet not deployed — falling back to unversioned upserts',
+            roomId,
+          });
+        }
+        return await saveCharacterSheetUnversioned(playerId, roomId, sheet);
+      }
 
-    broadcastSheet({ playerId, roomId, data: sheetData });
+      if (!data?.conflict) {
+        const saved = { ...row, version: data?.version ?? expected + 1 };
+        rememberSheetBase(playerId, roomId, saved.version, sheet);
+        broadcastSheet({ playerId, roomId, data: sheet });
+        return saved;
+      }
 
-    return data;
+      // Another frame saved first: keep its document and re-apply only what
+      // changed locally, instead of overwriting it.
+      const base = SHEET_BASES.get(sheetBaseKey(playerId, roomId));
+      const merged = mergeSheet(base?.data ?? {}, sheet, data.data ?? {});
+      if (merged.conflicts.length) {
+        const paths = merged.conflicts.slice(0, 10).map((conflict) => conflict.path).join(', ');
+        logEvent('warn', 'sheet_merge_conflict', {
+          message: `${merged.conflicts.length} field(s) changed on both sides, local wins: ${paths}`,
+          roomId,
+          playerId,
+        });
+      }
+      sheet = merged.sheet;
+      expected = Number(data.version) || 0;
+      rememberSheetBase(playerId, roomId, expected, data.data);
+    }
+
+    throw new Error(`character sheet save kept conflicting (${MAX_SHEET_SAVE_ATTEMPTS} attempts)`);
   } catch (err) {
     logError('sheet_save_failed', err, { roomId, playerId });
     throw err;
@@ -1028,6 +1156,7 @@ export async function deleteCharacterSheet(playerId, roomId) {
       .eq('room_id', roomId);
 
     if (error) throw error;
+    forgetSheetBase(playerId, roomId);
   } catch (err) {
     logError('sheet_delete_failed', err, { roomId, playerId });
     throw err;
