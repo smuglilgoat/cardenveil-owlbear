@@ -79,6 +79,17 @@ The notes are written **for the players and the GM**, not for developers. Descri
   `cardenveil-release-notes` skill; load it before writing or rewriting a note.
 - The consolidated digest is the only exception: `# Cardenveil — notes complètes (<from> → <to>)`, grouped by theme rather than by version.
 
+## Bug reports
+
+Players and the GM file bugs as **GitHub issues** on
+`smuglilgoat/cardenveil-owlbear` (two forms: `bug_report.yml`,
+`bug_report_detailed.yml`; labels `area:*`, `severite:*`, `role:*`). The
+workflow — reproduce, branch `issue/<n>-<slug>`, `Fixes #<n>` in the commit,
+ship with a changelog note — is in
+`docs/documentation/operations/contributing.md`. The repo is **public**: never
+put a player name, a character name or a full room id in an issue. Technical
+errors quoted by a reporter live in the Supabase `app_logs` table.
+
 ## Conventions
 
 - Components in `src/lib/` as `.svelte` files, Tailwind utilities inline — no per-component CSS.

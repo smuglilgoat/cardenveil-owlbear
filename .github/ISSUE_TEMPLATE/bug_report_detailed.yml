@@ -1,0 +1,134 @@
+name: Signaler un bug (détaillé)
+description: >
+  Le formulaire complet, avec les informations techniques utiles au
+  développeur : logs, navigateur,Gravité.
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ce formulaire est destiné au meneur ou à un joueur qui sait ouvrir
+        la console du navigateur. Il demande les informations techniques qui
+        permettent de retrouver le problème sans avoir à vous recontacter.
+
+        **Pour un signalement simple, utilisez « Signaler un bug ».**
+
+  - type: input
+    id: version
+    attributes:
+      label: Version de Cardenveil
+      description: >
+        Le numéro de version affiché en bas du panneau, après « Cardenveil ».
+      placeholder: "2.8.0"
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Navigateur et version
+      description: Chrome, Firefox, Safari, Edge… et leur version.
+      placeholder: "Firefox 141"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Système d'exploitation
+      placeholder: "Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: room
+    attributes:
+      label: Identifiant de la salle (facultatif)
+      description: >
+        L'identifiant de la partie, visible dans l'URL de la salle
+        Owlbear Rodeo. Il permet de retrouver les journaux techniques de
+        cette partie précise.
+      placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+  - type: input
+    id: log-id
+    attributes:
+      label: Identifiant de journal technique (facultatif)
+      description: >
+        L'identifiant de la ligne d'erreur affichée dans la console du
+        navigateur, préfixée par « [appLog] ». Collez-le ici si vous l'avez
+        sous la main.
+      placeholder: "a1b2c3d4"
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Vous êtes
+      options:
+        - Meneur (MJ)
+        - Joueur
+    validations:
+      required: true
+
+  - type: dropdown
+    id: location
+    attributes:
+      label: Où le problème est-il apparu ?
+      options:
+        - Panneau principal de la partie
+        - Main de cartes (éventail)
+        - Fiche de personnage
+        - Jet de dés
+        - Tableau de bord du MJ
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Gravité
+      description: >
+        - Bloquant : impossible de jouer, la partie s'arrête.
+        - Majeur : une fonction importante est inutilisable.
+        - Mineur : gêne, sans empêcher de jouer.
+      options:
+        - Bloquant
+        - Majeur
+        - Mineur
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Que s'est-il passé ?
+      description: >
+        Ce que vous avez fait, et ce que vous avez vu à la place. Incluez le
+        message d'erreur exact s'il y en a un.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Comment reproduire le problème ?
+      description: >
+        Les étapes exactes, depuis l'état de départ. Indiquez le nombre de
+        joueurs et de cartes en jeu si cela influence le résultat.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Messages de la console (facultatif)
+      description: >
+        Collez ici les lignes utiles de la console du navigateur, en
+        particulier celles préfixées par « [appLog] ».
+      render: shell
+
+  - type: textarea
+    id: other
+    attributes:
+      label: Autre chose à signaler ? (facultatif)

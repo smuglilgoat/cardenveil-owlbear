@@ -35,6 +35,7 @@ It implements **resource management** (cards, tokens, exchanges, activity log) a
 | work on races                         | [Race passives](reference/race-passives.md)                                                       |
 | debug inside a live room              | [Debug a live room](operations/debug-live-room.md)                                                |
 | build, check or commit                | [Contributing](operations/contributing.md)                                                        |
+| report a bug                          | [Signaler un bug](game-rules/signaler-un-bug.md)                                                  |
 
 ## Sources of truth, in order of authority
 

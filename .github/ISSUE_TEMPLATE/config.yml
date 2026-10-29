@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Signaler un bug (formulaire simple)
+    url: https://github.com/smuglilgoat/cardenveil-owlbear/issues/new?template=bug_report.yml
+    about: Un problème rencontré pendant une partie — quelques mots suffisent.
+  - name: Signaler un bug (formulaire détaillé)
+    url: https://github.com/smuglilgoat/cardenveil-owlbear/issues/new?template=bug_report_detailed.yml
+    about: Le même signalement, avec les informations techniques (navigateur, logs, gravité).
+  - name: Le site du jeu et les règles
+    url: https://the-aerie.gitbook.io/cardenveil
+    about: Les règles du jeu, les nouveautés et la marche à suivre — pas un bug.

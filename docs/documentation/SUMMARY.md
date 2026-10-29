@@ -16,3 +16,4 @@
   * [Contributing](operations/contributing.md)
 * [Règles du jeu](game-rules/README.md)
   * [Jets de dégâts](game-rules/damage-rolls.md)
+  * [Signaler un bug](game-rules/signaler-un-bug.md)

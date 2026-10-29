@@ -224,10 +224,25 @@ open in live rooms.
 | [docs/design/](docs/design/) | Figma prototype transcriptions and UI proposals |
 | [docs/archive/](docs/archive/) | Historical documents, superseded (e.g. the Firebase proposal) |
 
+## Reporting bugs
+
+Players and GMs report problems on the **issue tracker** — two forms are
+available (a short one, and a detailed one with browser and log information):
+
+**https://github.com/smuglilgoat/cardenveil-owlbear/issues**
+
+The French version of this page, with what to prepare and how triage works, is
+published at [Signaler un bug](docs/documentation/game-rules/signaler-un-bug.md).
+
+> This repository is public. Do not put player names, character names or full
+> room ids in an issue.
+
 ## Contributing
 
 - Branch, then commit with [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat:`, `fix:`, `chore:`…). `main` is the deployed branch.
+- One bug, one branch: `issue/<number>-<short-slug>` (see
+  [Contributing](docs/documentation/operations/contributing.md)).
 - `npm test` and `npm run check` must pass before a PR — CI enforces both.
 - UI text is **French**; code, comments and docs are English.
 - Game-state changes belong in `src/lib/deck.js` (never in a component), and

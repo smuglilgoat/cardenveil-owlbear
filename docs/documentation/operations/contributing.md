@@ -39,6 +39,48 @@ New non-trivial logic — a branch, a loop, a parser, money or security — gets
 * UI text is **French**; code, comments and docs are English.
 * Game-state changes belong in `src/lib/deck.js` (never in a component), and anything player-visible gets a note in `docs/changelog/` following the `cardenveil-release-notes` skill.
 
+## Bug reports
+
+Players and the GM file bugs on the **issue tracker**:
+<https://github.com/smuglilgoat/cardenveil-owlbear/issues>. Two forms exist —
+`bug_report.yml` (short) and `bug_report_detailed.yml` (with browser, logs and
+severity). The player-facing explanation is published at
+[Signaler un bug](../game-rules/signaler-un-bug.md).
+
+Every issue is labelled with an **area** (`area:main`, `area:main-poignet`,
+`area:fiche`, `area:des`, `area:mj`), a **severity** (`severite:bloquant`,
+`severite:majeur`, `severite:mineur`) and a **role** (`role:mj`, `role:joueur`).
+
+The repository is **public**, so an issue is visible to everyone: never let a
+player name, a character name or a full room id reach one.
+
+### From issue to fix
+
+1. **Read the issue.** Note the version, the area and the reproduction steps.
+2. **Reproduce it** before writing any code. The reporter may have missed a
+   step — an issue that cannot be reproduced needs a question to the reporter,
+   not a guess.
+3. **Branch off `main`**: `issue/<number>-<short-slug>`, e.g.
+   `issue/42-hand-fan-does-not-open`.
+4. **Fix it**, with a test when the change adds non-trivial logic.
+5. **Reference the issue** in the commit message with `Fixes #42` — GitHub closes
+   it when the branch merges.
+6. **Ship it**: a player-visible fix also gets a note in `docs/changelog/`
+   (see the `cardenveil-release-notes` skill) and a version bump in
+   `src/version.js` + `package.json`.
+
+### Reading an issue's logs
+
+The detailed form asks for a log id. Technical errors live in the Supabase
+`app_logs` table — read them with:
+
+```sql
+select * from app_logs order by created_at desc limit 100;
+```
+
+Filter on `room_id` or on the `id` the reporter pasted. See
+[Debug a live room](debug-live-room.md) for the live-room diagnostics.
+
 ## Version bumps
 
 `src/version.js` (`APP_VERSION`) is the single source: `vite.config.js` reads it for the manifest and `src/lib/appLog.js` for log rows. `package.json`'s `version` mirrors it — bump both together.

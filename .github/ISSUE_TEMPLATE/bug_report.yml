@@ -1,0 +1,69 @@
+name: Signaler un bug
+description: Un problème rencontré pendant une partie — pour les joueurs et les meneurs.
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci d'avoir signalé ce problème ! Décrivez-le en quelques mots, la
+        façon la plus simple possible. Aucun jargon n'est nécessaire.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version de Cardenveil
+      description: >
+        Le numéro de version affiché en bas du panneau, après « Cardenveil ».
+        Si vous ne le trouvez pas, écrivez « inconnue ».
+      placeholder: "2.8.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Vous êtes
+      options:
+        - Meneur (MJ)
+        - Joueur
+    validations:
+      required: true
+
+  - type: dropdown
+    id: location
+    attributes:
+      label: Où le problème est-il apparu ?
+      options:
+        - Panneau principal de la partie
+        - Main de cartes (éventail)
+        - Fiche de personnage
+        - Jet de dés
+        - Tableau de bord du MJ
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Que s'est-il passé ?
+      description: >
+        Ce que vous avez fait, et ce que vous avez vu à la place.
+      placeholder: >
+        J'ai tiré une carte, mais rien n'a changé dans ma main.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Comment reproduire le problème ?
+      description: >
+        Les étapes à suivre pour le retrouver. Trois étapes suffisent.
+    validations:
+      required: true
+
+  - type: textarea
+    id: other
+    attributes:
+      label: Autre chose à signaler ? (facultatif)
