@@ -15,6 +15,24 @@ function generateCards() {
   };
 }
 
+function envPreflight() {
+  return {
+    name: 'env-preflight',
+    configureServer(server) {
+      // Without these, createClient() throws during module evaluation and the
+      // plugin renders a completely blank page (no spinner, no message) inside
+      // Owlbear, which is near-impossible to diagnose from the room.
+      const missing = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']
+        .filter((key) => !server.config.env[key]);
+      if (!missing.length) return;
+      server.config.logger.warn(
+        `\n  ⚠️  ${missing.join(' + ')} manquant(s) : Cardenveil affichera une page blanche.\n` +
+        `      cp .env.example .env.local, renseigne les valeurs Supabase, puis relance.\n`
+      );
+    },
+  };
+}
+
 function dynamicManifest() {
   return {
     name: 'dynamic-manifest',
@@ -57,7 +75,7 @@ function buildManifest(mode) {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [generateCards(), dynamicManifest(), svelte(), tailwindcss()],
+  plugins: [generateCards(), envPreflight(), dynamicManifest(), svelte(), tailwindcss()],
   build: {
     rollupOptions: {
       input: {
@@ -70,6 +88,10 @@ export default defineConfig({
     },
   },
   server: {
+    // The Owlbear extension is installed against a fixed manifest URL
+    // (http://localhost:5173/manifest.json). Silently moving to 5174 would
+    // leave the room loading a stale or dead server, so fail instead.
+    strictPort: true,
     cors: {
       origin: "https://www.owlbear.rodeo",
     },

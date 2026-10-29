@@ -3,7 +3,8 @@
 ## Commands
 
 ```bash
-npm run dev      # Dev server (CORS open to https://www.owlbear.rodeo)
+npm run dev      # Dev server (CORS open to https://www.owlbear.rodeo; see docs/local-dev.md
+                 # to test it inside a real Owlbear room — no Netlify deploy needed)
 npm run check    # Build gate: svelte-check, fails on undefined names/modules (also runs before build)
 npm run build    # npm run check && Production build → dist/
 npm run preview  # Preview built output

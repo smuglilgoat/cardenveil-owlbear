@@ -23,6 +23,13 @@ dist-ssr
 *.sln
 *.sw?
 
+# Local env — the Supabase key must never be committed (public repo, permissive RLS).
+# `.env.local` is already covered by `*.local`; this covers the unprefixed file
+# Vite also loads.
+.env
+.env.*
+!.env.example
+
 # Local Netlify folder
 .netlify
 
