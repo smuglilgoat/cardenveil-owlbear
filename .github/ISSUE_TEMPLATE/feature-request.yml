@@ -1,0 +1,90 @@
+name: ✨ Demande de fonctionnalité ou de modification
+description: Proposez une nouvelle fonctionnalité, ou la modification d'une fonctionnalité existante, pour le plugin Cardenveil (Owlbear Rodeo).
+title: "[Idée] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Cardenveil** est un plugin pour [Owlbear Rodeo 2](https://www.owlbear.rodeo).
+        Les règles du jeu sont dans `CARDENVEIL.md` (racine du dépôt), l'historique des versions dans le [changelog](https://the-aerie.gitbook.io/cardenveil/changelog).
+        Décrivez ce que vous aimeriez pouvoir faire — en français, c'est parfait.
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type de demande
+      options:
+        - Nouvelle fonctionnalité
+        - Modification d'une fonctionnalité existante
+        - Ergonomie / lisibilité
+        - Nouvelle race, capacité ou passif
+        - Documentation / règles
+    validations:
+      required: true
+  - type: dropdown
+    id: zone
+    attributes:
+      label: Zone concernée
+      description: Plusieurs choix possibles.
+      multiple: true
+      options:
+        - Panneau principal de la partie
+        - Main de cartes (éventail)
+        - Fiche de personnage
+        - Popover de fiche compacte
+        - Jet de dés
+        - Tableau du meneur
+        - Échanges de cartes
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: objectif
+    attributes:
+      label: Que voulez-vous pouvoir faire ?
+      description: En une ou deux phrases, comme si vous le demandiez à un autre joueur.
+      placeholder: "Exemple : je voudrais que la fiche affiche le total de mes jetons de combat directement dans l'onglet Compétences."
+    validations:
+      required: true
+  - type: textarea
+    id: probleme
+    attributes:
+      label: Pourquoi ? Que fait le plugin aujourd'hui ?
+      description: Pour une modification, décrivez ce qui vous gêne ou ce qui vous oblige à contourner le problème.
+      placeholder: "Aujourd'hui, il faut…"
+    validations:
+      required: true
+  - type: textarea
+    id: proposition
+    attributes:
+      label: Proposition
+      description: Comment vous imagineriez la chose, même à l'état de bribe. Une capture d'écran ou un croquis peut être glissé ici.
+      placeholder: "Il serait peut-être possible de…"
+    validations:
+      required: false
+  - type: checkboxes
+    id: regles
+    attributes:
+      label: Règles du jeu
+      options:
+        - label: La demande ne touche pas aux règles de Cardenveil
+        - label: La demande touche aux règles (précisez laquelle dans la proposition ci-dessus)
+  - type: textarea
+    id: contexte
+    attributes:
+      label: Contexte
+      description: Utile pour reproduire ou prioriser.
+      value: |
+        - Version du plugin :
+        - Navigateur / appareil :
+        - Nombre de joueurs à la table :
+        - Race / personnage concerné :
+    validations:
+      required: false
+  - type: checkboxes
+    id: doublon
+    attributes:
+      label: Recherche préalable
+      options:
+        - label: J'ai cherché dans les issues existantes et je n'ai pas trouvé la même demande.
+          required: true
