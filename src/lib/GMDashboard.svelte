@@ -27,6 +27,7 @@
     skillRollModifier,
     syncSkillBonuses,
     syncStatsFromEquipment,
+    syncSlotsFromItems,
     subscribeToCharacterSheet,
     onSheetBroadcast,
     ACTION_CHECKS,
@@ -565,24 +566,38 @@
     }
   }
 
-  // ── GM weapon edit inside the sheet modal (issue #4) ──
-  let gmWeaponEdit = $state(/** @type {{index: number, draft: Object}|null} */ (null));
+  // ── GM edit of a weapon or a piece of equipment inside the sheet modal ──
+  // The item is the single source of truth for gear, so editing the inventory
+  // entry and re-syncing the slot is the whole operation (issue #13).
+  let gmEdit = $state(/** @type {{kind: 'weapon'|'item', index: number, draft: Object}|null} */ (null));
 
-  function editGmWeapon(index) {
-    const weapon = (viewingSheet?.sheet?.weapons ?? [])[index];
-    if (!weapon) return;
-    gmWeaponEdit = { index, draft: { ...weapon } };
+  /** Equipment pieces are the inventory items that occupy a slot. */
+  let gmEquipment = $derived(
+    (viewingSheet?.sheet?.inventoryItems ?? [])
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => !!item?.slot)
+  );
+
+  function editGmEntry(kind, index) {
+    const list = kind === 'weapon'
+      ? (viewingSheet?.sheet?.weapons ?? [])
+      : (viewingSheet?.sheet?.inventoryItems ?? []);
+    const entry = list[index];
+    if (!entry) return;
+    gmEdit = { kind, index, draft: { ...entry } };
   }
 
   /** @param {{edit?: boolean, draft?: Object}|null} payload */
-  async function saveGmWeaponEdit(payload) {
-    const edit = gmWeaponEdit;
-    gmWeaponEdit = null;
+  async function saveGmEdit(payload) {
+    const edit = gmEdit;
+    gmEdit = null;
     if (!payload?.draft || !edit || !viewingSheet) return;
-    viewingSheet.sheet = {
-      ...viewingSheet.sheet,
-      weapons: (viewingSheet.sheet.weapons ?? []).map((w, i) => (i === edit.index ? payload.draft : w)),
-    };
+    const sheet = viewingSheet.sheet;
+    viewingSheet.sheet = edit.kind === 'weapon'
+      ? { ...sheet, weapons: (sheet.weapons ?? []).map((w, i) => (i === edit.index ? payload.draft : w)) }
+      : { ...sheet, inventoryItems: (sheet.inventoryItems ?? []).map((it, i) => (i === edit.index ? payload.draft : it)) };
+    // An equipment edit must reach the slot copy + the derived values.
+    viewingSheet.sheet = syncSlotsFromItems(viewingSheet.sheet);
     await saveViewingSheet();
   }
 
@@ -607,7 +622,7 @@
     if (!viewingSheet) return;
     sheetLoading = true;
     try {
-      viewingSheet.sheet = syncStatsFromEquipment(syncSkillBonuses(viewingSheet.sheet));
+      viewingSheet.sheet = syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(viewingSheet.sheet)));
       await saveCharacterSheet(viewingSheet.playerId, OBR.room.id, viewingSheet.sheet);
       viewingSheet.exists = true;
       viewingSheet.isEditing = false;
@@ -1832,9 +1847,9 @@
                         <span class="text-[10px] text-indigo-300 font-bold shrink-0">{weapon.hand === 'off' ? 'MAIN SEC.' : 'MAIN PRINC.'}</span>
                       {/if}
                       <button
-                        onclick={() => editGmWeapon(weaponIndex)}
+                        onclick={() => editGmEntry('weapon', weaponIndex)}
                         use:tooltip={"Modifier cette arme"}
-                        class="shrink-0 w-5 h-5 rounded bg-gray-700 hover:bg-gray-600 text-[10px] text-gray-200 leading-none"
+                        class="shrink-0 w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-[11px] text-gray-200 leading-none flex items-center justify-center"
                       >✎</button>
                     </div>
                     {#if weaponTagInfo(weapon).length}
@@ -1844,6 +1859,26 @@
                         {/each}
                       </div>
                     {/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Équipement</div>
+            {#if gmEquipment.length === 0}
+              <div class="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded-lg p-2.5 mb-3">Aucune pièce équipée.</div>
+            {:else}
+              <div class="space-y-1 mb-3">
+                {#each gmEquipment as { item, index } (index)}
+                  <div class="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5">
+                    <span class="w-5 shrink-0 text-center text-base leading-none">{item.icon || '🛡️'}</span>
+                    <span class="text-xs text-white font-semibold truncate flex-1">{item.name || 'Sans nom'}</span>
+                    <span class="text-[11px] text-gray-400 shrink-0">{item.slot}{item.deflexion ? ` · déf. ${item.deflexion}` : ''}{item.armure ? ` · arm. ${item.armure}` : ''}</span>
+                    <button
+                      onclick={() => editGmEntry('item', index)}
+                      use:tooltip={"Modifier cette pièce d'équipement"}
+                      class="shrink-0 w-6 h-6 rounded bg-gray-700 hover:bg-gray-600 text-[11px] text-gray-200 leading-none flex items-center justify-center"
+                    >✎</button>
                   </div>
                 {/each}
               </div>
@@ -2081,13 +2116,13 @@
   {#if quickAdd}
     <ItemAddPopup mode="all" stats={effectiveStats(quickAdd.sheet)} onPick={quickAddPick} />
   {/if}
-  {#if gmWeaponEdit && viewingSheet}
+  {#if gmEdit && viewingSheet}
     <ItemAddPopup
       stats={effectiveStats(viewingSheet.sheet)}
-      initialDraft={gmWeaponEdit.draft}
-      editIndex={gmWeaponEdit.index}
-      editIsWeapon={true}
-      onPick={saveGmWeaponEdit}
+      initialDraft={gmEdit.draft}
+      editIndex={gmEdit.index}
+      editIsWeapon={gmEdit.kind === 'weapon'}
+      onPick={saveGmEdit}
     />
   {/if}
   {#if diagToast}

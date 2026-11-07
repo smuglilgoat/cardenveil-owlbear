@@ -13,6 +13,7 @@ const FINESS_RE = /finesse/i;
 const LONG_SWORD_RE = /épée\s*longue|epee\s*longue|longsword/i;
 const CATALYSEUR_RE = /catalyseur/i;
 const HACHE_RE = /brutalité|hache/i;
+const BRUTE_RE = /\bbrute\b/i;
 const STAT_LABELS_FR = { force: 'Force', agilite: 'Agilité', esprit: 'Esprit' };
 
 /** Gobelin racial cap (doc §16): at most 3 crits on a basic (⚔️) attack. */
@@ -48,6 +49,8 @@ export function weaponFlags(weapon, race) {
     hache: tags.includes('brutalite') || HACHE_RE.test(text),
     hybride: tags.includes('hybride'),
     amplitude: tags.includes('amplitude'),
+    // « Brute » : l'arme ne peut pas infliger de coup critique (issue #11).
+    brute: tags.includes('brute') || BRUTE_RE.test(text),
   };
 }
 
@@ -95,25 +98,35 @@ export function pickAttackWeapon(weapons = [], preferredName = '') {
  * engagement stat. Powers the live preview in SheetPopover.
  * @param {Object} weapon - Equipped weapon ({ de, bonus, proprietes, nom })
  * @param {Object} [stats] - Raw stats ({ force, agilite, esprit, social })
- * @param {{advantage?: number, engagement?: number, bonus?: number, rng?: Function, amplitude?: boolean}} [opts]
+ * @param {{advantage?: number, engagement?: number, bonus?: number, rng?: Function, amplitude?: boolean, finesse?: boolean}} [opts]
  *   advantage: −7…+7 (− = désavantage, + = avantage); engagement: 0…7 levels;
  *   bonus: optional bonus override (the BONUS ATT. stat) — undefined/empty
  *   falls back to the weapon's `bonus` field; rng: injectable die source
  *   for tests (default Math.random); amplitude: attacking at the weapon's max
- *   range, which grants Finesse for that attack
+ *   range, which grants Finesse for that attack; finesse: the attack panel's
+ *   checkbox (issue #10), which overrides the weapon's own answer
  * @returns {null|{level, diceCount, keep, sides, weaponBonus, engagementMod,
  *   engagementStat, finesse, hache}}
  */
-export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 0, bonus, race, amplitude = false } = {}) {
+export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 0, bonus, race, amplitude = false, finesse: finesseOption } = {}) {
   const match = String(weapon?.de ?? '').match(/(\d*)\s*d\s*(\d+)/i);
   if (!match) return null;
   const sides = parseInt(match[2], 10);
   if (!(sides >= 2)) return null;
   const gobelin = isGobelin(race);
   const flags = weaponFlags(weapon, race);
-  // Amplitude: at the weapon's max range it benefits from Finesse for this attack.
-  const finesse = amplitude && flags.amplitude ? true : flags.finesse;
+  // Amplitude grants Finesse at max range (a rule, so it wins); otherwise the
+  // attack panel's checkbox overrides the weapon's own answer (issue #10).
+  const finesse = amplitude && flags.amplitude
+    ? true
+    : typeof finesseOption === 'boolean' ? finesseOption : flags.finesse;
   const eStat = finesse ? 'agilite' : flags.catalyseur ? 'esprit' : 'force';
+  // Hybride: the engagement adds BOTH modifiers (only their positive part),
+  // and loses the Force part on a crit (issue #12). The preview shows the
+  // non-crit value; the crit correction happens in runAttack.
+  const hybrideEngagement = flags.hybride
+    ? { force: Math.max(statMod(stats, 'force'), 0), agilite: Math.max(statMod(stats, 'agilite'), 0) }
+    : null;
   const eng = Math.max(0, Math.round(Number(engagement) || 0));
   const adv = Math.round(Number(advantage) || 0);
   // Avantage/désavantage cancel BEFORE engagement applies (patch §1).
@@ -129,8 +142,9 @@ export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 
     maxCrits: gobelin ? GOBELIN_MAX_CRITS : null,
     gobelin,
     weaponBonus: bonus === undefined || bonus === null || bonus === '' ? toNumber(weapon?.bonus) : toNumber(bonus),
-    engagementMod: statMod(stats, eStat),
+    engagementMod: hybrideEngagement ? hybrideEngagement.force + hybrideEngagement.agilite : statMod(stats, eStat),
     engagementStat: eStat,
+    hybrideEngagement,
     ...flags,
     finesse,
     // `amplitude` (from the flags) = the weapon HAS the property; this is the
@@ -158,7 +172,7 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
   const p = attackPreview(weapon, stats, opts);
   if (!p) return null;
   const optEngagement = opts.engagement ?? 0;
-  const { sides, level, finesse, hache, hybride, amplitude, weaponBonus, engagementMod, engagementStat: eStat, engagement: engLevel, critFrom, maxCrits, gobelin } = p;
+  const { sides, level, finesse, hache, hybride, amplitude, brute, weaponBonus, engagementMod, engagementStat: eStat, engagement: engLevel, critFrom, maxCrits, gobelin } = p;
   // null = no racial cap (Infinity would break JSON payloads)
   const critCap = maxCrits ?? Infinity;
   const critNote = gobelin ? ` (seuil ${critFrom}+, max ${maxCrits})` : '';
@@ -187,7 +201,10 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
   }
 
   let kept = initial;
-  if (hache) {
+  if (brute) {
+    // Brute: the max face is just a high roll — no explosion, no crit.
+    breakdown.push('Brute : pas de critique');
+  } else if (hache) {
     if (initial >= critFrom) breakdown[0] += ' → CRIT';
     // Hache: advantage applies only to the initial roll (doc §18); each
     // explosion is 2dX summed, a double chains a new crit (§17-18).
@@ -218,36 +235,55 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
 
   // Bonuses. Finesse: (weapon bonus + engagement mods) × (1 + crit count)
   // (patch §2); otherwise weapon bonus once + engagement mods flat.
-  // Hybride (Fist weapons): Force + Agilité mods are added to the damage; a
-  // crit drops the Force mod and keeps every other bonus.
-  const hybrideBonus = hybride
-    ? critCount > 0
-      ? statMod(stats, 'agilite')
-      : statMod(stats, 'force') + statMod(stats, 'agilite')
-    : 0;
-  const engagementMods = engLevel * engagementMod;
-  const flatBonus = (finesse ? (weaponBonus + engagementMods) * (1 + critCount) : weaponBonus + engagementMods) + hybrideBonus;
+  //
+  // Hybride (issue #12, the GM's rule): the weapon counts as Finesse for
+  // Agility only — the Agility modifier already sits inside the weapon bonus,
+  // so nothing is added on top. Each crit repeats the bonus, corrected by the
+  // Force modifier when it is negative; the engagement adds both modifiers
+  // (positive parts only) and loses the Force part on a crit.
+  const forceMod = statMod(stats, 'force');
+  const agiMod = statMod(stats, 'agilite');
+  let engagementMods = engLevel * engagementMod;
+  let hybrideBonus = 0;
+  if (hybride) {
+    hybrideBonus = critCount * (weaponBonus - Math.min(forceMod, 0));
+    const perLevel = critCount > 0
+      ? Math.max(agiMod, 0)
+      : Math.max(forceMod, 0) + Math.max(agiMod, 0);
+    engagementMods = engLevel * perLevel;
+  }
+  const flatBonus = hybride
+    ? weaponBonus + hybrideBonus + engagementMods
+    : finesse
+      ? (weaponBonus + engagementMods) * (1 + critCount)
+      : weaponBonus + engagementMods;
   const diceTotal = stages.reduce((sum, s) => sum + s.kept, 0);
   const total = diceTotal + flatBonus;
 
-  // §20 equation.
+  // §20 equation — one term per contribution, so the sum reads at a glance.
   const parts = stages.map((s) => String(s.kept));
-  const flatCore = flatBonus - hybrideBonus;
-  if (flatCore > 0) parts.push(String(flatCore));
-  else if (flatCore < 0) parts.push(fmtMod(flatCore));
-  if (hybrideBonus > 0) parts.push(String(hybrideBonus));
-  else if (hybrideBonus < 0) parts.push(fmtMod(hybrideBonus));
+  if (hybride) {
+    if (weaponBonus) parts.push(String(weaponBonus));
+    if (hybrideBonus) parts.push(hybrideBonus > 0 ? String(hybrideBonus) : fmtMod(hybrideBonus));
+    if (engagementMods) parts.push(engagementMods > 0 ? String(engagementMods) : fmtMod(engagementMods));
+  } else if (flatBonus > 0) {
+    parts.push(String(flatBonus));
+  } else if (flatBonus < 0) {
+    parts.push(fmtMod(flatBonus));
+  }
   breakdown.push(`Calcul : ${parts.join(' + ')}`);
   breakdown.push(`Dégâts : ${total}`);
-  if (finesse && critCount > 0) breakdown.splice(-2, 0, `Bonus répété ×${1 + critCount} (Finesse)`);
-  if (hybride) {
-    breakdown.splice(-2, 0, hybrideBonus === statMod(stats, 'agilite') && critCount > 0
-      ? 'Hybride : modificateur de Force retiré sur le critique'
-      : 'Hybride : Force + Agilité ajoutés aux dégâts');
+  if (!hybride && finesse && critCount > 0) {
+    breakdown.splice(-2, 0, `Bonus répété ×${1 + critCount} (Finesse)`);
   }
-  return result(total, false);
+  if (hybride) {
+    breakdown.splice(-2, 0, critCount > 0
+      ? `Hybride : bonus ×${1 + critCount}${forceMod < 0 ? ' (Force négative corrigée)' : ''}, engagement sans la Force`
+      : 'Hybride : dé + bonus (Agilité déjà comprise), engagement Force + Agilité');
+  }
+  return result(total, false, engagementMods, hybrideBonus);
 
-  function result(total, miss) {
+  function result(total, miss, engagementTotal = engLevel * engagementMod, hybrideTotal = 0) {
     return {
       total,
       miss,
@@ -259,10 +295,13 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
       hache,
       hybride,
       amplitude,
+      brute,
       level,
       sides,
       weaponBonus,
       engagementMod,
+      engagementTotal,
+      hybrideBonus: hybrideTotal,
       engagementStat: eStat,
       advantage: level + optEngagement,
       engagement: optEngagement,

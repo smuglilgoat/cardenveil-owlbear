@@ -614,7 +614,10 @@ export async function dispatch(roomId, action) {
     ...action,
     actorId,
     actionId: newActionId(),
-    ...(token ? { token } : {}),
+    // The credential has its OWN field: `token` belongs to the game (the token
+    // TYPE of SPEND_TOKEN & co), and writing the credential there made the
+    // reducer drop every token action (issue #16).
+    ...(token ? { actorToken: token } : {}),
   };
 
   const { state: rawOptimistic } = applyAction(currentState, action);

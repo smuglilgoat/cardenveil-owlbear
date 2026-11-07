@@ -8,8 +8,10 @@
  * `npm run check:types` to see the whole list.
  *
  * What we DO gate on: diagnostics that mean the code references something that
- * does not exist — `Cannot find name/module/namespace`. Rollup cannot see those
- * (it treats unbound identifiers as globals), which is how
+ * does not exist — `Cannot find name/module/namespace`, and a named import that
+ * the module does not export (`has no exported member`; a bad import only warns
+ * in Rollup and reads as `undefined` at runtime). Rollup cannot see those (it
+ * treats unbound identifiers as globals), which is how
  * `Uncaught ReferenceError: logEvent is not defined` shipped in 2.7.11 and
  * silently broke the GM hand popover until the logs exposed it.
  *
@@ -18,7 +20,12 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
-const SERIOUS = [/^Cannot find name/, /^Cannot find module/, /^Cannot find namespace/];
+const SERIOUS = [
+  /^Cannot find name/,
+  /^Cannot find module/,
+  /^Cannot find namespace/,
+  /has no exported member/,
+];
 const LINE = /^\d+ (ERROR|WARNING) "([^"]+)" (\d+:\d+) "(.*)"$/;
 
 let output = '';

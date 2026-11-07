@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
-  import { GM_CHAR_ID, createEmptyPlayer, createInitialGameState, fullDeck, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, SPLIT_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
+  import { GM_CHAR_ID, createEmptyPlayer, createInitialGameState, fullDeck, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
   import { startRealtime, stopRealtime, dispatch, fetchState } from "./api.js";
   import { tooltip } from "./tooltip.js";
   import { logEvent, logError, setLogContext } from "./appLog.js";
@@ -399,11 +399,10 @@
     active = null;
   }
 
-  /** Nimbri « Compréhension abstraite de la magie »: one split per draw, 30-min
-   *  cooldown, and the card must be worth at least 4 (a 2 cannot be halved). */
+  /** Nimbri « Compréhension abstraite de la magie »: one split per explicit
+   *  draw, and the card must be worth at least 4 (a 2 cannot be halved). */
   function canSplit(card, isCrystallized) {
     if (!player || isCrystallized || player.race !== 'nimbri' || !player.splitAvailable) return false;
-    if (player.lastSplitAt && Date.now() - player.lastSplitAt < SPLIT_COOLDOWN_MS) return false;
     return (card?.numericValue ?? 0) + 1 >= 4;
   }
 

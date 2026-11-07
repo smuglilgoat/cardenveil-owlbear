@@ -179,10 +179,10 @@ export function createEmptyPlayer(name = '') {
     tieflingDrawEligible: true,
     pendingHalfling: null,
     lastDevourAt:  0,
-    /** Nimbri « Compréhension abstraite de la magie »: one split is allowed
-     *  per draw, throttled by SPLIT_COOLDOWN_MS. */
+    /** Nimbri « Compréhension abstraite de la magie »: one split per
+     *  *explicit* draw (Piocher / pioche par token Force). No timer: the
+     *  once-per-round limit is the table's business (issue #15). */
     splitAvailable: false,
-    lastSplitAt:    0,
   };
 }
 
@@ -232,9 +232,6 @@ export function handCap(player) {
 /** Cooldown of the Illithid's Dévoration mentale (rule: once per 30 min). */
 export const DEVOUR_COOLDOWN_MS = 30 * 60 * 1000;
 
-/** Cooldown of the Nimbri's card split (rule: once per round or every 30 min). */
-export const SPLIT_COOLDOWN_MS = 30 * 60 * 1000;
-
 /** Face value of a card as the players read it: 2..10, J=11, Q=12, K=13, A=14. */
 const faceValue = (card) => (card?.numericValue ?? 0) + 1;
 
@@ -268,11 +265,6 @@ function maybeAasimarHeart(player) {
     return { player: { ...player, hand: [...player.hand, heart] }, discarded: [] };
   }
   return { player, discarded: [heart] };
-}
-
-/** A draw just landed a card: the Nimbri's split becomes available once. */
-function withSplitReady(player) {
-  return { ...player, splitAvailable: true };
 }
 
 export function applyAction(state, action) {
@@ -962,7 +954,6 @@ export function applyAction(state, action) {
           ...p,
           hand: [...p.hand, card],
           tieflingDrawEligible: false,
-          splitAvailable: true,
         }},
       };
       return { state: addLog(s, action.playerId, p.name, `pioche Pique ${card.value}${card.suit} (Tieffelin)`), log: null };
@@ -981,7 +972,6 @@ export function applyAction(state, action) {
           ...p,
           hand: [...p.hand, chosen],
           pendingHalfling: null,
-          splitAvailable: true,
         }},
       };
       return { state: addLog(s, action.playerId, p.name, `Halfling : choisit ${chosen.value}${chosen.suit}`), log: null };
@@ -989,12 +979,13 @@ export function applyAction(state, action) {
 
     case 'SPLIT_CARD': {
       // Nimbri « Compréhension abstraite de la magie »: split one card of the
-      // hand into two equal halves (11 → 5 + 5), once per draw and throttled by
-      // the rule's 30-minute cooldown. The remainder is lost, as the rule says.
+      // hand into two equal halves (11 → 5 + 5), once per explicit draw and
+      // with no time limit (issue #15). The remainder is lost, as the rule says.
       const p = state.players[action.playerId];
       if (!p || p.race !== 'nimbri' || p.pendingHalfling) return { state, log: null };
+      // No cooldown: the rule's "once per round" is managed at the table
+      // (issue #15). The draw is the only gate.
       if (!p.splitAvailable) return { state, log: null };
-      if (p.lastSplitAt && Date.now() - p.lastSplitAt < SPLIT_COOLDOWN_MS) return { state, log: null };
       const card = p.hand.find(c => c.id === action.cardId);
       if (!card) return { state, log: null };
       const half = Math.floor(faceValue(card) / 2);
@@ -1010,7 +1001,6 @@ export function applyAction(state, action) {
           ...p,
           hand,
           splitAvailable: false,
-          lastSplitAt: Date.now(),
         }},
       };
       return {
@@ -1105,7 +1095,6 @@ export function hydrateState(raw) {
       pendingHalfling: p.pendingHalfling ?? null,
       lastDevourAt: p.lastDevourAt ?? 0,
       splitAvailable: p.splitAvailable ?? false,
-      lastSplitAt: p.lastSplitAt ?? 0,
     };
   }
 

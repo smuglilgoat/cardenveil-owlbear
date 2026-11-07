@@ -76,17 +76,40 @@ describe('actionGuard', () => {
       expect(verdict.reason).toBe('missing_token');
     });
 
-    it('rejects a wrong token', async () => {
-      const state = stateWithActor('p1', [await hashToken('secret')]);
-      const verdict = await verifyActor(state, { type: 'DRAW', playerId: 'p1', token: 'guessed' });
+    it('rejects a wrong credential', async () => {
+      const state = stateWithActor('p1', [await hashToken(mintToken())]);
+      const verdict = await verifyActor(state, { type: 'DRAW', playerId: 'p1', actorToken: mintToken() });
       expect(verdict.ok).toBe(false);
       expect(verdict.reason).toBe('bad_token');
     });
 
-    it('accepts the right token', async () => {
+    it('accepts the right credential from actorToken', async () => {
+      const token = mintToken();
+      const state = stateWithActor('p1', [await hashToken(token)]);
+      const verdict = await verifyActor(state, { type: 'DRAW', playerId: 'p1', actorToken: token });
+      expect(verdict).toEqual({ ok: true });
+    });
+
+    it('never mistakes a token TYPE for the credential', async () => {
+      // Issue #16: `token` belongs to the game (SPEND_TOKEN's force/agilité/…).
+      // Reading it as the credential made every token action a silent no-op.
+      const state = stateWithActor('p1', [await hashToken(mintToken())]);
+      const verdict = await verifyActor(state, { type: 'SPEND_TOKEN', playerId: 'p1', token: 'force' });
+      expect(verdict.ok).toBe(false);
+      expect(verdict.reason).toBe('missing_token');
+    });
+
+    it('still accepts a pre-2.9.1 client, which sent the credential as `token`', async () => {
       const token = mintToken();
       const state = stateWithActor('p1', [await hashToken(token)]);
       const verdict = await verifyActor(state, { type: 'DRAW', playerId: 'p1', token });
+      expect(verdict).toEqual({ ok: true });
+    });
+
+    it('lets a token action through when the credential is in its own field', async () => {
+      const token = mintToken();
+      const state = stateWithActor('p1', [await hashToken(token)]);
+      const verdict = await verifyActor(state, { type: 'SPEND_TOKEN', playerId: 'p1', token: 'force', actorToken: token });
       expect(verdict).toEqual({ ok: true });
     });
 
@@ -103,13 +126,13 @@ describe('actionGuard', () => {
 
       // The GM's own token authorises the write against p1…
       const gmWrite = await verifyActor(state, {
-        type: 'ADD_TOKEN', playerId: 'gm', targetId: 'p1', actorId: 'gm', token: gmToken,
+        type: 'ADD_TOKEN', playerId: 'gm', targetId: 'p1', actorId: 'gm', actorToken: gmToken,
       });
       expect(gmWrite.ok).toBe(true);
 
       // …and the victim's token does not, even with the GM's id spoofed.
       const spoofed = await verifyActor(state, {
-        type: 'ADD_TOKEN', playerId: 'gm', targetId: 'p1', actorId: 'gm', token: victimToken,
+        type: 'ADD_TOKEN', playerId: 'gm', targetId: 'p1', actorId: 'gm', actorToken: victimToken,
       });
       expect(spoofed.ok).toBe(false);
     });

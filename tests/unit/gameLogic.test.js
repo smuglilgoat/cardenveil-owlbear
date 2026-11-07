@@ -1213,7 +1213,7 @@ describe('Game Logic', () => {
       return state;
     };
 
-    it('a draw arms the split, and 11 splits into 5 + 5', () => {
+    it('an explicit draw arms the split, and 11 splits into 5 + 5', () => {
       const armed = applyAction(nimbri(), { type: 'DRAW', playerId: 'player-1' }).state;
       expect(armed.players['player-1'].splitAvailable).toBe(true);
 
@@ -1223,11 +1223,10 @@ describe('Game Logic', () => {
       const { state: split } = applyAction(armed, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: jack.id });
       expect(split.players['player-1'].hand.map((c) => c.value)).toEqual(['5', '5']);
       expect(split.players['player-1'].splitAvailable).toBe(false);
-      expect(split.players['player-1'].lastSplitAt).toBeGreaterThan(0);
       expect(queen.value).toBe('Q'); // sanity: card factory unchanged
     });
 
-    it('refuses a second split before a new draw, and inside the 30-min cooldown', () => {
+    it('has no time limit: any explicit draw re-arms it at once (issue #15)', () => {
       const armed = applyAction(nimbri(), { type: 'DRAW', playerId: 'player-1' }).state;
       const card = makeCard('♠', 'K');
       armed.players['player-1'].hand = [card];
@@ -1237,16 +1236,30 @@ describe('Game Logic', () => {
       const again = applyAction(split, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: split.players['player-1'].hand[0].id });
       expect(again.state).toBe(split);
 
-      // a draw re-arms it, but the 30-min cooldown still refuses
+      // a draw re-arms it immediately: no 30-minute wait any more
       const redrawn = applyAction(split, { type: 'DRAW', playerId: 'player-1' }).state;
-      const target = redrawn.players['player-1'].hand[0];
-      const cooled = applyAction(redrawn, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: target.id });
-      expect(cooled.state).toBe(redrawn);
+      expect(redrawn.players['player-1'].splitAvailable).toBe(true);
+      const target = redrawn.players['player-1'].hand[1] ?? redrawn.players['player-1'].hand[0];
+      const second = applyAction(redrawn, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: target.id });
+      expect(second.state).not.toBe(redrawn);
+    });
 
-      // past the cooldown it works
-      redrawn.players['player-1'] = { ...redrawn.players['player-1'], lastSplitAt: Date.now() - 31 * 60 * 1000 };
-      const later = applyAction(redrawn, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: target.id });
-      expect(later.state).not.toBe(redrawn);
+    it('a Force-token draw arms it, but the Tieffelin spade and the Halfling pick do not', () => {
+      const forceDrawn = applyAction(nimbri(), { type: 'DRAW_FORCE', playerId: 'player-1' }).state;
+      expect(forceDrawn.players['player-1'].splitAvailable).toBe(true);
+
+      // A spade draw (Tieffelin) is not an explicit draw: the flag stays off.
+      const tieffelin = applyAction(nimbri(), { type: 'SET_RACE', playerId: 'gm-player', targetId: 'player-1', race: 'tieffelin' }).state;
+      const spade = applyAction(tieffelin, { type: 'DRAW_SPADE', playerId: 'player-1' }).state;
+      expect(spade.players['player-1'].splitAvailable).toBe(false);
+
+      // A Halfling pick is not either.
+      const halfling = applyAction(nimbri(), { type: 'SET_RACE', playerId: 'gm-player', targetId: 'player-1', race: 'halfling' }).state;
+      const pending = applyAction(halfling, { type: 'DRAW', playerId: 'player-1' }).state;
+      const picked = applyAction(pending, {
+        type: 'HALFLING_CHOOSE', playerId: 'player-1', cardId: pending.players['player-1'].pendingHalfling[0].id,
+      }).state;
+      expect(picked.players['player-1'].splitAvailable).toBe(false);
     });
 
     it('refuses a 2 (it cannot be halved into a playable card) and other races', () => {
