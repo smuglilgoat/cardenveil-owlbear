@@ -119,7 +119,7 @@ describe('netlify /api/state write path', () => {
     const p2 = await bodyOf(await post({ type: 'REGISTER_PLAYER', playerId: 'p2', name: 'P2' }));
 
     // p2 holds a valid token for itself, but acts as p1
-    const res = await post({ type: 'DRAW', playerId: 'p1', actorId: 'p1', token: p2.token });
+    const res = await post({ type: 'DRAW', playerId: 'p1', actorId: 'p1', actorToken: p2.token });
 
     expect(res.status).toBe(401);
     expect((await bodyOf(res)).reason).toBe('bad_token');
@@ -129,18 +129,52 @@ describe('netlify /api/state write path', () => {
     fake = makeFakeSupabase();
     const { token } = await bodyOf(await post({ type: 'REGISTER_PLAYER', playerId: 'p1', name: 'P1' }));
 
-    const res = await post({ type: 'DRAW', playerId: 'p1', actorId: 'p1', token });
+    const res = await post({ type: 'DRAW', playerId: 'p1', actorId: 'p1', actorToken: token });
     const body = await bodyOf(res);
 
     expect(res.status).toBe(200);
     expect(body.state.players.p1.hand).toHaveLength(1);
   });
 
+  it('applies a token action instead of dropping it on the credential field', async () => {
+    // Issue #16: the credential used to be written into `token`, the very field
+    // that carries the token TYPE, so every token action was a silent no-op on
+    // the server while the client showed it optimistically.
+    fake = makeFakeSupabase();
+    const { token } = await bodyOf(await post({ type: 'REGISTER_PLAYER', playerId: 'p1', name: 'P1' }));
+    const before = (await bodyOf(await post({ type: 'DRAW', playerId: 'p1', actorToken: token }))).state;
+
+    const res = await post({
+      type: 'SPEND_TOKEN', playerId: 'p1', actorId: 'p1', token: 'force', actorToken: token,
+    });
+    const body = await bodyOf(res);
+
+    expect(res.status).toBe(200);
+    const spent = body.state.players.p1.tokens.force;
+    expect(spent).toBe(3 - 1);
+    expect(spent).toBeLessThan(before.players.p1.tokens.force ?? 4);
+  });
+
+  it('applies a GM token edit to another player', async () => {
+    fake = makeFakeSupabase();
+    const init = await bodyOf(await post({ type: 'INIT_GAME', playerId: 'gm-1' }));
+    await post({ type: 'REGISTER_PLAYER', playerId: 'p1', name: 'P1' });
+
+    const res = await post({
+      type: 'SET_TOKENS', playerId: 'gm-1', actorId: 'gm-1', targetId: 'p1',
+      token: 'force', val: 1, actorToken: init.token,
+    });
+    const body = await bodyOf(res);
+
+    expect(res.status).toBe(200);
+    expect(body.state.players.p1.tokens.force).toBe(1);
+  });
+
   it('applies a replayed actionId only once', async () => {
     fake = makeFakeSupabase();
     const { token } = await bodyOf(await post({ type: 'REGISTER_PLAYER', playerId: 'p1', name: 'P1' }));
 
-    const action = { type: 'DRAW', playerId: 'p1', actorId: 'p1', token, actionId: 'dup-1' };
+    const action = { type: 'DRAW', playerId: 'p1', actorId: 'p1', actorToken: token, actionId: 'dup-1' };
     const first = await bodyOf(await post(action));
     const rpcAfterFirst = fake.rpcCalls.length;
 
@@ -156,7 +190,7 @@ describe('netlify /api/state write path', () => {
     fake = makeFakeSupabase();
     const { token } = await bodyOf(await post({ type: 'REGISTER_PLAYER', playerId: 'p1', name: 'P1' }));
 
-    const res = await post({ type: 'DRAW', playerId: 'p1', token });
+    const res = await post({ type: 'DRAW', playerId: 'p1', actorToken: token });
     expect(res.status).toBe(200);
   });
 
@@ -172,7 +206,7 @@ describe('netlify /api/state write path', () => {
     const spoofed = await post({ type: 'HARD_RESET', playerId: 'gm-1' });
     expect(spoofed.status).toBe(401);
 
-    const allowed = await post({ type: 'HARD_RESET', playerId: 'gm-1', actorId: 'gm-1', token: init.token });
+    const allowed = await post({ type: 'HARD_RESET', playerId: 'gm-1', actorId: 'gm-1', actorToken: init.token });
     expect(allowed.status).toBe(200);
   });
 
@@ -183,7 +217,7 @@ describe('netlify /api/state write path', () => {
     expect(fake.getRow().state.actorTokens['p1']).toHaveLength(1);
 
     const reset = await bodyOf(
-      await post({ type: 'HARD_RESET', playerId: 'gm-1', actorId: 'gm-1', token: init.token })
+      await post({ type: 'HARD_RESET', playerId: 'gm-1', actorId: 'gm-1', actorToken: init.token })
     );
 
     // HARD_RESET recreates the player records, so every player identity is

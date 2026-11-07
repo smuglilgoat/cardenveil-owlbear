@@ -40,7 +40,7 @@
   import { initDiag } from './diag.js';
 
   initDiag('sheet');
-  import { rollAttack, runAttack, attackPreview, pickAttackWeapon, isGobelin } from './attackRoll.js';
+  import { rollAttack, runAttack, attackPreview, pickAttackWeapon, isGobelin, weaponFlags } from './attackRoll.js';
   import { SIDES_TO_TYPE } from './diceRoll.js';
 
   const params = new URLSearchParams(location.search);
@@ -344,6 +344,20 @@
   let attackAdv = $state(0); // −7…+7 (− = désavantage, + = avantage)
   let attackEngagement = $state(0); // 0…7
   let attackAmplitude = $state(false); // Amplitude: attacking at max range (3 m)
+  /** Per-weapon Finesse answer (issue #10): the attack panel's checkbox, saved
+   *  in the same localStorage record as the sliders. Absent = follow the weapon. */
+  let attackFinesseMap = $state(/** @type {Record<string, boolean>} */ ({}));
+  let attackFinesse = $derived(
+    attackWeaponName && typeof attackFinesseMap[attackWeaponName] === 'boolean'
+      ? attackFinesseMap[attackWeaponName]
+      : null
+  );
+
+  function setAttackFinesse(checked) {
+    if (!attackWeaponName) return;
+    attackFinesseMap = { ...attackFinesseMap, [attackWeaponName]: checked };
+    saveAttackSettings();
+  }
 
   // Capacity accordion (🪄): Valeur brute = MULT × MOD d6 (pool size = product).
   let showCapacity = $state(false);
@@ -406,6 +420,7 @@
         const saved = JSON.parse(localStorage.getItem(`cardenveil-attack-${playerId}`) || '{}');
         if (typeof saved.adv === 'number') attackAdv = Math.max(-7, Math.min(7, saved.adv));
         if (typeof saved.engagement === 'number') attackEngagement = Math.max(0, Math.min(7, saved.engagement));
+        if (saved.finesse && typeof saved.finesse === 'object') attackFinesseMap = saved.finesse;
         // The weapon is deliberately NOT restored: the panel always opens on the
         // main-hand weapon (pickAttackWeapon falls back to it) and the choice
         // made during the session stays until the popover is reloaded.
@@ -429,7 +444,7 @@
   let selectedAttackWeapon = $derived(pickAttackWeapon(attackWeapons, attackWeaponName).weapon);
   let attackCalc = $derived(
     selectedAttackWeapon
-      ? attackPreview(selectedAttackWeapon, effectiveStats(sheet), { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race, amplitude: attackAmplitude })
+      ? attackPreview(selectedAttackWeapon, effectiveStats(sheet), { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race, amplitude: attackAmplitude, finesse: attackFinesse ?? undefined })
       : null
   );
 
@@ -529,7 +544,7 @@
     try {
       localStorage.setItem(
         `cardenveil-attack-${playerId}`,
-        JSON.stringify({ adv: attackAdv, engagement: attackEngagement })
+        JSON.stringify({ adv: attackAdv, engagement: attackEngagement, finesse: attackFinesseMap })
       );
     } catch {
       /* storage unavailable */
@@ -543,7 +558,7 @@
    * the final summary replaces them. Rejects on timeout — the caller
    * falls back to the flat pre-rolled path.
    */
-  async function throwAttackStage(baseLabel, pool, sides, keep) {
+  async function throwAttackStage(baseLabel, pool, sides, keep, noCrit) {
     const rollId = await broadcastRoll({
       label: `${baseLabel} — ${pool}d${sides}${keep === 'max' ? ' · garder le max' : keep === 'min' ? ' · garder le min' : ''}`,
       color: diceGemColor(sheet),
@@ -557,7 +572,8 @@
       modifier: 0,
       staged: true,
       // Gobelin crits on dé − 1: let the popup chips glow on a 5+ (d6)
-      critFrom: isGobelin(sheet?.identity?.race) ? Math.max(2, sides - 1) : sides
+      critFrom: isGobelin(sheet?.identity?.race) ? Math.max(2, sides - 1) : sides,
+      noCrit: !!noCrit
     });
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -572,7 +588,7 @@
     const weapon = selectedAttackWeapon;
     if (!weapon || !sheet || attackInFlight) return;
     saveAttackSettings();
-    const opts = { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race, amplitude: attackAmplitude };
+    const opts = { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race, amplitude: attackAmplitude, finesse: attackFinesse ?? undefined };
     const baseLabel = `Attaque · ${weapon.nom || 'Sans nom'}`;
 
     // 3D mode: staged physics throws — the driver walks runAttack, throwing
@@ -584,7 +600,7 @@
       attackInFlight = true;
       try {
         result = await runAttack(weapon, sheet.stats ?? {}, opts, (pool, sides, keep) =>
-          throwAttackStage(baseLabel, pool, sides, keep)
+          throwAttackStage(baseLabel, pool, sides, keep, weaponFlags(weapon, sheet?.identity?.race).brute)
         );
       } catch (err) {
         logEvent('warn', 'roll_3d_fallback', { message: err?.message ?? String(err), detail: { kind: 'attack' } });
@@ -615,6 +631,8 @@
       critCount: result.critCount,
       miss: result.miss,
       critFrom: result.critFrom,
+      // Brute: the summary popup must not flash gold either (issue #11).
+      noCrit: result.brute,
       // Property tags travel with the roll so the popup can show them under
       // the formula (issue #5).
       tags: weaponTagInfo(weapon).map((t) => t.label).join(', ')
@@ -857,6 +875,20 @@
                 {/each}
               </div>
             {/if}
+            {#if attackCalc.taggedFinesse || attackFinesse !== null}
+              <label
+                class="flex items-center gap-1.5 cursor-pointer"
+                title="Arme Finesse : coche pour utiliser l'Agilité et la répétition du bonus sur critique, décoche pour rester sur la Force"
+              >
+                <input
+                  type="checkbox"
+                  checked={attackCalc.finesse}
+                  onchange={(e) => setAttackFinesse(e.currentTarget.checked)}
+                  class="accent-indigo-500 h-3 w-3"
+                />
+                <span class="text-[9px] font-bold text-[#9ca3af]">FINESSE (AGILITÉ)</span>
+              </label>
+            {/if}
             {#if attackCalc.amplitude}
               <label class="flex items-center gap-1.5 cursor-pointer" title="Amplitude : à votre portée maximale (3 m), l'arme bénéficie de la propriété Finesse">
                 <input type="checkbox" bind:checked={attackAmplitude} class="accent-indigo-500 h-3 w-3" />
@@ -885,7 +917,11 @@
               <div class="flex items-center justify-between">
                 <span class="text-[8px] font-bold text-[#9ca3af]">ENGAGEMENT</span>
                 <span class="text-[10px] font-bold text-indigo-300">
-                  {attackEngagement === 0 ? 'AUCUN' : `${attackEngagement} · ${fmt(attackCalc.engagementMod)} ${STAT_LABELS[attackCalc.engagementStat] || ''}${attackCalc.finesse ? ' ×(1+crits)' : ''}`}
+                  {attackEngagement === 0
+                    ? 'AUCUN'
+                    : attackCalc.hybrideEngagement
+                      ? `${attackEngagement} · +${attackCalc.hybrideEngagement.force} Force +${attackCalc.hybrideEngagement.agilite} Agilité`
+                      : `${attackEngagement} · ${fmt(attackCalc.engagementMod)} ${STAT_LABELS[attackCalc.engagementStat] || ''}${attackCalc.finesse ? ' ×(1+crits)' : ''}`}
                 </span>
               </div>
               <input
@@ -895,8 +931,10 @@
               />
             </div>
             <div class="text-[9px] text-[#9ca3af] leading-snug">
-              <div>Jet : {attackCalc.diceCount}d{attackCalc.sides}{attackKeepLabel ? ` · ${attackKeepLabel}` : ''} · crit {attackCalc.critFrom}+{attackCalc.gobelin ? ` (max ${attackCalc.maxCrits} critiques)` : ''}</div>
-              <div>Dégâts : {attackCalc.keep ? `${attackCalc.keep} + ` : 'dé + '}{attackCalc.weaponBonus ? `${fmt(attackCalc.weaponBonus)} arme` : ''}{attackEngagement > 0 ? `${attackCalc.weaponBonus ? ' ' : ''}${fmt(attackCalc.engagementMod * attackEngagement)} ${STAT_LABELS[attackCalc.engagementStat]}` : ''}{attackCalc.finesse ? ' (répété ×crits)' : ''}{attackCalc.hache ? ' (Brutalité : explosion 2d, doubles)' : ''}</div>
+              <div>Jet : {attackCalc.diceCount}d{attackCalc.sides}{attackKeepLabel ? ` · ${attackKeepLabel}` : ''} · {attackCalc.brute ? 'pas de critique (Brute)' : `crit ${attackCalc.critFrom}+${attackCalc.gobelin ? ` (max ${attackCalc.maxCrits} critiques)` : ''}`}</div>
+              <div>Dégâts : {attackCalc.hybride
+                ? `dé + ${fmt(attackCalc.weaponBonus)} bonus + crits × (bonus − min(Force,0))`
+                : `${attackCalc.keep ? `${attackCalc.keep} + ` : 'dé + '}${attackCalc.weaponBonus ? `${fmt(attackCalc.weaponBonus)} arme` : ''}${attackEngagement > 0 ? `${attackCalc.weaponBonus ? ' ' : ''}${fmt(attackCalc.engagementMod * attackEngagement)} ${STAT_LABELS[attackCalc.engagementStat]}` : ''}${attackCalc.finesse ? ' (répété ×crits)' : ''}`}{attackCalc.hache ? ' (Brutalité : explosion 2d, doubles)' : ''}{attackCalc.brute ? ' (Brute : pas de critique)' : ''}</div>
             </div>
             <button
               onclick={doAttackRoll}

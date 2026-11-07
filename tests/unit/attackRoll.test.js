@@ -345,6 +345,105 @@ describe('runAttack — staged driving (3D physics pipeline)', () => {
   });
 });
 
+describe('Hybride: the GM formula (issue #12)', () => {
+  // stats: force 16 (+3), agilite 14 (+2)
+  const fists = () => noMiss({ de: '1d6', tags: ['impact', 'hybride'] });
+
+  it('preview: the engagement adds max(Force,0) + max(Agilité,0)', async () => {
+    const p = attackPreview(fists(), stats, { engagement: 1, bonus: 4 });
+    expect(p.hybrideEngagement).toEqual({ force: 3, agilite: 2 });
+    expect(p.engagementMod).toBe(5);
+  });
+
+  it('no engagement: dés + bonus + critiques × (bonus − min(Force,0))', async () => {
+    // die 6 = crit, explosion 2 → one crit. bonus = B. ATT. = 4.
+    const r = await withRolls([6, 2], 6, (rng) => rollAttack(fists(), stats, { bonus: 4, rng }));
+    expect(r.critCount).toBe(1);
+    expect(r.total).toBe(6 + 2 + 4 + 4); // dice + bonus + one crit repeating the bonus
+  });
+
+  it('engagement without a crit: + max(Force,0) + max(Agilité,0) per level', async () => {
+    // 1 engagement = 1 désavantage → 3 dés, on garde le min (3).
+    const r = await withRolls([3, 4, 5], 6, (rng) => rollAttack(fists(), stats, { bonus: 4, engagement: 1, rng }));
+    expect(r.critCount).toBe(0);
+    expect(r.total).toBe(3 + 4 + (3 + 2));
+  });
+
+  it('engagement on a crit loses the Force part', async () => {
+    // 3 dés gardés au min : il faut 6,6,6 pour garder un 6, puis l'explosion.
+    const r = await withRolls([6, 6, 6, 2], 6, (rng) => rollAttack(fists(), stats, { bonus: 4, engagement: 1, rng }));
+    expect(r.total).toBe(6 + 2 + 4 + 4 + 2); // dice + bonus + crit + max(Agilité,0)
+  });
+
+  it('a negative Force modifier is corrected on a crit', async () => {
+    const weak = { force: 8, agilite: 14 }; // Force -1, Agilité +2
+    const r = await withRolls([6, 2], 6, (rng) => rollAttack(fists(), weak, { bonus: 4, rng }));
+    // bonus − min(-1, 0) = 4 + 1 per crit
+    expect(r.total).toBe(6 + 2 + 4 + 5);
+  });
+
+  it('does not double-count with the Finesse repeat', async () => {
+    // A Hybride weapon explicitly ticked Finesse keeps the Hybride rule only.
+    const tagged = noMiss({ de: '1d6', tags: ['hybride', 'finesse'], finesse: true });
+    const r = await withRolls([6, 2], 6, (rng) => rollAttack(tagged, stats, { bonus: 4, rng }));
+    expect(r.total).toBe(6 + 2 + 4 + 4);
+  });
+});
+
+describe('the attack panel Finesse checkbox (issue #10)', () => {
+  it('overrides the weapon answer in both directions', async () => {
+    const tagged = { de: '1d8', tags: ['finesse'], finesse: true };
+    expect(attackPreview(tagged, stats, { engagement: 1 }))
+      .toMatchObject({ finesse: true, engagementStat: 'agilite' });
+    expect(attackPreview(tagged, stats, { engagement: 1, finesse: false }))
+      .toMatchObject({ finesse: false, engagementStat: 'force' });
+
+    const plain = { de: '1d8', tags: ['garde'] };
+    expect(attackPreview(plain, stats, { engagement: 1, finesse: true }))
+      .toMatchObject({ finesse: true, engagementStat: 'agilite' });
+  });
+
+  it('does not fight the Amplitude rule, which grants Finesse at max range', async () => {
+    const faux = { de: '1d10', tags: ['deux-mains', 'amplitude'] };
+    expect(attackPreview(faux, stats, { finesse: false, amplitude: true }))
+      .toMatchObject({ finesse: true, amplitude: true });
+  });
+});
+
+describe('Brute: the weapon cannot crit (issue #11)', () => {
+  it('flags Brute from the tag and from the legacy text', async () => {
+    expect(weaponFlags({ tags: ['improvisée', 'brute'] })).toMatchObject({ brute: true });
+    expect(weaponFlags({ proprietes: 'Improvisée, Brute, Impact' })).toMatchObject({ brute: true });
+    expect(weaponFlags({ tags: ['impact'] })).toMatchObject({ brute: false });
+  });
+
+  it('does not explode on the max face', async () => {
+    const gourdin = noMiss({ de: '1d6', bonus: 2, tags: ['improvisée', 'brute', 'impact'] });
+    const r = await withRolls([6], 6, (rng) => rollAttack(gourdin, stats, { rng }));
+    expect(r.critCount).toBe(0);
+    expect(r.total).toBe(6 + 2);
+    expect(r.stages).toHaveLength(1);
+    expect(r.breakdown.join('\n')).toContain('Brute');
+  });
+
+  it('wins over Brutalité and over the Gobelin crit threshold', async () => {
+    const bruteHache = noMiss({ de: '1d6', bonus: 0, tags: ['brute', 'brutalite'] });
+    const r = await withRolls([6], 6, (rng) => rollAttack(bruteHache, stats, { rng }));
+    expect(r.critCount).toBe(0);
+    expect(r.total).toBe(6);
+
+    const gobelinBrute = noMiss({ de: '1d6', bonus: 0, tags: ['brute'] });
+    const g = await withRolls([5], 6, (rng) => rollAttack(gobelinBrute, stats, { race: 'gobelin', rng }));
+    expect(g.critCount).toBe(0);
+  });
+
+  it('a non-Brute weapon still crits on the same die', async () => {
+    const normal = noMiss({ de: '1d6', bonus: 2, tags: ['impact'] });
+    const r = await withRolls([6, 3], 6, (rng) => rollAttack(normal, stats, { rng }));
+    expect(r.critCount).toBe(1);
+  });
+});
+
 describe('weapon tags: finesse checkbox, Amplitude, Hybride (issue #5)', () => {
   it('an explicit Finesse checkbox overrides the tag', async () => {
     // Tagged Finesse but the GM unchecked it → the weapon scales with Force.
@@ -366,16 +465,4 @@ describe('weapon tags: finesse checkbox, Amplitude, Hybride (issue #5)', () => {
     expect(attackPreview(hache, stats, { engagement: 1, amplitude: true })).toMatchObject({ finesse: false, amplitude: false });
   });
 
-  it('Hybride adds Force + Agilité to the damage, and drops Force on a crit', async () => {
-    // stats: force 16 → +3, agilite 14 → +2
-    const fists = noMiss({ de: '1d6', bonus: 0, tags: ['impact', 'hybride'] });
-    const plain = await withRolls([4], 6, (rng) => rollAttack(fists, stats, { rng }));
-    expect(plain.total).toBe(4 + 3 + 2);
-    expect(plain.breakdown.join('\n')).toContain('Hybride');
-
-    // A crit (6 on a d6) then a non-crit explosion: the Force mod is dropped.
-    const crit = await withRolls([6, 2], 6, (rng) => rollAttack(fists, stats, { rng }));
-    expect(crit.critCount).toBe(1);
-    expect(crit.total).toBe(6 + 2 + 2); // dice + Agilité only, initiator bonus 0
-  });
 });

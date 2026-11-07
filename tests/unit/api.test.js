@@ -262,7 +262,10 @@ describe('API Client', () => {
       await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
 
       const body = mockSupabase.functions.invoke.mock.calls.at(-1)[1].body;
-      expect(body.action.token).toBe(token);
+      // The credential travels in its own field: `token` is the game's token
+      // type for SPEND_TOKEN & co (issue #16).
+      expect(body.action.actorToken).toBe(token);
+      expect(body.action.token).toBeUndefined();
       // A retried action must be recognisable as the same action instance.
       expect(body.action.actionId).toEqual(expect.any(String));
     });

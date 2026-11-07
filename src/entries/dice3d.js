@@ -42,7 +42,9 @@ const stagedParam = params.get('staged') === '1';
 const zoomCritParam = params.get('zoomCrit') === '1'; // crit camera punch-in allowed (attack/stat/skill rolls)
 // Explicit crit threshold (Gobelin: dé − 1); absent = the die's max face
 const critFromParam = parseInt(params.get('critFrom') || '', 10);
-const critAt = (sides) => (Number.isFinite(critFromParam) ? Math.min(critFromParam, sides) : sides);
+// « Brute » : the weapon cannot crit, so no chip glows and no crit zoom.
+const noCritParam = params.get('noCrit') === '1';
+const critAt = (sides) => (noCritParam ? Infinity : Number.isFinite(critFromParam) ? Math.min(critFromParam, sides) : sides);
 // Avantage/désavantage racial d'un jet: 'high' | 'low' — total = meilleur/pire
 // dé + modificateur, et le crit ne regarde que le dé conservé.
 const keepParam = params.get('keep');

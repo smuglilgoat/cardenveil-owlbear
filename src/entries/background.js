@@ -93,6 +93,8 @@ OBR.onReady(() => {
       zoomCrit: data.zoomCrit ? '1' : '0',
       // explicit crit threshold (Gobelin: dé − 1); absent = die max face
       critFrom: data.critFrom != null ? String(data.critFrom) : '',
+      // Brute weapons cannot crit: no gold flash, no crit zoom (issue #11)
+      noCrit: data.noCrit ? '1' : '',
       // avantage/désavantage d'un jet (traits de race): 'high' | 'low'
       keep: data.keep || ''
     });

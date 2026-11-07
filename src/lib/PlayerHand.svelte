@@ -3,7 +3,7 @@
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
   import ActionLog from "./ActionLog.svelte";
-  import { GM_CHAR_ID, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, SPLIT_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
+  import { GM_CHAR_ID, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
   import { tooltip } from "./tooltip.js";
   import { logEvent, logError } from "./appLog.js";
   import {
@@ -104,11 +104,10 @@
     onAction({ type: 'CRYSTALLIZE', playerId: myId, cardId: card.id });
   }
 
-  /** Nimbri « Compréhension abstraite de la magie »: one split per draw, 30-min
-   *  cooldown, card worth at least 4. */
+  /** Nimbri « Compréhension abstraite de la magie »: one split per explicit
+   *  draw, card worth at least 4. */
   function canSplit(card) {
     if (!player || player.race !== 'nimbri' || !player.splitAvailable) return false;
-    if (player.lastSplitAt && Date.now() - player.lastSplitAt < SPLIT_COOLDOWN_MS) return false;
     return (card?.numericValue ?? 0) + 1 >= 4;
   }
 

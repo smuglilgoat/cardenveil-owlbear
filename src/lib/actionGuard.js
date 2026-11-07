@@ -51,6 +51,28 @@ export async function hashToken(token, subtle = globalThis.crypto?.subtle) {
   return toHex(new Uint8Array(digest));
 }
 
+/** A minted credential is 32 random bytes as 64 lowercase hex chars. */
+const CREDENTIAL_RE = /^[0-9a-f]{64}$/;
+
+/**
+ * The actor credential carried by an action.
+ *
+ * `actorToken` is the field (2.9.1+). Actions that also carry a **token type**
+ * (`SPEND_TOKEN`, `ADD_TOKEN`, `GIFT_TOKEN`, `SET_TOKENS`, `SET_MAX_TOKENS`)
+ * used to put the credential in `token`, which overwrote the type and made the
+ * reducer drop the action — so the credential gets its own field. A pre-2.9.1
+ * client still sends the old spelling; a 64-hex `token` is accepted as the
+ * credential, and a token type ('force', …) is never mistaken for one.
+ * @param {object} action
+ * @returns {string} The credential, or '' when the action carries none
+ */
+export function actorCredential(action) {
+  const explicit = action?.actorToken;
+  if (typeof explicit === 'string' && explicit) return explicit;
+  const legacy = action?.token;
+  return typeof legacy === 'string' && CREDENTIAL_RE.test(legacy) ? legacy : '';
+}
+
 /**
  * Decide whether an action may be applied.
  *
@@ -80,8 +102,8 @@ export async function verifyActor(state, action, hash = hashToken) {
   const hashes = state?.actorTokens?.[actorId] ?? [];
   if (hashes.length === 0) return { ok: true };
 
-  const token = action?.token;
-  if (typeof token !== 'string' || token.length === 0) {
+  const token = actorCredential(action);
+  if (!token) {
     return { ok: false, reason: 'missing_token' };
   }
   return hashes.includes(await hash(token))
