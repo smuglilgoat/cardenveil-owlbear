@@ -22,6 +22,7 @@
     deleteCharacterSheet,
     createEmptyCharacterSheet,
     equipmentStats,
+    effectiveStats,
     skillModifier,
     skillRollModifier,
     syncSkillBonuses,
@@ -36,6 +37,7 @@
     withItemFromTemplate,
     withWeaponFromTemplate,
     importCharacterSheet,
+    weaponTagInfo,
     tokensFromStats
   } from "./characterSheet.js";
   import ItemAddPopup from "./ItemAddPopup.svelte";
@@ -324,8 +326,15 @@
     onAction({ type: 'SET_MAX_TOKENS', playerId: myId, targetId: playerId, token: stat, val });
   }
 
+  /** The GM consumes a player's token as the actor — impersonating the player
+   *  used to be rejected by the server-side actor guard (issue #3). */
   function gmSpendToken(playerId, stat) {
-    onAction({ type: 'SPEND_TOKEN', playerId: playerId, token: stat });
+    onAction({ type: 'SPEND_TOKEN', playerId: myId, targetId: playerId, token: stat });
+  }
+
+  /** GM sets a player's available pool directly (clamped by the reducer). */
+  function gmSetToken(playerId, stat, val) {
+    onAction({ type: 'SET_TOKENS', playerId: myId, targetId: playerId, token: stat, val });
   }
 
   function gmAddToken(playerId, stat) {
@@ -525,6 +534,58 @@
     await saveViewingSheet();
   }
 
+  // ── Per-player quick add from the dashboard row (issue #4) ──
+  let quickAdd = $state(/** @type {{playerId: string, sheet: Object}|null} */ (null));
+
+  /** Open the add form on a player's sheet without opening the whole sheet.
+   *  `trackBase` stays on: the fetched row becomes the draft's base, and the
+   *  save is refused without one (a missing row heals an empty base). */
+  async function openQuickAdd(playerId) {
+    try {
+      const row = await fetchCharacterSheet(playerId, OBR.room.id);
+      quickAdd = { playerId, sheet: row?.data ?? createEmptyCharacterSheet() };
+    } catch (err) {
+      logError('gm_quick_add_failed', err);
+    }
+  }
+
+  /** @param {{name: string, isWeapon: boolean, quantity?: number, draft?: Object}|null} payload */
+  async function quickAddPick(payload) {
+    const target = quickAdd;
+    quickAdd = null;
+    if (!payload || !target) return;
+    const { name, isWeapon, quantity, draft } = payload;
+    const next = isWeapon
+      ? withWeaponFromTemplate(target.sheet, name, draft)
+      : withItemFromTemplate(target.sheet, name, quantity, draft);
+    try {
+      await saveCharacterSheet(target.playerId, OBR.room.id, next);
+    } catch (err) {
+      logError('gm_quick_add_failed', err);
+    }
+  }
+
+  // ── GM weapon edit inside the sheet modal (issue #4) ──
+  let gmWeaponEdit = $state(/** @type {{index: number, draft: Object}|null} */ (null));
+
+  function editGmWeapon(index) {
+    const weapon = (viewingSheet?.sheet?.weapons ?? [])[index];
+    if (!weapon) return;
+    gmWeaponEdit = { index, draft: { ...weapon } };
+  }
+
+  /** @param {{edit?: boolean, draft?: Object}|null} payload */
+  async function saveGmWeaponEdit(payload) {
+    const edit = gmWeaponEdit;
+    gmWeaponEdit = null;
+    if (!payload?.draft || !edit || !viewingSheet) return;
+    viewingSheet.sheet = {
+      ...viewingSheet.sheet,
+      weapons: (viewingSheet.sheet.weapons ?? []).map((w, i) => (i === edit.index ? payload.draft : w)),
+    };
+    await saveViewingSheet();
+  }
+
   function closeCharacterSheet() {
     viewingSheet = null;
     sheetError = '';
@@ -600,6 +661,8 @@
           playerId: myId,
           targetId,
           tokens: tokensFromStats(imported.data?.stats),
+          // The imported sheet's own counts, when it has them (issue #3).
+          ...(imported.data?.resources?.tokens ? { counts: imported.data.resources.tokens } : {}),
         });
       } catch (err) {
         sheetError = `Erreur lors de l'import : ${err.message}`;
@@ -942,6 +1005,7 @@
               onSpendToken={(stat) => gmSpendToken(GM_CHAR_ID, stat)}
               onAddToken={(stat) => gmAddToken(GM_CHAR_ID, stat)}
               onSetMax={(stat, val) => setMaxToken(GM_CHAR_ID, stat, val)}
+              onSetCount={(stat, val) => gmSetToken(GM_CHAR_ID, stat, val)}
             />
           </div>
         </div>
@@ -1391,17 +1455,26 @@
                   onSpendToken={(stat) => gmSpendToken(id, stat)}
                   onAddToken={(stat) => gmAddToken(id, stat)}
                   onSetMax={(stat, val) => setMaxToken(id, stat, val)}
+                  onSetCount={(stat, val) => gmSetToken(id, stat, val)}
                 />
               </div>
             </div>
 
-            <div class="border-t border-gray-700 pt-3">
+            <div class="border-t border-gray-700 pt-3 flex gap-2">
               <button
                 onclick={() => viewCharacterSheet(id)}
                 use:tooltip={"Voir et modifier la fiche de personnage de " + getPlayerName(id)}
-                class="w-full text-xs py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg font-semibold"
+                class="flex-1 min-w-0 text-xs py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg font-semibold"
               >
                 📜 Fiche de personnage
+              </button>
+              <button
+                onclick={() => openQuickAdd(id)}
+                use:tooltip={"Ajouter un objet ou une arme à " + getPlayerName(id)}
+                title="Ajouter un objet ou une arme"
+                class="shrink-0 px-3 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg font-bold text-xs"
+              >
+                ＋
               </button>
             </div>
           </div>
@@ -1749,13 +1822,27 @@
               <div class="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded-lg p-2.5 mb-3">Aucune arme.</div>
             {:else}
               <div class="space-y-1 mb-3">
-                {#each gmWeapons as weapon}
-                  <div class="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5">
-                    <span class="w-5 shrink-0 text-center text-base leading-none">{weapon.icon || '🗡'}</span>
-                    <span class="text-xs text-white font-semibold truncate flex-1">{weapon.nom || 'Sans nom'}</span>
-                    <span class="text-[11px] text-gray-400 shrink-0">{weapon.de || '—'}</span>
-                    {#if weapon.equipped}
-                      <span class="text-[10px] text-indigo-300 font-bold shrink-0">{weapon.hand === 'off' ? 'MAIN SEC.' : 'MAIN PRINC.'}</span>
+                {#each gmWeapons as weapon, weaponIndex}
+                  <div class="bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5">
+                    <div class="flex items-center gap-2">
+                      <span class="w-5 shrink-0 text-center text-base leading-none">{weapon.icon || '🗡'}</span>
+                      <span class="text-xs text-white font-semibold truncate flex-1">{weapon.nom || 'Sans nom'}</span>
+                      <span class="text-[11px] text-gray-400 shrink-0">{weapon.de || '—'}</span>
+                      {#if weapon.equipped}
+                        <span class="text-[10px] text-indigo-300 font-bold shrink-0">{weapon.hand === 'off' ? 'MAIN SEC.' : 'MAIN PRINC.'}</span>
+                      {/if}
+                      <button
+                        onclick={() => editGmWeapon(weaponIndex)}
+                        use:tooltip={"Modifier cette arme"}
+                        class="shrink-0 w-5 h-5 rounded bg-gray-700 hover:bg-gray-600 text-[10px] text-gray-200 leading-none"
+                      >✎</button>
+                    </div>
+                    {#if weaponTagInfo(weapon).length}
+                      <div class="flex flex-wrap gap-1 mt-1 pl-7">
+                        {#each weaponTagInfo(weapon) as tag}
+                          <span use:tooltip={tag.desc} class="px-1 py-0.5 rounded border border-gray-600 bg-gray-900 text-[9px] font-semibold text-indigo-200">{tag.label}</span>
+                        {/each}
+                      </div>
                     {/if}
                   </div>
                 {/each}
@@ -1786,9 +1873,12 @@
                 <div class="bg-gray-800 border border-gray-700 rounded-lg p-3">
                   <label class="block text-xs text-gray-400 mb-2 capitalize">{token}</label>
                   {#if viewingSheet.isEditing}
+                    <!-- Committing the field also sets the game-state pool, so
+                         editing tokens here is not a dead end (issue #3). -->
                     <input
                       type="number"
                       bind:value={viewingSheet.sheet.resources.tokens[token]}
+                      onchange={() => gmSetToken(viewingSheet.playerId, token, viewingSheet.sheet.resources.tokens[token])}
                       class="w-full px-2 py-1 bg-gray-900 border border-gray-600 rounded text-white text-center"
                     />
                   {:else}
@@ -1983,10 +2073,22 @@
         </div>
 
         {#if showItemAdd}
-          <ItemAddPopup onPick={addItemToViewingSheet} />
+          <ItemAddPopup stats={effectiveStats(viewingSheet.sheet)} onPick={addItemToViewingSheet} />
         {/if}
       </div>
     </div>
+  {/if}
+  {#if quickAdd}
+    <ItemAddPopup mode="all" stats={effectiveStats(quickAdd.sheet)} onPick={quickAddPick} />
+  {/if}
+  {#if gmWeaponEdit && viewingSheet}
+    <ItemAddPopup
+      stats={effectiveStats(viewingSheet.sheet)}
+      initialDraft={gmWeaponEdit.draft}
+      editIndex={gmWeaponEdit.index}
+      editIsWeapon={true}
+      onPick={saveGmWeaponEdit}
+    />
   {/if}
   {#if diagToast}
     <div

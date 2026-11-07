@@ -18,7 +18,6 @@
     raceTraits,
     racePvBonus,
     effectiveStats,
-    raceRollAdvantage,
     rollD20Keep,
     normalizeRaceName,
     skillModifier,
@@ -33,7 +32,8 @@
     DICE_GEMS,
     DICE_GEM_LABELS,
     diceGemColor,
-    parseDiceSpec
+    parseDiceSpec,
+    weaponTagInfo
   } from './characterSheet.js';
   import { broadcastRoll, onRollResult } from './rollBroadcast.js';
   import { logEvent, logError, setLogContext } from './appLog.js';
@@ -235,6 +235,14 @@
     saveCharacterSheet(playerId, roomId, sheet).catch((err) => logError('sheet_popover_save_failed', err));
   }
 
+  /** Commit the B. ATT. editor once (Enter, then the input is removed and
+   *  fires blur — the guard keeps that from saving twice). */
+  function commitBonus() {
+    if (!editingBonusAttaque) return;
+    setBonusAttaqueOverride(bonusAttaqueDraft);
+    editingBonusAttaque = false;
+  }
+
   function stripHtml(text) {
     return (text || '').replace(/<[^>]*>/g, '').trim();
   }
@@ -251,13 +259,6 @@
   function skillMod(skillKey) {
     return skillRollModifier(effectiveStats(sheet), skillKey, sheet?.skills?.[skillKey]);
   }
-
-  /** Racial avantage/désavantage → keep flag for the roll intent. */
-  function keepFor(kind) {
-    const adv = raceRollAdvantage(sheet?.identity?.race, kind);
-    return adv > 0 ? 'high' : adv < 0 ? 'low' : '';
-  }
-  let initKeep = $derived(keepFor('initiative'));
 
   // ─── Per-turn action diamonds (toggle + persist, no reset logic) ───
   let saveInFlight = false;
@@ -342,6 +343,7 @@
   let attackWeaponName = $state('');
   let attackAdv = $state(0); // −7…+7 (− = désavantage, + = avantage)
   let attackEngagement = $state(0); // 0…7
+  let attackAmplitude = $state(false); // Amplitude: attacking at max range (3 m)
 
   // Capacity accordion (🪄): Valeur brute = MULT × MOD d6 (pool size = product).
   let showCapacity = $state(false);
@@ -427,7 +429,7 @@
   let selectedAttackWeapon = $derived(pickAttackWeapon(attackWeapons, attackWeaponName).weapon);
   let attackCalc = $derived(
     selectedAttackWeapon
-      ? attackPreview(selectedAttackWeapon, effectiveStats(sheet), { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race })
+      ? attackPreview(selectedAttackWeapon, effectiveStats(sheet), { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race, amplitude: attackAmplitude })
       : null
   );
 
@@ -570,7 +572,7 @@
     const weapon = selectedAttackWeapon;
     if (!weapon || !sheet || attackInFlight) return;
     saveAttackSettings();
-    const opts = { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race };
+    const opts = { advantage: attackAdv, engagement: attackEngagement, bonus: calc?.bonusAttaque, race: sheet?.identity?.race, amplitude: attackAmplitude };
     const baseLabel = `Attaque · ${weapon.nom || 'Sans nom'}`;
 
     // 3D mode: staged physics throws — the driver walks runAttack, throwing
@@ -612,7 +614,10 @@
       breakdown: result.breakdown,
       critCount: result.critCount,
       miss: result.miss,
-      critFrom: result.critFrom
+      critFrom: result.critFrom,
+      // Property tags travel with the roll so the popup can show them under
+      // the formula (issue #5).
+      tags: weaponTagInfo(weapon).map((t) => t.label).join(', ')
     });
     // Action log: same USE_CAPACITY channel, breakdown folded into the formula string (32 chars max).
     dispatch(roomId, {
@@ -710,10 +715,10 @@
           <div class="text-sm font-bold leading-tight text-[#e5e7eb]">{calc.parade}</div>
         </div>
         <div
-          onclick={() => doRoll('Initiative', `d20${fmt(calc.initiative)}`, { keep: initKeep })}
+          onclick={() => doRoll('Initiative', `d20${fmt(calc.initiative)}`)}
           role="button"
           tabindex="0"
-          onkeydown={(e) => e.key === 'Enter' && doRoll('Initiative', `d20${fmt(calc.initiative)}`, { keep: initKeep })}
+          onkeydown={(e) => e.key === 'Enter' && doRoll('Initiative', `d20${fmt(calc.initiative)}`)}
           title={`Jet d'initiative (d20)`}
           class="bg-[#111827] rounded-md px-1.5 py-1 text-center cursor-pointer hover:bg-[#1f2937] transition-colors"
         >
@@ -748,11 +753,18 @@
             <!-- svelte-ignore a11y_autofocus -->
             <input
               type="number"
-              bind:value={bonusAttaqueDraft}
+              value={bonusAttaqueDraft}
+              oninput={(e) => (bonusAttaqueDraft = e.currentTarget.value)}
               autofocus
               placeholder={String(calc.bonusAttaque)}
-              onblur={() => { setBonusAttaqueOverride(bonusAttaqueDraft); editingBonusAttaque = false; }}
-              onkeydown={(e) => { if (e.key === 'Enter') { setBonusAttaqueOverride(bonusAttaqueDraft); editingBonusAttaque = false; } else if (e.key === 'Escape') editingBonusAttaque = false; }}
+              onblur={commitBonus}
+              onkeydown={(e) => {
+                // Enter commits and stops here: without stopPropagation the
+                // event reaches the tile's own keydown, which sees the editor
+                // closed again and immediately reopens it (issue #5).
+                if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commitBonus(); }
+                else if (e.key === 'Escape') { e.stopPropagation(); editingBonusAttaque = false; }
+              }}
               class="w-full text-sm font-bold leading-tight bg-transparent border-b border-indigo-500 focus:outline-none text-center text-indigo-300"
             />
           {:else}
@@ -834,10 +846,23 @@
                 class="flex-1 min-w-0 px-1.5 py-0.5 bg-[#242424] border border-[#374151] rounded-md text-[10px] font-bold focus:outline-none focus:border-indigo-500"
               >
                 {#each equippedWeapons as w}
-                  <option value={w?.nom}>{w?.nom || 'Sans nom'} — {w?.de}{w?.proprietes ? ` · ${w.proprietes.split(',')[0]}` : ''}</option>
+                  <option value={w?.nom}>{w?.nom || 'Sans nom'} — {w?.de}{weaponTagInfo(w).length ? ` · ${weaponTagInfo(w)[0].label}` : ''}</option>
                 {/each}
               </select>
             </div>
+            {#if weaponTagInfo(selectedAttackWeapon).length}
+              <div class="flex flex-wrap gap-1" title="Propriétés de l'arme">
+                {#each weaponTagInfo(selectedAttackWeapon) as tag}
+                  <span use:tooltip={tag.desc} class="px-1 py-0.5 rounded border border-[#4b5563] bg-[#111827] text-[9px] font-semibold text-indigo-200">{tag.label}</span>
+                {/each}
+              </div>
+            {/if}
+            {#if attackCalc.amplitude}
+              <label class="flex items-center gap-1.5 cursor-pointer" title="Amplitude : à votre portée maximale (3 m), l'arme bénéficie de la propriété Finesse">
+                <input type="checkbox" bind:checked={attackAmplitude} class="accent-indigo-500 h-3 w-3" />
+                <span class="text-[9px] font-bold text-[#9ca3af]">À PORTÉE MAXIMALE (3 m) — Finesse</span>
+              </label>
+            {/if}
             <div>
               <div class="flex items-center justify-between">
                 <span class="text-[8px] font-bold text-[#9ca3af]">AVANTAGE / DÉSAVANTAGE</span>
@@ -965,7 +990,7 @@
       {#each pinnedSkills as skillKey}
         <button
           class="w-full flex items-center gap-2 bg-[#111827] hover:bg-[#1f2937] rounded-md px-2.5 py-2 text-left transition-colors"
-          onclick={() => doRoll(SKILL_LABELS[skillKey] || skillKey, `d20${skillMod(skillKey) >= 0 ? '+' + skillMod(skillKey) : skillMod(skillKey)}`, { zoomCrit: true, keep: keepFor(skillKey) })}
+          onclick={() => doRoll(SKILL_LABELS[skillKey] || skillKey, `d20${skillMod(skillKey) >= 0 ? '+' + skillMod(skillKey) : skillMod(skillKey)}`, { zoomCrit: true })}
         >
           <div class="w-1 h-5 rounded-full" style="background: {skillColor(skillKey)}"></div>
           <span class="text-[11px] font-medium truncate">

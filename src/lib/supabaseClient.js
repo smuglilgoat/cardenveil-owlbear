@@ -31,10 +31,17 @@ export const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_AN
 
 /** @type {Set<(status: string) => void>} */
 const healthListeners = new Set();
+/** @type {Set<(gapMs: number) => void>} */
+const gapListeners = new Set();
 /** @type {string} */
 let lastProblem = '';
 /** @type {number} */
 let lastProblemAt = 0;
+/** Last heartbeat callback (sent/ok/error/timeout) — a gap beyond
+ *  HEARTBEAT_GAP_MS means the frame's timers were frozen (hidden iframe),
+ *  which is the prime suspect behind Owlbear's ~30 s socket closes. */
+let lastBeatAt = 0;
+const HEARTBEAT_GAP_MS = 30000;
 /**
  * Bursts of identical heartbeat problems collapse into one signal inside this
  * window. Must be wider than `heartbeatIntervalMs` (10 s): with a shorter
@@ -62,7 +69,31 @@ export function realtimeProblem() {
   return lastProblem;
 }
 
+/**
+ * Subscribe to heartbeat *gaps* (the frame's timers stopped running for longer
+ * than the heartbeat interval allows). Diagnostic only — recovery stays with
+ * onRealtimeHealth.
+ * @param {(gapMs: number) => void} callback
+ * @returns {() => void} unsubscribe
+ */
+export function onRealtimeGap(callback) {
+  gapListeners.add(callback);
+  return () => gapListeners.delete(callback);
+}
+
 function onHeartbeat(status) {
+  const now = Date.now();
+  const gapMs = lastBeatAt ? now - lastBeatAt : 0;
+  lastBeatAt = now;
+  if (gapMs > HEARTBEAT_GAP_MS) {
+    for (const listener of gapListeners) {
+      try {
+        listener(gapMs);
+      } catch {
+        /* a listener must never break the heartbeat path */
+      }
+    }
+  }
   if (status !== 'error' && status !== 'timeout' && status !== 'disconnected') {
     // Stamp the change too: the window for the next problem is measured from
     // when this one cleared, never from the previous problem.
@@ -72,7 +103,6 @@ function onHeartbeat(status) {
     }
     return;
   }
-  const now = Date.now();
   // Heartbeats repeat on a fixed interval; collapse bursts into one signal.
   if (status === lastProblem && now - lastProblemAt < PROBLEM_MIN_INTERVAL_MS) return;
   lastProblem = status;

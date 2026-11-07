@@ -65,9 +65,9 @@ describe('pickAttackWeapon (panel selection)', () => {
 
 describe('weaponFlags / engagementStat', () => {
   it('detects Finesse, Catalyseur and Hache (Brutalité) flags', async () => {
-    expect(weaponFlags({ nom: 'Dague', proprietes: 'Finesse, Légère' })).toEqual({ finesse: true, catalyseur: false, hache: false });
-    expect(weaponFlags({ nom: 'Grande hache', proprietes: 'Deux mains, Brutalité' })).toEqual({ finesse: false, catalyseur: false, hache: true });
-    expect(weaponFlags({ nom: 'Focus', proprietes: 'Distance, Catalyseur' })).toEqual({ finesse: false, catalyseur: true, hache: false });
+    expect(weaponFlags({ nom: 'Dague', proprietes: 'Finesse, Légère' })).toMatchObject({ finesse: true, catalyseur: false, hache: false });
+    expect(weaponFlags({ nom: 'Grande hache', proprietes: 'Deux mains, Brutalité' })).toMatchObject({ finesse: false, catalyseur: false, hache: true });
+    expect(weaponFlags({ nom: 'Focus', proprietes: 'Distance, Catalyseur' })).toMatchObject({ finesse: false, catalyseur: true, hache: false });
   });
 
   it('maps engagement stat per weapon type', async () => {
@@ -80,7 +80,7 @@ describe('weaponFlags / engagementStat', () => {
     // weapon editor templates historically stored the key as `propriétés`
     const dagger = { nom: 'Dague', proprietes: undefined, 'propriétés': 'Finesse, Légère, Lancer (10m), Garde' };
     expect(engagementStat(dagger)).toBe('agilite');
-    expect(weaponFlags(dagger)).toEqual({ finesse: true, catalyseur: false, hache: false });
+    expect(weaponFlags(dagger)).toMatchObject({ finesse: true, catalyseur: false, hache: false });
   });
 
   it('detects Finesse on serpe / arcs / arbalètes (2026-09 rules update)', async () => {
@@ -342,5 +342,40 @@ describe('runAttack — staged driving (3D physics pipeline)', () => {
     expect(r.stages[1].kept).toBe(12);
     expect(r.stages[3].kept).toBe(7);
     expect(r.total).toBe(6 + 12 + 12 + 7);
+  });
+});
+
+describe('weapon tags: finesse checkbox, Amplitude, Hybride (issue #5)', () => {
+  it('an explicit Finesse checkbox overrides the tag', async () => {
+    // Tagged Finesse but the GM unchecked it → the weapon scales with Force.
+    const off = { de: '1d8', tags: ['finesse'], finesse: false };
+    expect(weaponFlags(off)).toMatchObject({ finesse: false, taggedFinesse: true });
+    expect(attackPreview(off, stats, { engagement: 1 })).toMatchObject({ finesse: false, engagementStat: 'force' });
+
+    // Untagged but the GM checked it → Agilité.
+    const on = { de: '1d8', tags: ['garde'], finesse: true };
+    expect(attackPreview(on, stats, { engagement: 1 })).toMatchObject({ finesse: true, engagementStat: 'agilite' });
+  });
+
+  it('Amplitude grants Finesse only at max range, and only on an Amplitude weapon', async () => {
+    const faux = { de: '1d10', tags: ['deux-mains', 'fluide', 'allonge', 'amplitude'] };
+    expect(attackPreview(faux, stats, { engagement: 1 })).toMatchObject({ finesse: false, engagementStat: 'force' });
+    expect(attackPreview(faux, stats, { engagement: 1, amplitude: true })).toMatchObject({ finesse: true, engagementStat: 'agilite', amplitude: true });
+
+    const hache = { de: '1d12', tags: ['deux-mains', 'brutalite'] };
+    expect(attackPreview(hache, stats, { engagement: 1, amplitude: true })).toMatchObject({ finesse: false, amplitude: false });
+  });
+
+  it('Hybride adds Force + Agilité to the damage, and drops Force on a crit', async () => {
+    // stats: force 16 → +3, agilite 14 → +2
+    const fists = noMiss({ de: '1d6', bonus: 0, tags: ['impact', 'hybride'] });
+    const plain = await withRolls([4], 6, (rng) => rollAttack(fists, stats, { rng }));
+    expect(plain.total).toBe(4 + 3 + 2);
+    expect(plain.breakdown.join('\n')).toContain('Hybride');
+
+    // A crit (6 on a d6) then a non-crit explosion: the Force mod is dropped.
+    const crit = await withRolls([6, 2], 6, (rng) => rollAttack(fists, stats, { rng }));
+    expect(crit.critCount).toBe(1);
+    expect(crit.total).toBe(6 + 2 + 2); // dice + Agilité only, initiator bonus 0
   });
 });

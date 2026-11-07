@@ -219,6 +219,8 @@ const RACE_ALIASES = {
   illithide: 'illithid', illithids: 'illithid', mindflayer: 'illithid', 'mind-flayer': 'illithid', 'flagelleur-mental': 'illithid', flagelleur: 'illithid',
   // Firbolg
   'fir-bolg': 'firbolg', firbolgs: 'firbolg',
+  // Nimbri
+  nimbris: 'nimbri', nimbry: 'nimbri',
 };
 
 /**
@@ -381,6 +383,11 @@ export const RACE_TRAITS = {
     { nom: 'Langage de la nature', texte: 'Vous pouvez communiquer avec les plantes et avez avantage aux jets de Dressage.' },
     { nom: 'Disparition naturelle', texte: 'Si vous passez l\'intégralité de votre tour sans vous déplacer et le terminez hors du champ de vision de tous les ennemis, vous devenez automatiquement Invisible. Vous pouvez également utiliser votre action pour devenir Invisible une fois par repos court.' },
     { nom: 'Lente mise en action', texte: 'Désavantage aux jets d\'Initiative.' }
+  ],
+  nimbri: [
+    { nom: 'Nez Encombrant', texte: 'Vous avez désavantage aux jets de Perception à cause de votre gros nez.' },
+    { nom: 'Compréhension Abstraite de la Magie', texte: 'Vous pouvez diviser une carte en deux parts égales, une fois par round ou une fois toutes les 30 minutes.' },
+    { nom: 'Mobilité Particulière', texte: 'Une fois par round, si vous réussissez un jet d\'Acrobaties, vous obtenez un Dash gratuit.' }
   ]
 };
 
@@ -446,6 +453,7 @@ export const EQUIPMENT_CATALOG = [
     kind: 'arme',
     items: [
       { nom: 'Gourdin', de: '1d4', degats: 'contondant', proprietes: 'Improvisée, Brute, Impact' },
+      { nom: 'Gantelet de combat', de: '1d6', degats: 'contondant', proprietes: 'Léger, Impact' },
       { nom: 'Marteau de guerre', de: '1d8', degats: 'contondant', proprietes: 'Polyvalente (1d10), Impact' },
       { nom: 'Grand marteau', de: '1d12', degats: 'contondant', proprietes: 'Deux mains, Impact' }
     ]
@@ -455,8 +463,8 @@ export const EQUIPMENT_CATALOG = [
     family: 'Armes à allonge',
     kind: 'arme',
     items: [
-      { nom: 'Bâton long', de: '1d6', degats: 'contondant', proprietes: 'Allonge' },
-      { nom: 'Lance', de: '1d8', degats: 'perçant', proprietes: 'Polyvalente (1d10), Allonge' },
+      { nom: 'Bâton long', de: '1d6', degats: 'contondant', proprietes: 'Allonge, Amplitude' },
+      { nom: 'Lance', de: '1d8', degats: 'perçant', proprietes: 'Polyvalente (1d10), Allonge, Amplitude' },
       { nom: 'Hallebarde', de: '1d12', degats: 'tranchant', proprietes: 'Deux mains, Allonge' }
     ]
   },
@@ -501,11 +509,10 @@ export const EQUIPMENT_CATALOG = [
     items: [
       // Racial weapon of the Khajeet (griffes) — épée courte d6 profile
       { nom: 'Griffe', de: '1d6', degats: 'tranchant', proprietes: 'Finesse, Légère, Naturelle' },
-      { nom: 'Faux', de: '1d10', degats: 'tranchant', proprietes: 'Deux mains, Fluide, Allonge' },
-      { nom: 'Twinblade', de: '1d8', degats: 'tranchant', proprietes: 'Deux mains, Double Frappe' },
+      { nom: 'Faux', de: '1d10', degats: 'tranchant', proprietes: 'Deux mains, Fluide, Allonge, Amplitude' },
       { nom: 'Rapière', de: '1d8', degats: 'perçant', proprietes: 'Finesse, Contre d’Estoc' },
       { nom: 'Fouet', de: '1d6', degats: 'tranchant', proprietes: 'Finesse, Entrave' },
-      { nom: 'Fist weapons', de: '1d4', degats: 'contondant', proprietes: 'Comme mains nues, Brute' },
+      { nom: 'Fist weapons', de: '1d4', degats: 'contondant', proprietes: 'Impact, Hybride' },
       { nom: 'Fléau', de: '1d8', degats: 'perçant', proprietes: 'Déstabilisation' }
     ]
   },
@@ -565,14 +572,153 @@ export const FAMILY_SUMMARIES = {
 };
 
 /**
+ * Weapon properties as a fixed vocabulary: id (accent-free, stored), label
+ * (displayed) and the rulebook text (hover tooltip). Source: the GM's
+ * temporary property list — a full redesign is announced, so this stays a
+ * plain list with no rule engine behind it.
+ */
+export const PROPERTY_TAGS = [
+  { id: 'finesse', label: 'Finesse', desc: 'Utilise Force ou Agilité pour les jets d’attaque et de dégâts.' },
+  { id: 'legere', label: 'Légère', desc: 'Peut être utilisée pour une attaque à deux armes.' },
+  { id: 'polyvalente', label: 'Polyvalente', desc: 'Peut être utilisée à une main ou à deux mains (dégâts augmentés).' },
+  { id: 'deux-mains', label: 'Deux mains', desc: 'Doit être maniée avec deux mains.' },
+  { id: 'lancer', label: 'Lancer', desc: 'Peut être lancée à distance, portée indiquée.' },
+  { id: 'distance', label: 'Distance', desc: 'Arme de tir, attaque à distance, doit utiliser l’Agilité.' },
+  { id: 'improvisee', label: 'Improvisée', desc: 'Arme de fortune.' },
+  { id: 'brute', label: 'Brute', desc: 'L’arme ne peut pas infliger de coups critiques.' },
+  { id: 'tir-leger', label: 'Tir léger', desc: 'Peut tirer en bonus action ou en action mais pas les deux.' },
+  { id: 'recharge', label: 'Recharge', desc: 'Nécessite une bonus action pour recharger avant de tirer (commence rechargée).' },
+  { id: 'secondaire', label: 'Secondaire', desc: 'Peut s’équiper sur la main secondaire en plus d’une arme non légère.' },
+  { id: 'amplitude', label: 'Amplitude', desc: 'À votre portée maximale (3 m), l’arme bénéficie de la propriété Finesse.' },
+  { id: 'garde', label: 'Garde', desc: 'Épées droites : tranchant ou perçant ; Parade = dé/2, versatile (Force possible) ; parer une mêlée donne avantage à la prochaine attaque contre l’assaillant.' },
+  { id: 'brutalite', label: 'Brutalité', desc: 'Haches : sur un critique, lancez deux dés et gardez la somme ; une paire donne un nouveau critique.' },
+  { id: 'impact', label: 'Impact', desc: 'Masses : ignore l’armure passive, réduit la Parade de moitié ; sur un critique, test d’Athlétisme ou repoussé de 3 m.' },
+  { id: 'fluide', label: 'Fluide', desc: 'Épées courbes : attaquer avec désavantage donne avantage à la prochaine attaque du round ; la cible a désavantage à ses attaques d’opportunité contre vous.' },
+  { id: 'allonge', label: 'Allonge', desc: 'Frappe à 3 m ; attaque d’opportunité quand une créature entre (1,5 m) ou sort (3 m) de la zone.' },
+  { id: 'surplomb', label: 'Surplomb', desc: 'Arcs : avantage si le tireur est à 5 m ou plus au-dessus de sa cible.' },
+  { id: 'perforant', label: 'Perforant', desc: 'Arbalètes : ignore l’armure passive et divise par deux la Parade de la cible.' },
+  { id: 'rempart', label: 'Rempart', desc: 'Boucliers : armure passive indépendante de la Force et parade propre ; une parade parfaite en mêlée renverse l’adversaire.' },
+  { id: 'contre-destoc', label: 'Contre d’Estoc', desc: 'Rapière : attaqué en mêlée, donnez avantage à l’ennemi, parez, puis attaquez immédiatement gratuitement.' },
+  { id: 'entrave', label: 'Entrave', desc: 'Fouet : attaques d’opportunité avec désavantage ; si elles touchent, test d’Escamotage contre l’Athlétisme pour mettre à terre.' },
+  { id: 'destabilisation', label: 'Déstabilisation', desc: 'Fléau : sur un critique, la cible a désavantage à sa prochaine attaque.' },
+  { id: 'double-frappe', label: 'Double Frappe', desc: 'Twinblades : action + bonus action pour 2d8 + 2×FOR ; deux dés identiques = critique automatique.' },
+  { id: 'hybride', label: 'Hybride', desc: 'Ajoutez vos modificateurs de Force + Agilité aux dégâts ; sur un critique, retirez le modificateur de Force et gardez les autres bonus.' },
+  { id: 'catalyseur', label: 'Catalyseur', desc: 'Utilise l’Esprit pour l’attaque et permet la canalisation.' },
+  { id: 'naturelle', label: 'Naturelle', desc: 'Arme naturelle (griffes) : toujours disponible, sans équipement.' },
+];
+
+const PROPERTY_BY_ID = new Map(PROPERTY_TAGS.map((t) => [t.id, t]));
+const PROPERTY_BY_LABEL = new Map(PROPERTY_TAGS.map((t) => [normalizePropertyText(t.label), t.id]));
+// Free-text spellings that differ from the tag label (the catalogue had "Léger"
+// for the Gantelet de combat before the property list settled on "Légère").
+PROPERTY_BY_LABEL.set('leger', 'legere');
+
+/** Accent/case/punctuation-free key used to match a legacy free-text property. */
+function normalizePropertyText(text) {
+  return String(text ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/\s*\([^)]*\)\s*/g, ' ') // "Polyvalente (1d10)" → "polyvalente"
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Tags of a weapon, as ids. New sheets store `tags: string[]`; a legacy
+ * free-text `proprietes` string is parsed on the fly, so both models read the
+ * same way until the sheet is migrated.
+ * @param {Object} [weapon] - Weapon
+ * @returns {string[]} Property tag ids
+ */
+export function weaponTags(weapon) {
+  const stored = Array.isArray(weapon?.tags) ? weapon.tags.filter((id) => PROPERTY_BY_ID.has(id)) : [];
+  if (stored.length) return stored;
+  const legacy = weapon?.proprietes ?? weapon?.['propriétés'] ?? '';
+  return String(legacy)
+    .split(',')
+    .map((part) => PROPERTY_BY_LABEL.get(normalizePropertyText(part)))
+    .filter(Boolean);
+}
+
+/** Property tags with their label/description, for display. */
+export function weaponTagInfo(weapon) {
+  return weaponTags(weapon).map((id) => PROPERTY_BY_ID.get(id)).filter(Boolean);
+}
+
+/** Property ids → the display string ("Finesse, Légère"). */
+export function tagsToText(ids = []) {
+  return ids.map((id) => PROPERTY_BY_ID.get(id)?.label).filter(Boolean).join(', ');
+}
+
+/** Free-text properties → tag ids (unknown words are dropped). */
+export function parsePropertyText(text) {
+  return String(text ?? '')
+    .split(',')
+    .map((part) => PROPERTY_BY_LABEL.get(normalizePropertyText(part)))
+    .filter(Boolean);
+}
+
+/**
+ * Format of a weapon as stored in a sheet.
+ */
+export const WEAPON_FIELDS = ['nom', 'de', 'icon', 'bonus', 'degats', 'scaling', 'raretePrix', 'description'];
+
+/**
+ * Convert a weapon document to the current shape: tags + scaling + description,
+ * the legacy forceAgi / avantage / critique / notes / perfection removed.
+ * Idempotent — a migrated weapon is returned unchanged.
+ * @param {Object} [weapon] - Weapon, possibly in the old shape
+ * @returns {Object} Weapon in the current shape
+ */
+export function migrateWeapon(weapon = {}) {
+  const w = { ...weapon };
+  if (!Array.isArray(w.tags)) w.tags = parsePropertyText(w.proprietes ?? w['propriétés'] ?? '');
+  if (w.scaling === undefined) w.scaling = normalizeStatName(w.forceAgi) ?? '';
+  if (w.description === undefined) w.description = w.notes ?? '';
+  if (typeof w.finesse !== 'boolean') {
+    // One-time default from the tags; the GM's checkbox wins from then on.
+    w.finesse = w.tags.includes('finesse');
+  }
+  delete w.proprietes;
+  delete w['propriétés'];
+  delete w.forceAgi;
+  delete w.notes;
+  delete w.avantage;
+  delete w.critique;
+  delete w.perfection;
+  return w;
+}
+
+/**
+ * Migrate every weapon of a sheet (see migrateWeapon). Returns the same sheet
+ * object when nothing had to change, so callers stay allocation-free.
+ * @param {Object} sheet - Character sheet
+ * @returns {Object} Sheet with migrated weapons
+ */
+export function migrateSheet(sheet) {
+  if (!sheet || !Array.isArray(sheet.weapons) || !sheet.weapons.length) return sheet;
+  let changed = false;
+  const weapons = sheet.weapons.map((w) => {
+    const next = migrateWeapon(w);
+    // Content compare, not key count: a value-only fix (a `tags` string, an
+    // odd `scaling`) must also be written back.
+    if (JSON.stringify(next) === JSON.stringify(w ?? {})) return w;
+    changed = true;
+    return next;
+  });
+  return changed ? { ...sheet, weapons } : sheet;
+}
+
+/**
  * Editable fields per inventory item type (order = form order). Fields not
  * listed stay in the data but are not rendered by the editor — imports carry
  * a blanket field dump (weaponName, parade, …) that mismatches most types.
  */
 export const ITEM_FIELDS = {
-  Arme: ['icon', 'slot', 'family', 'familySummary', 'catalystColor', 'raretePrix', 'degats', 'attributs', 'description'],
-  Équipement: ['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
-  Équipement: ['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'attributs', 'description'],
+  Arme: ['icon', 'slot', 'family', 'catalystColor', 'raretePrix', 'degats', 'attributs', 'description'],
+  Équipement: ['icon', 'slot', 'family', 'raretePrix', 'attributs', 'description'],
   Consommable: ['icon', 'quantite', 'raretePrix', 'attributs', 'description'],
   Divers: ['icon', 'quantite', 'raretePrix', 'attributs', 'description'],
 };
@@ -613,7 +759,10 @@ export const SLOT_FIELDS = {
  */
 export function itemFieldsFor(type, slot) {
   if (SLOT_FIELDS[slot]) {
-    return ['icon', 'slot', 'family', 'familySummary', 'raretePrix', ...SLOT_FIELDS[slot], 'description'];
+    // Equipment exposes the slot's own stat fields (deflexion/armure/…): those
+    // are what equipmentStats()/computeDerived() sum. The family summary is
+    // deliberately absent — equipment has no family rules to read.
+    return ['icon', 'slot', 'family', 'raretePrix', ...SLOT_FIELDS[slot], 'description'];
   }
   return itemFields(type);
 }
@@ -661,6 +810,7 @@ export const ITEM_ICONS = {
   'Ingrédient alchimique': '🌿',
   // Natural/racial weapons
   'Griffe': '🐾',
+  'Gantelet de combat': '🥊',
 };
 
 /**
@@ -700,7 +850,6 @@ export function itemFromTemplate(templateName, quantity) {
       : {
           degats: tpl?.de ? `${tpl.de}${tpl.degats ? ` ${tpl.degats}` : ''}` : '',
           family: fam,
-          familySummary: fam ? FAMILY_SUMMARIES[fam] ?? '' : '',
           ...(fam === 'Catalyseurs' ? { catalystColor: '' } : {}),
           attributs: tpl?.proprietes ?? ''
         }),
@@ -710,19 +859,26 @@ export function itemFromTemplate(templateName, quantity) {
 
 /**
  * Weapon object derived from a catalogue template (no sheet involved).
+ * `finesse: null` means "not chosen by the GM": the attack roll then follows
+ * the Finesse tag and the character's stats (Agilité ≥ Force), as the rule says.
  * @param {string} templateName - Catalogue name ('' = blank weapon)
  * @returns {Object} Weapon
  */
 export function weaponFromTemplate(templateName) {
   const tpl = findEquipmentTemplate(templateName);
+  const tags = tpl ? parsePropertyText(tpl.proprietes) : [];
   return {
     icon: tpl ? (ITEM_ICONS[tpl.nom] ?? FAMILY_ICONS[tpl.family] ?? '') : '',
     nom: tpl?.nom ?? '',
     de: tpl?.de ?? '',
     degats: tpl?.degats ?? '',
-    proprietes: tpl?.proprietes ?? '',
-    forceAgi: '', critique: '', avantage: '',
-    bonus: '', perfection: '', notes: '', equipped: false
+    bonus: '',
+    scaling: '',
+    finesse: null,
+    tags,
+    raretePrix: '',
+    description: '',
+    equipped: false
   };
 }
 
@@ -984,8 +1140,12 @@ export async function fetchCharacterSheet(playerId, roomId, { trackBase = true }
 
     // Fetched documents are what local edits start from: they are the base of
     // the next save's three-way merge. Only when the caller applies this row.
-    if (trackBase) rememberSheetBase(playerId, roomId, data.version, data.data);
-    return data;
+    // Weapons are migrated on the way in (legacy forceAgi/notes/proprietes →
+    // scaling/description/tags) so every frame reads one model.
+    const migrated = migrateSheet(data.data);
+    const row = migrated === data.data ? data : { ...data, data: migrated };
+    if (trackBase) rememberSheetBase(playerId, roomId, row.version, row.data);
+    return row;
   } catch (err) {
     logError('sheet_fetch_failed', err, { roomId, playerId });
     throw err;
@@ -1315,7 +1475,7 @@ export async function importCharacterSheet(playerId, roomId, jsonString) {
 
     // The race's natural weapons (Khajeet claws) are a built-in attack option in
     // the compact sheet, not an inventory entry: nothing to grant here.
-    const synced = syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(merged)));
+    const synced = syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(migrateSheet(merged))));
 
     const payloadBytes = JSON.stringify(synced).length;
     if (payloadBytes > MAX_SHEET_BYTES) {
@@ -1344,26 +1504,6 @@ const STAT_KEYS = ['force', 'agilite', 'esprit', 'social'];
 function normalizeStatName(name) {
   const normalized = String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   return STAT_KEYS.includes(normalized) ? normalized : null;
-}
-
-/**
- * Racial avantage/désavantage on a roll — only the traits the app can honour
- * automatically (named skills + Initiative); conditional ones (dans l'eau,
- * pousser, sauvegardes, …) stay reference text.
- * @param {unknown} race - Race id or free text
- * @param {string} kind - Skill key or 'initiative'
- * @returns {number} +1 avantage, −1 désavantage, 0 none
- */
-export function raceRollAdvantage(race, kind) {
-  const id = normalizeRaceName(race);
-  const key = String(kind ?? '').toLowerCase();
-  if (id === 'elfe-noir' && key === 'discretion') return 1;
-  if (id === 'goliath' && key === 'athletisme') return 1;
-  if (id === 'firbolg' && key === 'dressage') return 1;
-  if (id === 'firbolg' && key === 'initiative') return -1;
-  if (id === 'centaure' && key === 'athletisme') return 1;
-  if (id === 'centaure' && key === 'acrobaties') return -1;
-  return 0;
 }
 
 /**
@@ -1413,8 +1553,9 @@ const RANGED_RE = /\b(distance|tir|lancer|javelot|fronde|arbalete|arc)\b/;
  * @returns {string}
  */
 function weaponText(weapon) {
-  return Object.values(weapon ?? {})
-    .filter((v) => typeof v === 'string')
+  // Tags are stored as ids (an array), so include them explicitly: keyword
+  // detection (bouclier/épée droite/allonge) must see the properties.
+  return [Object.values(weapon ?? {}).filter((v) => typeof v === 'string').join(' '), weaponTags(weapon).join(' ')]
     .join(' ')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -1495,9 +1636,19 @@ function weaponStatScore(stats, key) {
  * @returns {number}
  */
 export function attackBonus(weapon, stats = {}) {
-  const key = normalizeStatName(weapon?.forceAgi);
+  const key = normalizeStatName(weapon?.scaling ?? weapon?.forceAgi);
   const statMod = key ? statModifier(weaponStatScore(stats, key)) : 0;
   return statMod + toNumber(weapon?.bonus);
+}
+
+/**
+ * Default for the weapon form's "Finesse" checkbox: a Finesse weapon is
+ * assumed to scale with Agilité when the character's Agilité reaches its Force.
+ * @param {Object} [stats] - Raw stat scores
+ * @returns {boolean}
+ */
+export function finesseDefault(stats = {}) {
+  return toNumber(stats?.agilite ?? 10) >= toNumber(stats?.force ?? 10);
 }
 
 /** Computed values a player may override with a manual value (ÉDITION STATS). */
@@ -1825,6 +1976,7 @@ export function isTwoHanded(weapon, race) {
   // Goliath « Force colossale » : une arme à deux mains tient dans une main
   // (et donc n'occupe qu'un emplacement).
   if (/goliath/i.test(String(race ?? ''))) return false;
+  if (weaponTags(weapon).includes('deux-mains')) return true;
   const text = [weapon?.nom, weapon?.propriétés, weapon?.proprietes, weapon?.notes]
     .map((v) => String(v ?? ''))
     .join(' ');

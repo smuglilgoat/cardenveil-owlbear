@@ -154,6 +154,7 @@ export const RACES = [
   { id: 'mecha',        label: 'Mécha' },
   { id: 'illithid',     label: 'Illithid' },
   { id: 'firbolg',      label: 'Firbolg' },
+  { id: 'nimbri',       label: 'Nimbri' },
 ];
 
 const RACE_IDS = new Set(RACES.map(r => r.id));
@@ -178,6 +179,10 @@ export function createEmptyPlayer(name = '') {
     tieflingDrawEligible: true,
     pendingHalfling: null,
     lastDevourAt:  0,
+    /** Nimbri « Compréhension abstraite de la magie »: one split is allowed
+     *  per draw, throttled by SPLIT_COOLDOWN_MS. */
+    splitAvailable: false,
+    lastSplitAt:    0,
   };
 }
 
@@ -227,6 +232,12 @@ export function handCap(player) {
 /** Cooldown of the Illithid's Dévoration mentale (rule: once per 30 min). */
 export const DEVOUR_COOLDOWN_MS = 30 * 60 * 1000;
 
+/** Cooldown of the Nimbri's card split (rule: once per round or every 30 min). */
+export const SPLIT_COOLDOWN_MS = 30 * 60 * 1000;
+
+/** Face value of a card as the players read it: 2..10, J=11, Q=12, K=13, A=14. */
+const faceValue = (card) => (card?.numericValue ?? 0) + 1;
+
 /** Racial token-cap bonuses (Humain: +2 Social). */
 export function tokenCapBonus(race) {
   return race === 'humain' ? { social: 2 } : {};
@@ -245,14 +256,23 @@ export function maxTokensFor(player) {
   return out;
 }
 
-/** If the player is Aasimar, append a random crystallized Heart card. */
+/** Aasimar « Cœur supplémentaire »: spending a token also invokes a normal
+ *  Heart card. It joins the hand; if the hand is full the card is discarded
+ *  (the hand cap stays the hard limit).
+ * @returns {{player: object, discarded: Array}} */
 function maybeAasimarHeart(player) {
-  if (player.race !== 'aasimar') return player;
+  if (player.race !== 'aasimar') return { player, discarded: [] };
   const heart = drawSpecialized('♥');
-  return {
-    ...player,
-    crystallized: [...player.crystallized, heart],
-  };
+  const cap = handCap(player);
+  if ((player.hand?.length ?? 0) < cap) {
+    return { player: { ...player, hand: [...player.hand, heart] }, discarded: [] };
+  }
+  return { player, discarded: [heart] };
+}
+
+/** A draw just landed a card: the Nimbri's split becomes available once. */
+function withSplitReady(player) {
+  return { ...player, splitAvailable: true };
 }
 
 export function applyAction(state, action) {
@@ -313,6 +333,7 @@ export function applyAction(state, action) {
           ...p,
           hand: [...p.hand, card],
           tieflingDrawEligible: p.race === 'tieffelin' ? true : p.tieflingDrawEligible,
+          splitAvailable: true,
         }},
       };
       return { state: addLog(s, action.playerId, p.name, `pioche ${card.value}${card.suit}`), log: null };
@@ -338,14 +359,17 @@ export function applyAction(state, action) {
           ...p,
           tokens: { ...p.tokens, force: p.tokens.force - 1 },
           hand: [...p.hand, card],
+          splitAvailable: true,
         };
       }
 
-      // AASIMAR: crystallized Heart after full token resolution
-      updatedPlayer = maybeAasimarHeart(updatedPlayer);
+      // AASIMAR: a normal Heart card joins the hand after full token resolution
+      const aasimar = maybeAasimarHeart(updatedPlayer);
+      updatedPlayer = aasimar.player;
 
       const s = {
         ...state,
+        discard: [...state.discard, ...aasimar.discarded],
         players: { ...state.players, [action.playerId]: updatedPlayer },
       };
       return { state: addLog(s, action.playerId, p.name, `token Force : pioche ${p.race === 'halfling' ? '(Halfling : choix)' : ''}`), log: null };
@@ -471,10 +495,11 @@ export function applyAction(state, action) {
         tokens: { ...p.tokens, agilite: p.tokens.agilite - 1 },
         hand: [...p.hand.filter(c => c.id !== action.cardId), newCard],
       };
-      updatedPlayer = maybeAasimarHeart(updatedPlayer);
+      const aasimar = maybeAasimarHeart(updatedPlayer);
+      updatedPlayer = aasimar.player;
       const s = {
         ...state,
-        discard: [...state.discard, actionCard],
+        discard: [...state.discard, actionCard, ...aasimar.discarded],
         players: { ...state.players, [action.playerId]: updatedPlayer },
       };
       return { state: addLog(s, action.playerId, p.name, `token Agilité : défausse ${actionCard.value}${actionCard.suit}, pioche ${newCard.value}${newCard.suit} (${action.suit})`), log: null };
@@ -488,9 +513,11 @@ export function applyAction(state, action) {
         tokens: { ...p.tokens, esprit: p.tokens.esprit - 1 },
         spiritBounds: (p.spiritBounds ?? 0) + 1,
       };
-      updatedPlayer = maybeAasimarHeart(updatedPlayer);
+      const aasimar = maybeAasimarHeart(updatedPlayer);
+      updatedPlayer = aasimar.player;
       const s = {
         ...state,
+        discard: [...state.discard, ...aasimar.discarded],
         players: { ...state.players, [action.playerId]: updatedPlayer },
       };
       return { state: addLog(s, action.playerId, p.name, `token Esprit : +1 Spirit Slot (total ${(p.spiritBounds ?? 0) + 1})`), log: null };
@@ -533,9 +560,11 @@ export function applyAction(state, action) {
       const myCard = recipient.hand.find(c => c.id === action.cardId);
       if (!myCard) return { state, log: null };
       let updatedSender = { ...sender, hand: [...sender.hand, myCard] };
-      updatedSender = maybeAasimarHeart(updatedSender);
+      const aasimar = maybeAasimarHeart(updatedSender);
+      updatedSender = aasimar.player;
       const s = {
         ...state,
+        discard: [...state.discard, ...aasimar.discarded],
         pendingExchanges: state.pendingExchanges.filter(e => e.id !== ex.id),
         players: {
           ...state.players,
@@ -601,18 +630,28 @@ export function applyAction(state, action) {
     }
 
     case 'SPEND_TOKEN': {
-      const p = state.players[action.playerId];
+      // A player spends their own; a GM may spend for a target (the table
+      // referee consumes a token without impersonating the player — the actor
+      // stays the GM so the write guard accepts it).
+      const targetId = action.targetId ?? action.playerId;
+      if (targetId !== action.playerId && !isGM(state, action.playerId)) return { state, log: null };
+      const p = state.players[targetId];
       if (!p || !TOKEN_KEYS.has(action.token) || p.tokens[action.token] <= 0 || p.pendingHalfling) return { state, log: null };
       let updatedPlayer = {
         ...p,
         tokens: { ...p.tokens, [action.token]: p.tokens[action.token] - 1 },
       };
-      updatedPlayer = maybeAasimarHeart(updatedPlayer);
+      const aasimar = maybeAasimarHeart(updatedPlayer);
+      updatedPlayer = aasimar.player;
       const s = {
         ...state,
-        players: { ...state.players, [action.playerId]: updatedPlayer },
+        discard: [...state.discard, ...aasimar.discarded],
+        players: { ...state.players, [targetId]: updatedPlayer },
       };
-      return { state: addLog(s, action.playerId, p.name, `token ${action.token} : usage combat`), log: null };
+      const msg = targetId === action.playerId
+        ? `token ${action.token} : usage combat`
+        : `token ${action.token} de ${p.name} : usage par le MJ`;
+      return { state: addLog(s, targetId, p.name, msg), log: null };
     }
 
     case 'ADD_TOKEN': {
@@ -734,14 +773,37 @@ export function applyAction(state, action) {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const p = state.players[action.targetId];
       if (!p || !TOKEN_KEYS.has(action.token)) return { state, log: null };
+      const maxTokens = { ...p.maxTokens, [action.token]: clamp(Math.floor(Number(action.val) || 0), 0, 10) };
+      // Lowering the cap must bring the pool down with it, otherwise the sheet
+      // showed 4/2 and the next refill silently "found" the extra token.
+      const cap = maxTokensFor({ ...p, maxTokens })[action.token] ?? 0;
       const s = {
         ...state,
         players: { ...state.players, [action.targetId]: {
           ...p,
-          maxTokens: { ...p.maxTokens, [action.token]: clamp(Number(action.val), 0, 10) },
+          maxTokens,
+          tokens: { ...p.tokens, [action.token]: Math.min(p.tokens[action.token] ?? 0, cap) },
         }},
       };
       return { state: s, log: null };
+    }
+
+    case 'SET_TOKENS': {
+      // GM: set a player's current pool directly (the "consume one token at the
+      // table" gesture). Clamped to that player's effective cap.
+      if (!isGM(state, action.playerId)) return { state, log: null };
+      const p = state.players[action.targetId];
+      if (!p || !TOKEN_KEYS.has(action.token)) return { state, log: null };
+      const cap = maxTokensFor(p)[action.token] ?? 0;
+      const next = clamp(Math.floor(Number(action.val) || 0), 0, cap);
+      const s = {
+        ...state,
+        players: { ...state.players, [action.targetId]: {
+          ...p,
+          tokens: { ...p.tokens, [action.token]: next },
+        }},
+      };
+      return { state: addLog(s, 'gm', 'MJ', `jetons ${action.token} de ${p.name} → ${next}/${cap}`), log: null };
     }
 
     case 'REST_ALL': {
@@ -842,13 +904,21 @@ export function applyAction(state, action) {
     }
 
     case 'SYNC_TOKENS': {
-      // Sheet import/edit sync: tokens (and their cap) = stat mods + 1.
-      // The client computes the values from the sheet's stats; the reducer
-      // clamps to sane ranges. GM may sync any player, a player their own.
+      // Sheet import/edit sync: caps = stat mods + 1. `counts` (optional) sets
+      // the current pool instead of a full refill, so an imported sheet can say
+      // "2 tokens left" — a refill-only sync made a decreased pool impossible.
+      // GM may sync any player, a player their own.
       const isSelf = action.playerId === action.targetId;
       if (!isGM(state, action.playerId) && !isSelf) return { state, log: null };
       const p = state.players[action.targetId];
-      if (!p) return { state, log: null };
+      if (!p) {
+        // A player with no game-state record (room not initialised, or joined
+        // after INIT_GAME) used to fail silently: the import looked broken.
+        // The GM gets the notice; a player's own retry must not be able to fill
+        // the shared log with it.
+        if (!isGM(state, action.playerId)) return { state, log: null };
+        return { state: addLog(state, 'gm', 'MJ', 'tokens non synchronisés : joueur non enregistré'), log: null };
+      }
       const values = action.tokens ?? {};
       const norm = (v) => clamp(Math.floor(Number(v) || 0), 0, 10);
       const max = {
@@ -857,11 +927,21 @@ export function applyAction(state, action) {
         esprit: norm(values.esprit),
         social: norm(values.social),
       };
+      const caps = maxTokensFor({ ...p, maxTokens: max });
+      const countFor = (v, cap) => clamp(Math.floor(Number(v ?? cap) || 0), 0, cap ?? 0);
+      const tokens = action.counts
+        ? {
+            force: countFor(action.counts.force, caps.force),
+            agilite: countFor(action.counts.agilite, caps.agilite),
+            esprit: countFor(action.counts.esprit, caps.esprit),
+            social: countFor(action.counts.social, caps.social),
+          }
+        : { ...caps };
       const s = {
         ...state,
         players: { ...state.players, [action.targetId]: {
           ...p,
-          tokens: { ...maxTokensFor({ ...p, maxTokens: max }) },
+          tokens,
           maxTokens: max,
         }},
       };
@@ -882,6 +962,7 @@ export function applyAction(state, action) {
           ...p,
           hand: [...p.hand, card],
           tieflingDrawEligible: false,
+          splitAvailable: true,
         }},
       };
       return { state: addLog(s, action.playerId, p.name, `pioche Pique ${card.value}${card.suit} (Tieffelin)`), log: null };
@@ -900,9 +981,42 @@ export function applyAction(state, action) {
           ...p,
           hand: [...p.hand, chosen],
           pendingHalfling: null,
+          splitAvailable: true,
         }},
       };
       return { state: addLog(s, action.playerId, p.name, `Halfling : choisit ${chosen.value}${chosen.suit}`), log: null };
+    }
+
+    case 'SPLIT_CARD': {
+      // Nimbri « Compréhension abstraite de la magie »: split one card of the
+      // hand into two equal halves (11 → 5 + 5), once per draw and throttled by
+      // the rule's 30-minute cooldown. The remainder is lost, as the rule says.
+      const p = state.players[action.playerId];
+      if (!p || p.race !== 'nimbri' || p.pendingHalfling) return { state, log: null };
+      if (!p.splitAvailable) return { state, log: null };
+      if (p.lastSplitAt && Date.now() - p.lastSplitAt < SPLIT_COOLDOWN_MS) return { state, log: null };
+      const card = p.hand.find(c => c.id === action.cardId);
+      if (!card) return { state, log: null };
+      const half = Math.floor(faceValue(card) / 2);
+      // A value of 2 or less cannot be halved into a playable card.
+      if (half < 2) return { state, log: null };
+      const value = VALUES[half - 2];
+      const first = makeCard(card.suit, value, 's');
+      const second = makeCard(card.suit, value, 's');
+      const hand = p.hand.flatMap(c => (c.id === card.id ? [first, second] : [c]));
+      const s = {
+        ...state,
+        players: { ...state.players, [action.playerId]: {
+          ...p,
+          hand,
+          splitAvailable: false,
+          lastSplitAt: Date.now(),
+        }},
+      };
+      return {
+        state: addLog(s, action.playerId, p.name, `division : ${card.value}${card.suit} → ${value}${card.suit} + ${value}${card.suit}`),
+        log: null,
+      };
     }
 
     case 'SPORELIN_EXCHANGE': {
@@ -990,6 +1104,8 @@ export function hydrateState(raw) {
       tieflingDrawEligible: p.tieflingDrawEligible ?? true,
       pendingHalfling: p.pendingHalfling ?? null,
       lastDevourAt: p.lastDevourAt ?? 0,
+      splitAvailable: p.splitAvailable ?? false,
+      lastSplitAt: p.lastSplitAt ?? 0,
     };
   }
 

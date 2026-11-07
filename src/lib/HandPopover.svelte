@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from "svelte";
   import OBR from "@owlbear-rodeo/sdk";
-  import { GM_CHAR_ID, createEmptyPlayer, createInitialGameState, fullDeck, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
+  import { GM_CHAR_ID, createEmptyPlayer, createInitialGameState, fullDeck, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, SPLIT_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
   import { startRealtime, stopRealtime, dispatch, fetchState } from "./api.js";
   import { tooltip } from "./tooltip.js";
   import { logEvent, logError, setLogContext } from "./appLog.js";
@@ -396,6 +396,20 @@
       if (spiritLocked || isGrayed) return;
     }
     onAction({ type: 'DISCARD', playerId: myId, cardId: card.id, from: isCrystallized ? 'crystallized' : 'hand' });
+    active = null;
+  }
+
+  /** Nimbri « Compréhension abstraite de la magie »: one split per draw, 30-min
+   *  cooldown, and the card must be worth at least 4 (a 2 cannot be halved). */
+  function canSplit(card, isCrystallized) {
+    if (!player || isCrystallized || player.race !== 'nimbri' || !player.splitAvailable) return false;
+    if (player.lastSplitAt && Date.now() - player.lastSplitAt < SPLIT_COOLDOWN_MS) return false;
+    return (card?.numericValue ?? 0) + 1 >= 4;
+  }
+
+  function splitCard(card) {
+    if (!canSplit(card, false)) return;
+    onAction({ type: 'SPLIT_CARD', playerId: myId, cardId: card.id });
     active = null;
   }
 
@@ -810,6 +824,14 @@
           use:tooltip={anchorPos === 'high' ? "Descendre le popover (position basse)" : "Remonter le popover (position haute)"}
           class="shrink-0 w-6 h-6 p-0 flex items-center justify-center rounded-full text-[12px] font-bold bg-[#213547] border border-gray-500 text-gray-200 hover:text-white transition-colors"
         >{anchorPos === 'high' ? '⬇' : '⬆'}</button>
+
+        {#if active && canSplit(active.card, active.isCrystallized)}
+          <button
+            onclick={() => splitCard(active.card)}
+            use:tooltip={"Diviser " + (active.card.value || '') + (active.card.suit || '') + " en deux moitiés (Nimbri)"}
+            class="shrink-0 px-1.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-700 hover:bg-amber-600 text-white transition-colors"
+          >✂</button>
+        {/if}
 
         {#if pickHint}
           <div
