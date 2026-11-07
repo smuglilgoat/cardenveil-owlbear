@@ -45,6 +45,20 @@
         text-align: left;
       }
       .formula { font-size: 13px; color: #9ca3af; margin-top: 4px; }
+      /* Weapon properties (issue #5) */
+      .tags { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 6px; }
+      .tag {
+        padding: 1px 5px;
+        border: 1px solid #4b5563;
+        border-radius: 4px;
+        background: #111827;
+        color: #c7d2fe;
+        font-size: 9px;
+        font-weight: 700;
+      }
+      /* Attack breakdown: the last line is the final damage */
+      .breakdown { margin-top: 8px; text-align: left; font-size: 11px; line-height: 1.5; color: #9ca3af; }
+      .breakdown-final { color: #fbbf24; font-weight: 800; font-size: 13px; }
       .dice-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0 6px; min-height: 40px; max-height: 104px; overflow: hidden; }
       .die {
         width: 26px;
@@ -153,6 +167,7 @@
         <div class="label" id="label"></div>
       </div>
       <div class="formula" id="formula"></div>
+      <div class="tags" id="tags"></div>
       <div class="dice-row" id="dice-row"></div>
       <div class="total" id="total"></div>
       <button id="dice-close" class="dice-close" hidden title="Fermer">✕</button>

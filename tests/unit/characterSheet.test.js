@@ -16,7 +16,7 @@ jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
 }));
 
 // Import after mocking
-const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, stripStockGriffe, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, raceTraits, RACE_TRAITS, racePvBonus, effectiveStats, raceRollAdvantage, rollD20Keep, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec, saveCharacterSheet, fetchCharacterSheet, healSheetBase } = await import('../../src/lib/characterSheet.js');
+const { isDiceFormula, parseDiceFormula, rollDice, statModifier, skillModifier, tokensFromStats, syncSkillBonuses, SKILL_TO_STAT, stripBase64Images, importCharacterSheet, MAX_SHEET_BYTES, toNumber, equipmentStats, syncStatsFromEquipment, paradeModifier, attackBonus, computeDerived, isImageUrl, EQUIPMENT_CATALOG, findEquipmentTemplate, withItemFromTemplate, withWeaponFromTemplate, stripStockGriffe, suitColorBySymbol, CARD_SCHEME_KEY, getCardScheme, setCardScheme, onCardSchemeChange, classicSuitColor, itemTypeColor, ITEM_TYPE_OPTIONS, normalizeRaceName, raceLabel, raceTraits, RACE_TRAITS, racePvBonus, effectiveStats, rollD20Keep, sanitizeHtml, skillRollModifier, isTwoHanded, handSlots, equipWeapon, unequipHand, ITEM_FIELDS, itemFields, itemFieldsFor, normalizeItemType, SLOT_FIELDS, syncSlotsFromItems, diceGem, diceGemColor, DICE_GEMS, parseDiceSpec, saveCharacterSheet, fetchCharacterSheet, healSheetBase, PROPERTY_TAGS, weaponTags, weaponTagInfo, tagsToText, parsePropertyText, migrateWeapon, migrateSheet, weaponFromTemplate, finesseDefault } = await import('../../src/lib/characterSheet.js');
 const { RACES } = await import('../../src/lib/deck.js');
 const { supabase: mockClient } = await import('../../src/lib/supabaseClient.js');
 
@@ -372,8 +372,10 @@ describe('Character Sheet dice helpers', () => {
     });
 
     it('itemFieldsFor should return slot fields for slotted gear', () => {
-      expect(itemFieldsFor('Équipement', 'casque')).toEqual(['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'deflexion', 'volonte', 'description']);
-      expect(itemFieldsFor('Équipement', 'anneau')).toEqual(['icon', 'slot', 'family', 'familySummary', 'raretePrix', 'enchantement', 'description']);
+      // Equipment has no family summary (issue #4): only its own stat fields.
+      expect(itemFieldsFor('Équipement', 'casque')).toEqual(['icon', 'slot', 'family', 'raretePrix', 'deflexion', 'volonte', 'description']);
+      expect(itemFieldsFor('Équipement', 'anneau')).toEqual(['icon', 'slot', 'family', 'raretePrix', 'enchantement', 'description']);
+      expect(itemFieldsFor('Équipement', 'casque')).not.toContain('familySummary');
       expect(itemFieldsFor('Équipement', '')).toBe(ITEM_FIELDS['Équipement']); // no slot yet
       // the slot drives the fields — imports type gear items as 'Arme'/'Consommable'
       expect(itemFieldsFor('Consommable', 'casque')).toContain('deflexion');
@@ -1130,13 +1132,14 @@ describe('Character Sheet dice helpers', () => {
   describe('withItemFromTemplate / withWeaponFromTemplate', () => {
     const emptySheet = () => ({ inventoryItems: [], weapons: [] });
 
-    it('prepends a catalogue item with its icon, family summary and consumable fields', () => {
+    it('prepends a catalogue item with its icon, family and consumable fields', () => {
       const sheet = withItemFromTemplate(withItemFromTemplate(emptySheet(), 'Bouclier'), 'Potion de soin');
       expect(sheet.inventoryItems.map((i) => i.name)).toEqual(['Potion de soin', 'Bouclier']);
       expect(sheet.inventoryItems[0]).toMatchObject({ type: 'Consommable', icon: '🧪', quantite: 1 });
       expect(sheet.inventoryItems[1]).toMatchObject({ type: 'Équipement', icon: '🛡️' });
       expect(sheet.inventoryItems[1].family).toBe('Boucliers');
-      expect(sheet.inventoryItems[1].familySummary).toBeTruthy();
+      // No family summary on equipment (issue #4).
+      expect(sheet.inventoryItems[1].familySummary).toBeUndefined();
     });
 
     it('honours an explicit consumable quantity and clamps it', () => {
@@ -1161,7 +1164,7 @@ describe('Character Sheet dice helpers', () => {
       const sheet = withWeaponFromTemplate(emptySheet(), 'Katana (sabre long)');
       expect(sheet.weapons).toHaveLength(1);
       expect(sheet.weapons[0]).toMatchObject({ nom: 'Katana (sabre long)', de: '1d10', equipped: false });
-      expect(sheet.weapons[0].proprietes).toContain('Fluide');
+      expect(sheet.weapons[0].tags).toContain('fluide');
       expect(sheet.weapons[0].icon).toBe('🗡️');
       const blank = withWeaponFromTemplate(emptySheet(), '');
       expect(blank.weapons[0]).toMatchObject({ nom: '', de: '', equipped: false });
@@ -1344,15 +1347,6 @@ describe('Character Sheet dice helpers', () => {
       expect(skillModifier(effectiveStats({ identity: { race: 'gnome' }, stats: { force: 8 } }), 'athletisme')).toBe(0);
     });
 
-    it('raceRollAdvantage covers the named-skill traits and Initiative', () => {
-      expect(raceRollAdvantage('elfe-noir', 'discretion')).toBe(1);
-      expect(raceRollAdvantage('goliath', 'athletisme')).toBe(1);
-      expect(raceRollAdvantage('firbolg', 'dressage')).toBe(1);
-      expect(raceRollAdvantage('firbolg', 'initiative')).toBe(-1);
-      expect(raceRollAdvantage('centaure', 'acrobaties')).toBe(-1);
-      expect(raceRollAdvantage('humain', 'athletisme')).toBe(0);
-    });
-
     it('rollD20Keep rolls 2d20 and keeps the best/worst die', () => {
       const high = rollD20Keep('d20+3', {}, 'high');
       expect(high.rolls).toHaveLength(2);
@@ -1400,6 +1394,94 @@ describe('Character Sheet dice helpers', () => {
       expect(raceLabel('Humain')).toBe('Humain');
       expect(raceLabel('')).toBe('');
       expect(raceLabel(null)).toBe('');
+    });
+  });
+
+  describe('weapon tags and migration (issue #4)', () => {
+    it('exposes the rulebook property vocabulary', () => {
+      const ids = PROPERTY_TAGS.map((t) => t.id);
+      for (const id of ['finesse', 'legere', 'polyvalente', 'deux-mains', 'lancer', 'distance', 'improvisee', 'brute', 'tir-leger', 'recharge', 'secondaire', 'amplitude', 'garde', 'brutalite', 'impact', 'fluide', 'allonge', 'surplomb', 'perforant', 'rempart', 'contre-destoc', 'entrave', 'destabilisation', 'double-frappe', 'hybride']) {
+        expect(ids).toContain(id);
+      }
+      for (const tag of PROPERTY_TAGS) {
+        expect(tag.label).toBeTruthy();
+        expect(tag.desc).toBeTruthy();
+      }
+    });
+
+    it('parses the legacy free-text properties into tag ids', () => {
+      expect(parsePropertyText('Finesse, Légère, Lancer (10m), Garde'))
+        .toEqual(['finesse', 'legere', 'lancer', 'garde']);
+      expect(parsePropertyText('Polyvalente (1d10), Impact')).toEqual(['polyvalente', 'impact']);
+      expect(parsePropertyText('Comme mains nues, Brute')).toEqual(['brute']);
+    });
+
+    it('reads tags from either model', () => {
+      expect(weaponTags({ tags: ['finesse', 'legere'] })).toEqual(['finesse', 'legere']);
+      expect(weaponTags({ proprietes: 'Finesse, Garde' })).toEqual(['finesse', 'garde']);
+      expect(weaponTags({ tags: ['nonsense'], proprietes: 'Impact' })).toEqual(['impact']);
+      expect(tagsToText(['finesse', 'garde'])).toBe('Finesse, Garde');
+      expect(weaponTagInfo({ proprietes: 'Impact' })[0].label).toBe('Impact');
+    });
+
+    it('migrates a legacy weapon to the current shape, idempotently', () => {
+      const legacy = {
+        nom: 'Dague', de: '1d4', degats: 'perçant', icon: '',
+        proprietes: 'Finesse, Légère', forceAgi: 'agilite', notes: 'ancienne note',
+        avantage: 'x', critique: 'y', perfection: 'z', bonus: '1', equipped: true,
+      };
+      const migrated = migrateWeapon(legacy);
+      expect(migrated.tags).toEqual(['finesse', 'legere']);
+      expect(migrated.scaling).toBe('agilite');
+      expect(migrated.description).toBe('ancienne note');
+      expect(migrated.finesse).toBe(true);
+      expect(migrated).not.toHaveProperty('proprietes');
+      expect(migrated).not.toHaveProperty('forceAgi');
+      expect(migrated).not.toHaveProperty('notes');
+      expect(migrated).not.toHaveProperty('avantage');
+      expect(migrated).not.toHaveProperty('critique');
+      expect(migrated).not.toHaveProperty('perfection');
+      expect(migrateWeapon(migrated)).toEqual(migrated);
+    });
+
+    it('migrateSheet returns the same object when nothing changes', () => {
+      const sheet = { weapons: [migrateWeapon({ nom: 'X', de: '1d6' })] };
+      expect(migrateSheet(sheet)).toBe(sheet);
+      const legacy = { weapons: [{ nom: 'X', de: '1d6', proprietes: 'Impact' }] };
+      const out = migrateSheet(legacy);
+      expect(out).not.toBe(legacy);
+      expect(out.weapons[0].tags).toEqual(['impact']);
+    });
+
+    it('builds a new weapon with tags, no legacy fields, and no finesse choice', () => {
+      const w = weaponFromTemplate('Fist weapons');
+      expect(w.tags).toEqual(['impact', 'hybride']);
+      expect(w.finesse).toBeNull();
+      expect(w.description).toBe('');
+      expect(w).not.toHaveProperty('proprietes');
+      expect(w).not.toHaveProperty('forceAgi');
+      expect(w).not.toHaveProperty('notes');
+    });
+
+    it('defaults the Finesse checkbox on Agilité ≥ Force', () => {
+      expect(finesseDefault({ force: 12, agilite: 14 })).toBe(true);
+      expect(finesseDefault({ force: 16, agilite: 14 })).toBe(false);
+      expect(finesseDefault({})).toBe(true); // 10 vs 10
+    });
+
+    it('catalog: Gantelet de combat in, Twinblade out', () => {
+      const names = EQUIPMENT_CATALOG.flatMap((g) => g.items.map((i) => i.nom));
+      expect(names).toContain('Gantelet de combat');
+      expect(names).not.toContain('Twinblade');
+      const gantelet = findEquipmentTemplate('Gantelet de combat');
+      expect(gantelet).toMatchObject({ de: '1d6', degats: 'contondant', kind: 'arme' });
+      expect(parsePropertyText(gantelet.proprietes)).toEqual(['legere', 'impact']);
+    });
+
+    it('Amplitude is on the faux, the bâton long and the lance', () => {
+      for (const nom of ['Faux', 'Bâton long', 'Lance']) {
+        expect(parsePropertyText(findEquipmentTemplate(nom).proprietes)).toContain('amplitude');
+      }
     });
   });
 });

@@ -8,10 +8,11 @@
    *   onSpendToken?: (stat: string) => void,
    *   onAddToken?: (stat: string) => void,
    *   onSetMax?: (stat: string, val: number) => void,
+   *   onSetCount?: (stat: string, val: number) => void,
    *   isGM?: boolean
    * }}
    */
-  let { playerState, onSpendToken, onAddToken, onSetMax, isGM = false } = $props();
+  let { playerState, onSpendToken, onAddToken, onSetMax, onSetCount, isGM = false } = $props();
 
   const STATS = [
     { key: 'force',   label: 'Force',   color: STAT_COLORS.force },
@@ -63,6 +64,22 @@
             class="w-5 h-5 flex items-center justify-center text-sm bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-30 leading-none"
           >+</button>
         {/if}
+        <!-- GM count editor: set the pool directly (consume one token, refill, …) -->
+        {#if isGM && onSetCount}
+          <input
+            type="number"
+            value={current}
+            min="0"
+            max={max}
+            onchange={(e) => {
+              const raw = e.currentTarget.value;
+              if (raw === '' || !Number.isFinite(Number(raw))) return; // clearing the field must not zero the pool
+              onSetCount(stat.key, Number(raw));
+            }}
+            class="w-8 text-xs bg-gray-800 border border-gray-600 rounded text-center text-gray-300 py-0.5"
+            title="Jetons disponibles (0 à {max})"
+          />
+        {/if}
         <!-- GM max editor -->
         {#if isGM && onSetMax}
           <input
@@ -70,7 +87,11 @@
             value={base}
             min="0"
             max="10"
-            oninput={(e) => onSetMax(stat.key, Number(e.currentTarget.value))}
+            onchange={(e) => {
+              const raw = e.currentTarget.value;
+              if (raw === '' || !Number.isFinite(Number(raw))) return;
+              onSetMax(stat.key, Number(raw));
+            }}
             class="w-8 text-xs bg-gray-800 border border-gray-600 rounded text-center text-gray-300 py-0.5"
             title="Max tokens (base hors bonus de race)"
           />

@@ -1,5 +1,5 @@
 import { hydrateState, applyAction, createInitialGameState, makePendingCard } from './deck.js';
-import { supabase, onRealtimeHealth, realtimeProblem } from './supabaseClient.js';
+import { supabase, onRealtimeHealth, onRealtimeGap, realtimeProblem } from './supabaseClient.js';
 import { logEvent, logError } from './appLog.js';
 
 let currentVersion = 0;
@@ -10,9 +10,10 @@ let reconnectTimer = null;
 /** Backoff level (index into BACKOFF_STEPS_MS). Reset only once a connection
  *  proved healthy — see scheduleReconnect(). */
 let reconnectAttempt = 0;
-/** Failed recoveries since the last successful subscribe: the budget behind
- *  permanently_disconnected. A subscribe that works proves the transport is
- *  back, so it starts a fresh budget even when the backoff level stays high. */
+/** Failed recoveries since the last healthy connection: the budget behind
+ *  permanently_disconnected. Cleared only by a connection that stayed up (see
+ *  scheduleReconnect), never by the bare act of subscribing — a socket that
+ *  dies right after joining proves nothing. */
 let failedRecoveries = 0;
 /** When the current subscription became live; 0 while not subscribed. */
 let connectedAt = 0;
@@ -22,6 +23,9 @@ let permanentlyDisconnected = false;
 let connectionGeneration = 0;
 let healthUnsub = null;
 let healthTimer = null;
+let gapUnsub = null;
+let visibilityWatched = false;
+let hiddenSince = 0;
 
 let lastServerState = null;
 let pendingActions = [];
@@ -32,6 +36,18 @@ const MAX_RECONNECT_ATTEMPTS = 30;
 /** A connection that survives this long counts as recovered and resets the
  *  backoff; one that dies sooner is a failed recovery and keeps it growing. */
 const HEALTHY_CONNECTION_MS = 60000;
+/** A socket the environment closed after a working subscription (Owlbear's
+ *  sandboxed iframes kill it every ~30 s) is a transient drop, not a sick
+ *  server: reconnect at once instead of sitting out a 30 s backoff, during
+ *  which the frame is simply disconnected. */
+const CLOSE_RETRY_MS = 250;
+/** Below this uptime a close says nothing about the environment — fall back to
+ *  the escalating backoff so a server that refuses every join is not hammered. */
+const QUICK_RETRY_MIN_UPTIME_MS = 5000;
+/** Real-time heartbeat every 10 s (supabaseClient.js) — a gap beyond this many
+ *  intervals means the frame's timers were frozen (hidden iframe). */
+const HEARTBEAT_GAP_FACTOR = 3;
+const HEARTBEAT_INTERVAL_MS = 10000;
 const FETCH_TIMEOUT_MS = 8000;
 const INVOKE_TIMEOUT_MS = 10000;
 const HEALTH_CATCH_UP_MS = 2500;
@@ -104,29 +120,43 @@ function connectionUptime() {
   return connectedAt ? Date.now() - connectedAt : 0;
 }
 
-function scheduleReconnect() {
+/**
+ * Schedule a re-subscription. `reason` is 'closed' when the channel reported
+ * CLOSED (the socket died) and 'error'/'timeout' for CHANNEL_ERROR/TIMED_OUT
+ * (server-side trouble).
+ *
+ * A socket that died after a working subscription is retried at once: Owlbear's
+ * sandboxed iframes close it every ~30 s, and the old policy sat out a 30 s
+ * backoff — climbing to its ceiling — so the app was disconnected half the time
+ * for no reason. The escalating backoff is reserved for connections that never
+ * got going, and only those count against the permanent-disconnect budget.
+ */
+function scheduleReconnect(reason = 'error') {
   if (reconnectTimer) return;
   if (!currentRoomId) return;
-  // The backoff counts *consecutive* failed recoveries. Subscribing is not a
-  // recovery: the socket subscribes, dies ~30 s later and would otherwise reset
-  // the counter to 0 every cycle, pinning the delay at 1 s forever. Only a
-  // connection that stayed up for HEALTHY_CONNECTION_MS counts.
   const uptimeMs = connectionUptime();
   connectedAt = 0;
+  // A connection that STAYED up proves the transport works; a bare subscribe
+  // that dies at once proves nothing. This is what let the ~30 s disconnect
+  // loop run for hours: every cycle reset the budget before it could trip.
+  if (uptimeMs >= QUICK_RETRY_MIN_UPTIME_MS) failedRecoveries = 0;
   if (uptimeMs >= HEALTHY_CONNECTION_MS) reconnectAttempt = 0;
-  if (failedRecoveries >= MAX_RECONNECT_ATTEMPTS) {
-    if (!permanentlyDisconnected) {
-      permanentlyDisconnected = true;
-      logEvent('error', 'realtime_permanently_disconnected', { detail: { attempts: failedRecoveries } });
-      if (onConnectionCallback) onConnectionCallback('permanently_disconnected');
+  const quick = reason === 'closed' && uptimeMs >= QUICK_RETRY_MIN_UPTIME_MS;
+  if (!quick) {
+    if (failedRecoveries >= MAX_RECONNECT_ATTEMPTS) {
+      if (!permanentlyDisconnected) {
+        permanentlyDisconnected = true;
+        logEvent('error', 'realtime_permanently_disconnected', { detail: { attempts: failedRecoveries } });
+        if (onConnectionCallback) onConnectionCallback('permanently_disconnected');
+      }
+      return;
     }
-    return;
+    failedRecoveries++;
   }
-  const delay = nextBackoffMs();
-  reconnectAttempt++;
-  failedRecoveries++;
+  const delay = quick ? CLOSE_RETRY_MS : nextBackoffMs();
+  if (!quick) reconnectAttempt++;
   logEvent('warn', 'realtime_reconnect_scheduled', {
-    detail: { delay, attempt: reconnectAttempt, failedRecoveries },
+    detail: { delay, attempt: reconnectAttempt, failedRecoveries, reason, uptimeMs },
   });
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
@@ -145,6 +175,22 @@ function replayPending(serverState) {
     state = markOptimisticDraws(prev, result.state, action);
   }
   return state;
+}
+
+/** Token actions whose reducer may append a random card to the hand. */
+const USE_AGILITE_LIKE = ['USE_AGILITE', 'USE_ESPRIT', 'SPEND_TOKEN'];
+
+/**
+ * Copy of the player with their last `count` hand cards replaced by pending
+ * placeholders; null when there is nothing to mark.
+ */
+function pendingLast(player, count) {
+  if (!player || count <= 0) return null;
+  const hand = [...(player.hand ?? [])];
+  const n = Math.min(count, hand.length);
+  if (!n) return null;
+  for (let i = hand.length - n; i < hand.length; i++) hand[i] = makePendingCard();
+  return hand;
 }
 
 /**
@@ -188,61 +234,43 @@ function markOptimisticDraws(prevState, optimisticState, action) {
     }
   }
 
-  if (type === 'USE_AGILITE') {
+  // Token actions also append cards: USE_AGILITE swaps one card for a random
+  // draw, and the Aasimar's « Cœur supplémentaire » adds a random ♥ to the
+  // HAND (issue #6 — it used to land in the crystallized zone). Every card the
+  // action appended is unconfirmed, so it must show as a placeholder until the
+  // server answers; otherwise the locally rolled card changes on every replay.
+  if (USE_AGILITE_LIKE.includes(type)) {
     const pid = action.playerId;
-    const newHand = optimisticState.players[pid]?.hand ?? [];
-    // USE_AGILITE removes 1 card and adds 1 — the last card is the new draw
-    if (newHand.length > 0) {
-      const hand = [...newHand.slice(0, -1), makePendingCard()];
+    const player = optimisticState.players[pid];
+    const prevLen = prevState.players[pid]?.hand?.length ?? 0;
+    const newLen = player?.hand?.length ?? 0;
+    // USE_AGILITE removed a card AND added one: the replacement is new even
+    // when the hand did not grow.
+    const added = (type === 'USE_AGILITE' ? 1 : 0) + Math.max(0, newLen - prevLen);
+    const hand = pendingLast(player, added);
+    if (hand) {
       return {
         ...optimisticState,
-        players: {
-          ...optimisticState.players,
-          [pid]: { ...optimisticState.players[pid], hand },
-        },
+        players: { ...optimisticState.players, [pid]: { ...player, hand } },
       };
     }
   }
 
-  // AASIMAR auto-heart: after any token-consuming action, mark the new crystallized card as pending
-  if (['DRAW_FORCE', 'USE_AGILITE', 'USE_ESPRIT', 'SPEND_TOKEN'].includes(type)) {
-    const pid = action.playerId;
-    const player = optimisticState.players[pid];
-    if (player?.race === 'aasimar') {
-      const prevCrystLen = prevState.players[pid]?.crystallized?.length ?? 0;
-      const cryst = player.crystallized;
-      if (cryst.length > prevCrystLen) {
-        const updated = [...cryst.slice(0, -1), makePendingCard()];
-        return {
-          ...optimisticState,
-          players: {
-            ...optimisticState.players,
-            [pid]: { ...player, crystallized: updated },
-          },
-        };
-      }
-    }
-  }
-
-  // AASIMAR auto-heart on ACCEPT_EXCHANGE: the sender (who spent the Social token) gets the Heart
+  // ACCEPT_EXCHANGE: the sender gets the exchanged card back (a known card)
+  // plus, for an Aasimar, the random ♥ — only the tail is unconfirmed.
   if (type === 'ACCEPT_EXCHANGE') {
     const ex = (prevState.pendingExchanges ?? []).find(e => e.id === action.exchangeId);
     if (ex) {
       const senderId = ex.from;
       const sender = optimisticState.players[senderId];
-      if (sender?.race === 'aasimar') {
-        const prevCrystLen = prevState.players[senderId]?.crystallized?.length ?? 0;
-        const cryst = sender.crystallized;
-        if (cryst.length > prevCrystLen) {
-          const updated = [...cryst.slice(0, -1), makePendingCard()];
-          return {
-            ...optimisticState,
-            players: {
-              ...optimisticState.players,
-              [senderId]: { ...sender, crystallized: updated },
-            },
-          };
-        }
+      const prevLen = prevState.players[senderId]?.hand?.length ?? 0;
+      const newLen = sender?.hand?.length ?? 0;
+      const hand = pendingLast(sender, Math.max(0, newLen - prevLen - 1));
+      if (hand) {
+        return {
+          ...optimisticState,
+          players: { ...optimisticState.players, [senderId]: { ...sender, hand } },
+        };
       }
     }
   }
@@ -365,6 +393,41 @@ function watchRealtimeHealth() {
       }, HEALTH_CATCH_UP_MS);
     });
   }
+  if (!gapUnsub) {
+    // Diagnostic only: a heartbeat gap means this frame's timers stopped
+    // running for a while (hidden iframe), which is what makes the socket go
+    // idle on the server and get closed. Recorded so the next report is
+    // explainable; recovery stays with the health watchdog above.
+    gapUnsub = onRealtimeGap((gapMs) => {
+      logEvent('warn', 'realtime_heartbeat_gap', {
+        detail: {
+          gapMs,
+          subscribed: isSubscribed,
+          visibility: typeof document !== 'undefined' ? document.visibilityState : '',
+        },
+      });
+    });
+  }
+}
+
+/** Log when this frame comes back from hidden, with how long it was hidden. */
+function watchVisibility() {
+  if (visibilityWatched || typeof document === 'undefined') return;
+  visibilityWatched = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenSince = Date.now();
+      return;
+    }
+    logEvent('info', 'realtime_visibility', {
+      detail: {
+        visibility: 'visible',
+        hiddenMs: hiddenSince ? Date.now() - hiddenSince : 0,
+        subscribed: isSubscribed,
+      },
+    });
+    hiddenSince = 0;
+  });
 }
 
 /**
@@ -412,6 +475,7 @@ export function startRealtime(roomId, onState, onConnectionChange) {
   permanentlyDisconnected = false;
   const myGen = ++connectionGeneration;
   watchRealtimeHealth();
+  watchVisibility();
 
   realtimeChannel = supabase
     .channel(`game:${roomId}`)
@@ -449,11 +513,9 @@ export function startRealtime(roomId, onState, onConnectionChange) {
         });
         isSubscribed = true;
         // The backoff level is NOT reset here: it is cleared only once this
-        // connection has proven itself (see scheduleReconnect). The recovery
-        // budget is a different thing — a successful subscribe proves the
-        // transport works, so it must not leave the client stuck at 30.
+        // connection has proven itself (see scheduleReconnect). Same for the
+        // recovery budget — a subscribe that dies 30 s later is not a recovery.
         connectedAt = Date.now();
-        failedRecoveries = 0;
         permanentlyDisconnected = false;
         if (onConnectionCallback) onConnectionCallback('connected');
         if (wasReconnect) {
@@ -474,12 +536,12 @@ export function startRealtime(roomId, onState, onConnectionChange) {
         });
         isSubscribed = false;
         if (onConnectionCallback) onConnectionCallback('disconnected');
-        scheduleReconnect();
+        scheduleReconnect('error');
       } else if (status === 'CLOSED') {
         logEvent('warn', 'realtime_channel_closed', { detail: { uptimeMs: connectionUptime() } });
         isSubscribed = false;
         if (onConnectionCallback) onConnectionCallback('disconnected');
-        scheduleReconnect();
+        scheduleReconnect('closed');
       }
     });
 }

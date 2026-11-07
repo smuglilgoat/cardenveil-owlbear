@@ -3,7 +3,7 @@
   import OBR from "@owlbear-rodeo/sdk";
   import CardDisplay from "./CardDisplay.svelte";
   import ActionLog from "./ActionLog.svelte";
-  import { GM_CHAR_ID, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
+  import { GM_CHAR_ID, sortCards, fatiguePenaltyFor, DEVOUR_COOLDOWN_MS, SPLIT_COOLDOWN_MS, handCap, maxTokensFor, RACES, SUITS_INFO } from "./deck.js";
   import { tooltip } from "./tooltip.js";
   import { logEvent, logError } from "./appLog.js";
   import {
@@ -102,6 +102,19 @@
   function crystallizeCard(card) {
     if ((player.spiritBounds ?? 0) <= 0) return;
     onAction({ type: 'CRYSTALLIZE', playerId: myId, cardId: card.id });
+  }
+
+  /** Nimbri « Compréhension abstraite de la magie »: one split per draw, 30-min
+   *  cooldown, card worth at least 4. */
+  function canSplit(card) {
+    if (!player || player.race !== 'nimbri' || !player.splitAvailable) return false;
+    if (player.lastSplitAt && Date.now() - player.lastSplitAt < SPLIT_COOLDOWN_MS) return false;
+    return (card?.numericValue ?? 0) + 1 >= 4;
+  }
+
+  function splitCard(card) {
+    if (!canSplit(card)) return;
+    onAction({ type: 'SPLIT_CARD', playerId: myId, cardId: card.id });
   }
 
   function discardCrystallized(card) {
@@ -723,6 +736,7 @@
                     onClick: () => crystallizeCard(card),
                   },
                   { icon: isGrayed ? "◐" : "◑", label: isGrayed ? "Débloquer" : "Bloquer", onClick: () => toggleGray(card) },
+                  ...(canSplit(card) ? [{ icon: "✂", label: "Diviser en deux moitiés (Nimbri)", onClick: () => splitCard(card) }] : []),
                 ]}
               />
               {#if isGrayed}

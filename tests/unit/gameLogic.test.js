@@ -1076,4 +1076,189 @@ describe('Game Logic', () => {
       expect(fatiguePenaltyFor(null, 0)).toBe(0);
     });
   });
+
+  describe('token editing (issue #3)', () => {
+    let state;
+
+    beforeEach(() => {
+      state = createInitialGameState();
+      state.gmId = 'gm-player';
+      state.players = {
+        'player-1': createEmptyPlayer('Player 1'),
+        'player-2': createEmptyPlayer('Player 2'),
+      };
+    });
+
+    it('lets a GM spend a target player\'s token (no impersonation)', () => {
+      const { state: next } = applyAction(state, {
+        type: 'SPEND_TOKEN', playerId: 'gm-player', targetId: 'player-1', token: 'force',
+      });
+      expect(next.players['player-1'].tokens.force).toBe(2);
+      expect(next.logs.at(-1).msg).toContain('usage par le MJ');
+    });
+
+    it('refuses a target spend from anyone but the GM', () => {
+      const { state: next } = applyAction(state, {
+        type: 'SPEND_TOKEN', playerId: 'player-2', targetId: 'player-1', token: 'force',
+      });
+      expect(next).toBe(state);
+      expect(next.players['player-1'].tokens.force).toBe(3);
+    });
+
+    it('SET_MAX_TOKENS brings the current pool down with the cap', () => {
+      const { state: next } = applyAction(state, {
+        type: 'SET_MAX_TOKENS', playerId: 'gm-player', targetId: 'player-1', token: 'force', val: 1,
+      });
+      expect(next.players['player-1'].maxTokens.force).toBe(1);
+      expect(next.players['player-1'].tokens.force).toBe(1);
+    });
+
+    it('SET_TOKENS sets an arbitrary pool, clamped, GM only', () => {
+      const { state: byGm } = applyAction(state, {
+        type: 'SET_TOKENS', playerId: 'gm-player', targetId: 'player-1', token: 'esprit', val: 0,
+      });
+      expect(byGm.players['player-1'].tokens.esprit).toBe(0);
+
+      const over = applyAction(byGm, {
+        type: 'SET_TOKENS', playerId: 'gm-player', targetId: 'player-1', token: 'esprit', val: 99,
+      }).state;
+      expect(over.players['player-1'].tokens.esprit).toBe(3);
+
+      const byPlayer = applyAction(state, {
+        type: 'SET_TOKENS', playerId: 'player-2', targetId: 'player-1', token: 'esprit', val: 0,
+      }).state;
+      expect(byPlayer).toBe(state);
+    });
+
+    it('SYNC_TOKENS can set explicit counts instead of refilling', () => {
+      const { state: partial } = applyAction(state, {
+        type: 'SYNC_TOKENS', playerId: 'gm-player', targetId: 'player-1',
+        tokens: { force: 4, agilite: 3, esprit: 2, social: 3 },
+        counts: { force: 2, agilite: 1, esprit: 0, social: 3 },
+      });
+      expect(partial.players['player-1'].maxTokens.force).toBe(4);
+      expect(partial.players['player-1'].tokens).toEqual({ force: 2, agilite: 1, esprit: 0, social: 3 });
+    });
+
+    it('SYNC_TOKENS still refills when no counts are given', () => {
+      const { state: full } = applyAction(state, {
+        type: 'SYNC_TOKENS', playerId: 'gm-player', targetId: 'player-1',
+        tokens: { force: 2, agilite: 2, esprit: 2, social: 2 },
+      });
+      expect(full.players['player-1'].tokens).toEqual({ force: 2, agilite: 2, esprit: 2, social: 2 });
+    });
+
+    it('SET_MAX_TOKENS ignores a non-numeric value instead of writing NaN', () => {
+      const { state: next } = applyAction(state, {
+        type: 'SET_MAX_TOKENS', playerId: 'gm-player', targetId: 'player-1', token: 'force', val: 'abc',
+      });
+      expect(next.players['player-1'].maxTokens.force).toBe(0);
+      expect(next.players['player-1'].tokens.force).toBe(0);
+      expect(Number.isNaN(next.players['player-1'].tokens.force)).toBe(false);
+    });
+
+    it('a player cannot fill the shared log with the unregistered notice', () => {
+      const { state: next } = applyAction(state, {
+        type: 'SYNC_TOKENS', playerId: 'ghost', targetId: 'ghost',
+        tokens: { force: 3, agilite: 3, esprit: 3, social: 3 },
+      });
+      expect(next).toBe(state);
+      expect(next.logs).toHaveLength(state.logs.length);
+    });
+
+    it('SYNC_TOKENS logs instead of silently doing nothing for an unknown player', () => {
+      const { state: next } = applyAction(state, {
+        type: 'SYNC_TOKENS', playerId: 'gm-player', targetId: 'ghost',
+        tokens: { force: 3, agilite: 3, esprit: 3, social: 3 },
+      });
+      expect(next).not.toBe(state);
+      expect(next.logs.at(-1).msg).toContain('non enregistré');
+    });
+  });
+
+  describe('Aasimar heart (issue #6)', () => {
+    it('spending a token draws a NORMAL Heart card into the hand', () => {
+      const state = createInitialGameState();
+      state.gmId = 'gm-player';
+      state.players = { 'player-1': { ...createEmptyPlayer('A'), race: 'aasimar' } };
+
+      const { state: next } = applyAction(state, { type: 'SPEND_TOKEN', playerId: 'player-1', token: 'force' });
+      const p = next.players['player-1'];
+      expect(p.tokens.force).toBe(2);
+      expect(p.hand).toHaveLength(1);
+      expect(p.hand[0].suit).toBe('♥');
+      expect(p.hand[0].id.startsWith('s-')).toBe(true); // a normal pool card, not crystallized
+      expect(p.crystallized).toHaveLength(0);
+    });
+
+    it('discards the card when the hand is full', () => {
+      const state = createInitialGameState();
+      state.gmId = 'gm-player';
+      const full = { ...createEmptyPlayer('A'), race: 'aasimar' };
+      full.hand = [makeCard('♠', '5'), makeCard('♠', '6'), makeCard('♠', '7')];
+      state.players = { 'player-1': full };
+
+      const { state: next } = applyAction(state, { type: 'SPEND_TOKEN', playerId: 'player-1', token: 'force' });
+      expect(next.players['player-1'].hand).toHaveLength(3);
+      expect(next.discard).toHaveLength(1);
+      expect(next.discard[0].suit).toBe('♥');
+    });
+  });
+
+  describe('Nimbri split (issue #6)', () => {
+    const nimbri = () => {
+      const state = createInitialGameState();
+      state.gmId = 'gm-player';
+      state.players = { 'player-1': { ...createEmptyPlayer('N'), race: 'nimbri' } };
+      return state;
+    };
+
+    it('a draw arms the split, and 11 splits into 5 + 5', () => {
+      const armed = applyAction(nimbri(), { type: 'DRAW', playerId: 'player-1' }).state;
+      expect(armed.players['player-1'].splitAvailable).toBe(true);
+
+      const queen = makeCard('♠', 'Q'); // face value 12 -> 6 + 6
+      const jack = makeCard('♠', 'J'); // face value 11 -> 5 + 5
+      armed.players['player-1'].hand = [jack];
+      const { state: split } = applyAction(armed, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: jack.id });
+      expect(split.players['player-1'].hand.map((c) => c.value)).toEqual(['5', '5']);
+      expect(split.players['player-1'].splitAvailable).toBe(false);
+      expect(split.players['player-1'].lastSplitAt).toBeGreaterThan(0);
+      expect(queen.value).toBe('Q'); // sanity: card factory unchanged
+    });
+
+    it('refuses a second split before a new draw, and inside the 30-min cooldown', () => {
+      const armed = applyAction(nimbri(), { type: 'DRAW', playerId: 'player-1' }).state;
+      const card = makeCard('♠', 'K');
+      armed.players['player-1'].hand = [card];
+      const split = applyAction(armed, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: card.id }).state;
+
+      // no new draw -> unavailable
+      const again = applyAction(split, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: split.players['player-1'].hand[0].id });
+      expect(again.state).toBe(split);
+
+      // a draw re-arms it, but the 30-min cooldown still refuses
+      const redrawn = applyAction(split, { type: 'DRAW', playerId: 'player-1' }).state;
+      const target = redrawn.players['player-1'].hand[0];
+      const cooled = applyAction(redrawn, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: target.id });
+      expect(cooled.state).toBe(redrawn);
+
+      // past the cooldown it works
+      redrawn.players['player-1'] = { ...redrawn.players['player-1'], lastSplitAt: Date.now() - 31 * 60 * 1000 };
+      const later = applyAction(redrawn, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: target.id });
+      expect(later.state).not.toBe(redrawn);
+    });
+
+    it('refuses a 2 (it cannot be halved into a playable card) and other races', () => {
+      const armed = applyAction(nimbri(), { type: 'DRAW', playerId: 'player-1' }).state;
+      const two = makeCard('♠', '2');
+      armed.players['player-1'].hand = [two];
+      expect(applyAction(armed, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: two.id }).state).toBe(armed);
+
+      const other = applyAction(nimbri(), { type: 'SET_RACE', playerId: 'gm-player', targetId: 'player-1', race: 'humain' }).state;
+      const drawn = applyAction(other, { type: 'DRAW', playerId: 'player-1' }).state;
+      const card = drawn.players['player-1'].hand[0];
+      expect(applyAction(drawn, { type: 'SPLIT_CARD', playerId: 'player-1', cardId: card.id }).state).toBe(drawn);
+    });
+  });
 });

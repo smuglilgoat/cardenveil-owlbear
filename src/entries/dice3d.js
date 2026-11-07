@@ -82,8 +82,25 @@ try {
 if (breakdownLines.length) {
   const el = document.createElement('div');
   el.className = 'breakdown';
-  el.textContent = breakdownLines.join('\n');
+  breakdownLines.forEach((line, index) => {
+    const row = document.createElement('div');
+    // The last line is the final damage: highlighted so it reads first.
+    row.className = index === breakdownLines.length - 1 ? 'breakdown-line breakdown-final' : 'breakdown-line';
+    row.textContent = line;
+    el.appendChild(row);
+  });
   document.querySelector('.card').appendChild(el);
+}
+
+const tagsParam = params.get('tags') || '';
+const tagsEl = document.getElementById('tags');
+if (tagsParam && tagsEl) {
+  for (const label of tagsParam.split(',').map((t) => t.trim()).filter(Boolean)) {
+    const chip = document.createElement('span');
+    chip.className = 'tag';
+    chip.textContent = label;
+    tagsEl.appendChild(chip);
+  }
 }
 const plainLabel = () => params.get('plainLabel') || 'Jet';
 

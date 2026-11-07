@@ -1,5 +1,4 @@
 <script>
-  import { onDestroy } from 'svelte';
   import { ACTION_CHECKS, STAT_COLORS } from './characterSheet.js';
 
   // Rulebook color classes: guide-force (Force), guide-agilite (Agilité),
@@ -224,29 +223,19 @@
     }
   ];
 
-  // Long hover (1500ms) opens the reference panel; it stays open until closed
-  // (✕ / Escape / click outside) so the text can be read and scrolled.
-  const HOVER_DELAY = 1500;
-  let hoverTimer;
+  // The reference panel opens from the round "?" button, not from a hover
+  // (issue #5): a hover is undiscoverable and fires by accident. It stays open
+  // until closed (✕ / Escape / click outside) so the text can be read.
   let panelVisible = $state(false);
 
-  function startHover() {
-    clearTimeout(hoverTimer);
-    hoverTimer = setTimeout(() => (panelVisible = true), HOVER_DELAY);
-  }
-  function cancelHover() {
-    clearTimeout(hoverTimer);
-  }
   function close() {
-    cancelHover();
     panelVisible = false;
   }
-  onDestroy(() => clearTimeout(hoverTimer));
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && close()} />
 
-<div class={rootClass} onmouseenter={startHover} onmouseleave={cancelHover}>
+<div class={rootClass}>
   {#each ACTION_CHECKS as ac}
     <button
       onclick={() => onToggle(ac.key)}
@@ -267,6 +256,12 @@
       </span>
     </button>
   {/each}
+  <button
+    onclick={() => (panelVisible = true)}
+    title="Guide des actions, bonus actions et réactions"
+    aria-label="Guide des actions de combat"
+    class="shrink-0 w-4 h-4 rounded-full border border-[#4b5563] bg-[#111827] text-[#9ca3af] hover:text-white hover:border-[#9ca3af] text-[9px] font-bold leading-none flex items-center justify-center transition-colors"
+  >?</button>
 </div>
 
 {#if panelVisible}

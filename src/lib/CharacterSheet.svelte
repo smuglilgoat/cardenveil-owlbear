@@ -4,6 +4,7 @@
   import { tooltip } from './tooltip.js';
   import ActionDiamonds from './ActionDiamonds.svelte';
   import ItemAddPopup from './ItemAddPopup.svelte';
+  import PropertyTagSelect from './PropertyTagSelect.svelte';
   import { importSheetArchive } from './sheetAssets.js';
   import { RACES, GM_CHAR_ID } from './deck.js';
   import { logError, setLogContext } from './appLog.js';
@@ -55,11 +56,14 @@
     raceTraits,
     racePvBonus,
     effectiveStats,
-    raceRollAdvantage,
     rollD20Keep,
     normalizeRaceName,
     syncSkillBonuses,
     syncStatsFromEquipment,
+    finesseDefault,
+    weaponTagInfo,
+    weaponTags,
+    tagsToText,
     toNumber,
     DICE_GEMS,
     DICE_GEM_LABELS,
@@ -395,13 +399,15 @@
         isEditing = false;
         editSheet = null;
         syncRaceToGameState(sheet?.identity?.race);
-        // Import refreshes the player's tokens to stat mods + 1 — the values
-        // the GM's REST resets to (SYNC_TOKENS sets tokens = maxTokens).
+        // Import sets the token caps to stat mods + 1 and the pool to the
+        // sheet's own counts when it carries them (an imported sheet may hold
+        // fewer tokens than its cap — a refill-only sync could not say so).
         onAction({
           type: 'SYNC_TOKENS',
           playerId,
           targetId: playerId,
           tokens: tokensFromStats(effectiveStats(sheet)),
+          ...(sheet?.resources?.tokens ? { counts: sheet.resources.tokens } : {}),
         });
       } catch (err) {
         importError = err.message;
@@ -496,8 +502,7 @@
   function handleSkillRoll(skillKey) {
     const mod = skillRollModifier(effectiveStats(view), skillKey, view.skills?.[skillKey]);
     const label = SKILL_LABELS[skillKey] || skillKey;
-    const adv = raceRollAdvantage(view.identity?.race, skillKey);
-    checkUnsavedChanges(() => handleDiceRoll(label, `d20${mod >= 0 ? '+' + mod : mod}`, { zoomCrit: true, keep: adv > 0 ? 'high' : adv < 0 ? 'low' : '' }));
+    checkUnsavedChanges(() => handleDiceRoll(label, `d20${mod >= 0 ? '+' + mod : mod}`, { zoomCrit: true }));
   }
 
   function handleStatRoll(stat) {
@@ -507,8 +512,7 @@
 
   // Derived combat rolls: initiative and volonté both roll d20 + their value
   function handleInitiativeRoll() {
-    const adv = raceRollAdvantage(view.identity?.race, 'initiative');
-    checkUnsavedChanges(() => handleDiceRoll('Initiative', `d20${formatModifier(calc.initiative)}`, { keep: adv > 0 ? 'high' : adv < 0 ? 'low' : '' }));
+    checkUnsavedChanges(() => handleDiceRoll('Initiative', `d20${formatModifier(calc.initiative)}`));
   }
 
   function handleVolonteRoll() {
@@ -632,16 +636,45 @@
   // ─── Add popup: the SAC view and both ÉDITION sections share it ──
   // target: 'sac' (saves immediately) | 'items' | 'weapons' (edit buffer)
   let itemAddTarget = $state(null);
+  /** Edit-in-place state for an existing weapon/item ({ kind, index, draft }). */
+  let itemEdit = $state(/** @type {{kind: 'weapon'|'item', index: number, draft: Object}|null} */ (null));
 
   function openItemAdd(target) {
     itemAddTarget = target;
+    itemEdit = null;
   }
 
-  /** @param {{name: string, isWeapon: boolean, quantity?: number, draft?: Object}|null} payload */
+  /** Open the add/edit form on an existing SAC entry (issue #4). */
+  function editFromSac(action) {
+    if (!sheet) return;
+    const source = action.kind === 'weapon' ? action.weapon : action.item;
+    const list = action.kind === 'weapon' ? (sheet.weapons ?? []) : (sheet.inventoryItems ?? []);
+    const index = list.indexOf(source);
+    if (index < 0) return;
+    itemAddTarget = 'edit';
+    itemEdit = { kind: action.kind, index, draft: { ...source } };
+    gearAction = null;
+  }
+
+  /** Replace one weapon/item in place and re-sync the equipment slots. */
+  function applyItemEdit(edit, draft) {
+    const next = edit.kind === 'weapon'
+      ? { ...sheet, weapons: (sheet.weapons ?? []).map((w, i) => (i === edit.index ? draft : w)) }
+      : { ...sheet, inventoryItems: (sheet.inventoryItems ?? []).map((it, i) => (i === edit.index ? draft : it)) };
+    saveSheet(syncStatsFromEquipment(syncSlotsFromItems(syncSkillBonuses(next))));
+  }
+
+  /** @param {{name: string, isWeapon: boolean, quantity?: number, draft?: Object, edit?: boolean, index?: number}|null} payload */
   function addFromPopup(payload) {
     const target = itemAddTarget;
+    const edit = itemEdit;
     itemAddTarget = null;
+    itemEdit = null;
     if (!payload) return; // dismissed
+    if (payload.edit && edit) {
+      applyItemEdit(edit, payload.draft);
+      return;
+    }
     const { name, isWeapon, quantity, draft } = payload;
     if (target === 'sac') {
       saveSheet(
@@ -1449,6 +1482,9 @@
               {#if hands.main}
                 <div class="text-[11px] font-bold leading-tight mt-0.5 truncate">{hands.main.nom}</div>
                 <div class="text-[10px] font-bold text-slate-300 leading-none mt-0.5">{hands.main.de || '—'}</div>
+                {#if weaponTags(hands.main).length}
+                  <div class="text-[8px] leading-tight mt-0.5 text-[#6b7280] truncate">{tagsToText(weaponTags(hands.main))}</div>
+                {/if}
               {:else}
                 <div class="text-[10px] text-[#6b7280] leading-tight mt-0.5">vide</div>
               {/if}
@@ -1476,6 +1512,9 @@
               {:else if hands.off}
                 <div class="text-[11px] font-bold leading-tight mt-0.5 truncate">{hands.off.nom}</div>
                 <div class="text-[10px] font-bold text-slate-300 leading-none mt-0.5">{hands.off.de || '—'}</div>
+                {#if weaponTags(hands.off).length}
+                  <div class="text-[8px] leading-tight mt-0.5 text-[#6b7280] truncate">{tagsToText(weaponTags(hands.off))}</div>
+                {/if}
               {:else}
                 <div class="text-[10px] text-[#6b7280] leading-tight mt-0.5">vide</div>
               {/if}
@@ -2068,8 +2107,8 @@
                       <!-- fields -->
                       <div class="grid grid-cols-1 @2xl:grid-cols-2 gap-2.5 px-3 pb-3">
                         {#each itemFieldsFor(item?.type, item?.slot) as field}
-                          <div class={field === 'description' || field === 'enchantement' || field === 'familySummary' ? 'col-span-full' : ''}>
-                            <label class="block text-[10px] font-bold text-[#9ca3af] mb-1 capitalize">{field === 'familySummary' ? 'Résumé de famille (auto)' : field}</label>
+                          <div class={field === 'description' || field === 'enchantement' ? 'col-span-full' : ''}>
+                            <label class="block text-[10px] font-bold text-[#9ca3af] mb-1 capitalize">{field}</label>
                             {#if field === 'description'}
                               <textarea bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
                             {:else if field === 'enchantement'}
@@ -2101,9 +2140,7 @@
                               <select
                                 bind:value={item.family}
                                 onchange={(e) => {
-                                  const fam = e.currentTarget.value;
-                                  item.familySummary = FAMILY_SUMMARIES[fam] ?? '';
-                                  if (fam === 'Catalyseurs') item.catalystColor = item.catalystColor ?? '';
+                                  if (e.currentTarget.value === 'Catalyseurs') item.catalystColor = item.catalystColor ?? '';
                                 }}
                                 class="w-full px-2 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500"
                               >
@@ -2112,8 +2149,6 @@
                                   <option value={fam}>{fam}</option>
                                 {/each}
                               </select>
-                            {:else if field === 'familySummary'}
-                              <div class="rich-html px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] text-[#9ca3af]">{@html sanitizeHtml(item.familySummary) || '—'}</div>
                             {:else if ['deflexion', 'armure', 'volonte', 'initiative', 'vitesse'].includes(field)}
                               <input type="number" bind:value={item[field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] text-center font-bold focus:outline-none focus:border-indigo-500" />
                             {:else}
@@ -2182,18 +2217,57 @@
                           Supprimer
                         </button>
                       </div>
-                      <!-- fields -->
+                      <!-- fields: the weapon schema is fixed (issue #4), not
+                           generated from the object keys -->
                       <div class="grid grid-cols-2 @2xl:grid-cols-4 gap-2.5 px-3 pb-3">
-                        {#each Object.entries(weapon ?? {}).filter(([field]) => field !== 'nom' && field !== 'equipped' && field !== 'hand') as [field]}
-                          <div class={field === 'notes' || field === 'propriétés' || field === 'proprietes' ? 'col-span-full' : ''}>
-                            <label class="block text-[10px] font-bold text-[#9ca3af] mb-1 capitalize">{field}</label>
-                            {#if field === 'notes'}
-                              <textarea bind:value={editSheet.weapons[i][field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" rows="2"></textarea>
-                            {:else}
-                              <input type="text" bind:value={editSheet.weapons[i][field]} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" />
-                            {/if}
-                          </div>
-                        {/each}
+                        <label class="block">
+                          <span class="block text-[10px] font-bold text-[#9ca3af] mb-1">Dé</span>
+                          <input type="text" bind:value={editSheet.weapons[i].de} placeholder="1d8" class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" />
+                        </label>
+                        <label class="block">
+                          <span class="block text-[10px] font-bold text-[#9ca3af] mb-1">Dégâts</span>
+                          <input type="text" bind:value={editSheet.weapons[i].degats} placeholder="tranchant" class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" />
+                        </label>
+                        <label class="block">
+                          <span class="block text-[10px] font-bold text-[#9ca3af] mb-1">Bonus</span>
+                          <input type="text" bind:value={editSheet.weapons[i].bonus} placeholder="+2" class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" />
+                        </label>
+                        <label class="block">
+                          <span class="block text-[10px] font-bold text-[#9ca3af] mb-1">Caractéristique</span>
+                          <select bind:value={editSheet.weapons[i].scaling} class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500">
+                            <option value="">— Aucune —</option>
+                            <option value="force">Force</option>
+                            <option value="agilite">Agilité</option>
+                            <option value="esprit">Esprit</option>
+                            <option value="social">Social</option>
+                          </select>
+                        </label>
+                        <label class="block col-span-full @2xl:col-span-1">
+                          <span class="block text-[10px] font-bold text-[#9ca3af] mb-1">Rareté / prix</span>
+                          <input type="text" bind:value={editSheet.weapons[i].raretePrix} placeholder="Commun" class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500" />
+                        </label>
+                        <div class="col-span-full">
+                          <div class="block text-[10px] font-bold text-[#9ca3af] mb-1">Propriétés</div>
+                          <PropertyTagSelect
+                            tags={weapon.tags ?? []}
+                            onChange={(tags) => (editSheet.weapons[i].tags = tags)}
+                          />
+                          {#if (weapon.tags ?? []).includes('finesse')}
+                            <label class="flex items-center gap-1.5 mt-1.5 cursor-pointer" title="Une arme Finesse peut scaler avec l'Agilité">
+                              <input
+                                type="checkbox"
+                                checked={weapon.finesse ?? finesseDefault(effectiveStats(view))}
+                                onchange={(e) => (editSheet.weapons[i].finesse = e.currentTarget.checked)}
+                                class="accent-indigo-500"
+                              />
+                              <span class="text-[10px] text-[#9ca3af]">Finesse — scale avec l'Agilité</span>
+                            </label>
+                          {/if}
+                        </div>
+                        <label class="block col-span-full">
+                          <span class="block text-[10px] font-bold text-[#9ca3af] mb-1">Description</span>
+                          <textarea bind:value={editSheet.weapons[i].description} rows="2" class="w-full px-2.5 py-1.5 bg-[#242424] border border-[#374151] rounded-md text-[11px] focus:outline-none focus:border-indigo-500"></textarea>
+                        </label>
                       </div>
                     </div>
                   {/each}
@@ -2361,10 +2435,20 @@
                 <span class="text-[#9ca3af] w-24 shrink-0">Bonus attaque</span>
                 <span class="font-bold" style="color: {STAT_COLORS.force}">{formatModifier(attackBonus(weapon, effectiveStats(view)))}</span>
               </div>
-              {#if weapon.notes}
+              {#if weaponTagInfo(weapon).length}
                 <div class="flex gap-2 text-[12px]">
                   <span class="text-[#9ca3af] w-24 shrink-0">Propriétés</span>
-                  <div class="rich-html flex-1">{@html sanitizeHtml(weapon.notes)}</div>
+                  <div class="flex flex-wrap gap-1 flex-1">
+                    {#each weaponTagInfo(weapon) as tag}
+                      <span use:tooltip={tag.desc} class="px-1.5 py-0.5 rounded border border-[#374151] bg-[#111827] text-[10px] font-semibold text-indigo-200">{tag.label}</span>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+              {#if weapon.description}
+                <div class="flex gap-2 text-[12px]">
+                  <span class="text-[#9ca3af] w-24 shrink-0">Description</span>
+                  <div class="rich-html flex-1">{@html sanitizeHtml(weapon.description)}</div>
                 </div>
               {/if}
             {:else if expandedSlot.kind === 'slot' && slotData?.nom}
@@ -2551,7 +2635,14 @@
 
   <!-- Add popup: SAC view + ÉDITION INVENTAIRE / ARMES -->
   {#if itemAddTarget}
-    <ItemAddPopup mode={itemAddTarget === 'sac' ? 'all' : itemAddTarget} onPick={addFromPopup} />
+    <ItemAddPopup
+      mode={itemAddTarget === 'sac' ? 'all' : itemAddTarget === 'edit' ? 'all' : itemAddTarget}
+      stats={effectiveStats(sheet)}
+      initialDraft={itemEdit?.draft ?? null}
+      editIndex={itemEdit?.index ?? null}
+      editIsWeapon={itemEdit ? itemEdit.kind === 'weapon' : null}
+      onPick={addFromPopup}
+    />
   {/if}
 
   <!-- SAC equipment actions: Équiper / Donner / Jeter -->
@@ -2620,6 +2711,10 @@
               disabled={allyTargets.length === 0}
               class="px-4 py-2 bg-[#111827] hover:bg-[#374151] disabled:opacity-40 disabled:cursor-not-allowed text-[13px] font-semibold rounded-lg transition-colors"
             >🎁 Donner à un allié</button>
+            <button
+              onclick={() => editFromSac(gearAction)}
+              class="px-4 py-2 bg-[#111827] hover:bg-[#374151] text-[13px] font-semibold rounded-lg transition-colors"
+            >✎ Éditer</button>
             <button
               onclick={() => throwFromSac(gearAction)}
               class="px-4 py-2 bg-red-950 hover:bg-red-900 text-red-200 text-[13px] font-semibold rounded-lg transition-colors"

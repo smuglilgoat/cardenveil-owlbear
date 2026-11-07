@@ -7,7 +7,7 @@ import { initDiag } from '../lib/diag.js';
 initLogging('background', { sessionStart: true });
 initDiag('background');
 
-const CLOSE_AFTER_MS = 8000; // was 6s: players could not read the result in time
+const CLOSE_AFTER_MS = 11000; // 6 → 8 → 11 s: the final damage line needs reading time (issue #5)
 let closeTimer;
 let lastRollId = null;
 let diceStyle = localStorage.getItem('cardenveil-dice-style') || '';
@@ -36,7 +36,8 @@ function dicePopoverHeight(data) {
   const dice = data.rolls?.length ?? (data.diceSpec ?? []).reduce((n, t) => n + (t.count ?? 0), 0) ?? 1;
   const chipRows = Math.max(1, Math.ceil(Math.min(dice, 15) / 9));
   const breakdown = (data.breakdown ?? []).length ? 90 : 0;
-  return Math.min(470, 350 + (chipRows - 1) * 34 + breakdown);
+  const tags = data.tags ? 22 : 0;
+  return Math.min(500, 350 + (chipRows - 1) * 34 + breakdown + tags);
 }
 
 function openDicePopover(params, anchor, height) {
@@ -83,6 +84,8 @@ OBR.onReady(() => {
       self: isSelf ? '1' : '0',
       error: '',
       breakdown: data.breakdown ? JSON.stringify(data.breakdown) : '',
+      // weapon properties shown under the formula (issue #5)
+      tags: data.tags || '',
       // attack stage throws (3D): the popup reports each stage back to the
       // roller, which applies the rules and throws the next stage
       staged: data.staged ? '1' : '0',

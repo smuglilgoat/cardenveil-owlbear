@@ -37,12 +37,18 @@ const mockSupabase = {
 
 // Realtime health listeners api.js registers (the heartbeat watchdog path).
 const mockHealthListeners = new Set();
+// Heartbeat-gap listeners api.js registers (diagnostic only).
+const mockGapListeners = new Set();
 
 jest.unstable_mockModule('../../src/lib/supabaseClient.js', () => ({
   supabase: mockSupabase,
   onRealtimeHealth: (cb) => {
     mockHealthListeners.add(cb);
     return () => mockHealthListeners.delete(cb);
+  },
+  onRealtimeGap: (cb) => {
+    mockGapListeners.add(cb);
+    return () => mockGapListeners.delete(cb);
   },
   realtimeProblem: () => '',
 }));
@@ -370,6 +376,40 @@ describe('API Client', () => {
       stopRealtime();
     });
 
+    it('re-subscribes at once when the socket closes after a working subscription', () => {
+      // Owlbear's iframes close the realtime socket every ~30 s. Waiting out a
+      // 30 s backoff there left the frame disconnected half the time.
+      jest.useFakeTimers();
+      startRealtime('test-room', jest.fn());
+      mockChannel.emitStatus('SUBSCRIBED');
+      jest.advanceTimersByTime(30000); // the observed death cadence
+      const before = mockSupabase.channel.mock.calls.length;
+
+      mockChannel.emitStatus('CLOSED');
+      jest.advanceTimersByTime(250);
+
+      expect(mockSupabase.channel.mock.calls.length).toBe(before + 1);
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
+    it('keeps the escalating backoff when the socket closes before it ever worked', () => {
+      // A server that refuses every join must not be hammered every 250 ms.
+      jest.useFakeTimers();
+      startRealtime('test-room', jest.fn());
+      mockChannel.emitStatus('SUBSCRIBED');
+      const before = mockSupabase.channel.mock.calls.length;
+
+      mockChannel.emitStatus('CLOSED'); // uptime ~0 → not a working subscription
+      jest.advanceTimersByTime(250);
+      expect(mockSupabase.channel.mock.calls.length).toBe(before);
+
+      jest.advanceTimersByTime(1000); // the first backoff step
+      expect(mockSupabase.channel.mock.calls.length).toBe(before + 1);
+      stopRealtime();
+      jest.useRealTimers();
+    });
+
     it('runs the catch-up fetch after a reconnection, not on the first subscribe', async () => {
       jest.useFakeTimers();
       gameRoomsResult = {
@@ -644,6 +684,64 @@ describe('API Client', () => {
       const shown = onState.mock.calls.at(-1)[0].players['player-1'].hand;
       expect(shown).toHaveLength(1);
       expect(shown[0]._pending).toBeUndefined();
+
+      stopRealtime();
+    });
+
+    it('shows the Aasimar heart as a pending card until the server confirms', async () => {
+      let realtimeCb = null;
+      mockChannel.on.mockImplementationOnce((_event, _config, cb) => {
+        realtimeCb = cb;
+        return mockChannel;
+      });
+
+      const onState = jest.fn();
+      startRealtime('test-room', onState);
+      mockChannel.emitStatus('SUBSCRIBED');
+
+      const row = (version, hand) => ({
+        version,
+        state: {
+          players: {
+            'player-1': {
+              name: 'P',
+              race: 'aasimar',
+              hand,
+              crystallized: [],
+              tokens: { force: 3, agilite: 3, esprit: 3, social: 3 },
+              maxTokens: { force: 3, agilite: 3, esprit: 3, social: 3 },
+            },
+          },
+          discard: [],
+          pendingExchanges: [],
+          logs: [],
+        },
+      });
+
+      gameRoomsResult = { data: row(1, []), error: null };
+      await fetchState('test-room');
+
+      let resolveInvoke;
+      mockSupabase.functions.invoke.mockImplementationOnce(
+        () => new Promise((resolve) => { resolveInvoke = resolve; })
+      );
+
+      // Spending a token also draws the Aasimar's ♥ into the HAND (issue #6):
+      // the locally rolled card must stay a placeholder until it is confirmed,
+      // otherwise it changes on every replay.
+      const dispatching = dispatch('test-room', { type: 'SPEND_TOKEN', playerId: 'player-1', token: 'social' });
+      const hand = onState.mock.calls.at(-1)[0].players['player-1'].hand;
+      expect(hand).toHaveLength(1);
+      expect(hand[0]._pending).toBe(true);
+
+      realtimeCb({ new: row(2, ['s-H-7-z']) });
+      resolveInvoke({ data: { version: 2 }, error: null });
+      await dispatching;
+
+      const shown = onState.mock.calls.at(-1)[0].players['player-1'].hand;
+      expect(shown).toHaveLength(1);
+      expect(shown[0]._pending).toBeUndefined();
+      expect(shown[0].value).toBe('7');
 
       stopRealtime();
     });
