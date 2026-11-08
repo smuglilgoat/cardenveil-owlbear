@@ -8,6 +8,7 @@ import {
   isDuplicateAction,
   rememberActionId,
 } from '../../src/lib/actionGuard.js';
+import { verifyRecoveryCode } from '../../src/lib/recoveryCode.js';
 
 function corsHeaders() {
   return {
@@ -77,9 +78,23 @@ export default async (request) => {
         });
       }
 
-      const verdict = await verifyActor(currentState, action);
-      if (!verdict.ok) {
-        return json({ error: 'unauthorized', reason: verdict.reason }, 401);
+      // RECOVER_IDENTITY is the owner's escape hatch for a GM whose credential
+      // the guard refuses: the recovery code is checked BEFORE the credential,
+      // because that GM cannot present one. The reducer then drops the stored
+      // hashes and the mint below issues a fresh credential.
+      if (action.type === 'RECOVER_IDENTITY') {
+        const check = await verifyRecoveryCode(process.env.RECOVERY_SECRET ?? '', action.code, {
+          roomId,
+          gmId: action.playerId,
+        });
+        if (!check.ok) {
+          return json({ error: 'unauthorized', reason: check.reason }, 401);
+        }
+      } else {
+        const verdict = await verifyActor(currentState, action);
+        if (!verdict.ok) {
+          return json({ error: 'unauthorized', reason: verdict.reason }, 401);
+        }
       }
 
       const { state: appliedState } = applyAction(currentState, action);

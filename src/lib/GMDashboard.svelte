@@ -46,6 +46,8 @@
   import { importSheetArchive } from "./sheetAssets.js";
   import { logEvent, logError, setLogContext } from "./appLog.js";
   import { requestDiag } from "./diag.js";
+  import { rotateCommandSecret } from "./commandSecret.js";
+  import { dispatch } from "./api.js";
   import {
     getHandAnchorPosition,
     getHandPopoverSize,
@@ -53,7 +55,45 @@
     onHandPopoverChange,
   } from "./handAnchor.js";
 
-  let { gameState, party, myId, onAction } = $props();
+  let { gameState, party, myId, onAction, dispatchError = '' } = $props();
+
+  // ── Recovery code (the owner's escape hatch for a refused identity) ──
+  const RECOVERY_REASONS = {
+    malformed_code: 'Code illisible ou mal recopié.',
+    bad_signature: "Ce code n'est pas un code de cette table.",
+    expired_code: 'Ce code a expiré — demandez-en un nouveau.',
+    wrong_room: 'Ce code est pour une autre table.',
+    wrong_identity: "Ce code est pour un autre MJ.",
+    recovery_unavailable: "La récupération n'est pas configurée sur le serveur.",
+  };
+  let recoveryCode = $state('');
+  let recoveryMessage = $state('');
+  let recoveryBusy = $state(false);
+
+  async function recoverIdentity() {
+    const code = recoveryCode.trim();
+    if (!code || recoveryBusy) return;
+    recoveryBusy = true;
+    recoveryMessage = '';
+    let refused = false;
+    try {
+      await dispatch(
+        OBR.room.id,
+        { type: 'RECOVER_IDENTITY', code, playerId: myId, actorId: myId },
+        {
+          onError: ({ reason }) => {
+            refused = true;
+            recoveryMessage = RECOVERY_REASONS[reason] ?? 'Code refusé.';
+          },
+        }
+      );
+      if (!refused) recoveryMessage = 'Code accepté — rechargez la page pour reprendre la main.';
+    } catch (err) {
+      recoveryMessage = err?.message ?? 'Code refusé.';
+    } finally {
+      recoveryBusy = false;
+    }
+  }
 
   setLogContext({ roomId: OBR.room.id, playerId: myId });
 
@@ -468,6 +508,9 @@
       return;
     }
     resetStep = 0;
+    // A reset also rotates the room's command secret: the tab URLs handed out
+    // before it stop granting anything.
+    rotateCommandSecret(OBR.room.id);
     onAction({ type: 'HARD_RESET', playerId: myId });
   }
 
@@ -715,6 +758,33 @@
 </script>
 
 <div class="flex flex-col h-full overflow-y-auto p-3 gap-4">
+  <!-- ── Identifiant refusé : code de récupération du propriétaire ────── -->
+  {#if dispatchError}
+    <div class="rounded-lg border border-amber-700 bg-[#1c1408] p-3">
+      <div class="text-xs font-bold text-amber-200">Identifiant non reconnu</div>
+      <p class="text-[11px] text-amber-100/80 mt-1">
+        Le propriétaire de la table peut vous remettre un code de récupération à usage unique.
+        Collez-le ici, puis rechargez la page.
+      </p>
+      <div class="mt-2 flex items-center gap-2">
+        <input
+          bind:value={recoveryCode}
+          placeholder="cv1.…"
+          class="flex-1 min-w-0 bg-[#111827] border border-amber-700 rounded px-2 py-1 text-[11px] font-mono text-amber-100 focus:outline-none focus:border-amber-400"
+        />
+        <button
+          onclick={recoverIdentity}
+          disabled={recoveryBusy || !recoveryCode.trim()}
+          style="background:#d97706"
+          class="shrink-0 text-[10px] font-semibold px-2 py-1 rounded text-black disabled:opacity-40"
+        >{recoveryBusy ? '…' : 'RÉCUPÉRER'}</button>
+      </div>
+      {#if recoveryMessage}
+        <div class="mt-1 text-[11px] text-amber-200">{recoveryMessage}</div>
+      {/if}
+    </div>
+  {/if}
+
   <!-- ── Style des dés (3D animés ou classique) ────────────────────── -->
   <div class="flex items-center gap-2 text-xs text-gray-400 px-1">
     <span>Dés :</span>

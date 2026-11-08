@@ -7,7 +7,8 @@
   import PropertyTagSelect from './PropertyTagSelect.svelte';
   import { importSheetArchive } from './sheetAssets.js';
   import { RACES, GM_CHAR_ID } from './deck.js';
-  import { logError, setLogContext } from './appLog.js';
+  import { logError, logEvent, setLogContext } from './appLog.js';
+  import { getOrCreateCommandSecret } from './commandSecret.js';
   import {
     STAT_COLORS,
     STAT_LABELS,
@@ -72,7 +73,19 @@
   } from './characterSheet.js';
   import { broadcastRoll, onRollResult } from './rollBroadcast.js';
 
-  let { playerId, roomId, gameState = null, onAction = () => {} } = $props();
+  let { playerId, roomId, gameState = null, onAction = () => {}, statusNote = '', commandSecret = '' } = $props();
+  // The frame's note (connection, refused write) plus the sheet's own — the top
+  // bar is the only place they can show without changing the layout. The live
+  // status wins; the sheet's own note fades so it cannot mask a refusal.
+  let localNote = $state('');
+  const barNote = $derived(statusNote || localNote);
+  let noteTimer = null;
+
+  function setLocalNote(text) {
+    localNote = text;
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(() => (localNote = ''), 4000);
+  }
 
   setLogContext({ roomId, playerId });
 
@@ -256,6 +269,7 @@
         offBroadcast();
         offRollResult();
         offParty?.();
+        clearTimeout(noteTimer);
       };
     } catch (err) {
       console.error('Failed to load character sheet:', err);
@@ -436,6 +450,12 @@
   // when running outside OBR ───
   function showDicePopup(data) {
     if (OBR.isAvailable) return;
+    // 3D intent: the numbers are decided by the popup inside Owlbear, so there
+    // is no result to print here — only an acknowledgement.
+    if (data.total == null && !data.error) {
+      diceResult = { notice: 'Jet transmis à Owlbear.', timestamp: new Date().toLocaleTimeString() };
+      return;
+    }
     diceResult = data.error
       ? { error: data.error }
       : { ...data, timestamp: new Date().toLocaleTimeString() };
@@ -468,7 +488,7 @@
           seed: Math.floor(Math.random() * 0xffffffff),
           zoomCrit: !!opts?.zoomCrit,
           keep: spec.keep || ''
-        });
+        }, roomId, commandSecret);
         showDicePopup({ label: capacityName }); // inline fallback only
         return;
       }
@@ -492,7 +512,7 @@
         portrait: view?.portrait || '',
         portraitIsImage: isImageUrl(view?.portrait),
         ...result
-      });
+      }, roomId, commandSecret);
       showDicePopup({ label: capacityName, ...result });
     } catch (err) {
       showDicePopup({ label: capacityName, error: err.message });
@@ -941,6 +961,12 @@
 
   // ─── Compact sheet popover (basic info + favorited rolls) ───
   async function toggleSheetPopover() {
+    if (!OBR.isAvailable) {
+      // The compact sheet is an Owlbear popover: outside the room (the
+      // standalone tab) there is no popover to open.
+      setLocalNote('Le compact reste dans Owlbear.');
+      return;
+    }
     try {
       if (sheetPopoverOpen) {
         await OBR.popover.close(SHEET_POPOVER_ID);
@@ -965,6 +991,43 @@
       sheetPopoverOpen = true;
     } catch (err) {
       logError('sheet_popover_toggle_failed', err);
+    }
+  }
+
+  // ─── Standalone full sheet in a browser tab (issue #14) ───
+  // The tab shares this origin, so it reuses the actor token and the
+  // BroadcastChannel sync; only the dice popup needs the background page relay.
+  let standaloneUrl = $state('');
+  let standaloneBlocked = $state(false);
+
+  function openStandaloneTab() {
+    // The tab gets the room's command secret: the command channel is writable
+    // by anyone holding the public anon key, so commands must be signed.
+    const secret = getOrCreateCommandSecret(roomId);
+    const url = `${window.location.origin}/sheetFull.html?playerId=${encodeURIComponent(playerId)}&roomId=${encodeURIComponent(roomId)}&k=${encodeURIComponent(secret)}`;
+    standaloneUrl = url;
+    const win = window.open(url, '_blank');
+    if (!win) {
+      // Blocked by the browser, or by the Owlbear iframe sandbox (no
+      // allow-popups): hand the URL over instead of failing silently.
+      standaloneBlocked = true;
+      logEvent('warn', 'sheet_tab_open_blocked', { message: 'popup blocked' });
+      return;
+    }
+    try {
+      win.opener = null;
+    } catch {
+      /* cross-origin window: opener stays */
+    }
+    logEvent('info', 'sheet_tab_opened', { detail: { roomId } });
+  }
+
+  async function copyStandaloneUrl() {
+    try {
+      await navigator.clipboard.writeText(standaloneUrl);
+      setLocalNote('Lien copié — collez-le dans un nouvel onglet.');
+    } catch {
+      setLocalNote('Copie impossible : sélectionnez le lien à la main.');
     }
   }
 
@@ -1028,10 +1091,25 @@
     <!-- ═══ TOP BAR ═══ -->
     <div class="h-10 bg-[#1f2937] flex items-center px-3 shrink-0">
       <span class="text-sm font-bold tracking-wide">CARDENVEIL</span>
-      <span class="text-xs font-medium text-[#9ca3af] ml-4 truncate hidden @2xl:block">
+      <span class="text-xs font-medium text-[#9ca3af] ml-4 truncate min-w-0 flex-1 hidden @2xl:block">
         {view.identity?.nom || '—'} · {raceLabel(view.identity?.race) || '—'} · Niveau {view.identity?.niveau ?? 1}
       </span>
+      {#if barNote}
+        <span
+          class="text-[11px] px-2 py-0.5 rounded-full bg-[#111827] text-amber-300 truncate max-w-[240px] shrink-0"
+          title={barNote}
+        >{barNote}</span>
+      {/if}
       <div class="ml-auto flex items-center gap-1.5 shrink-0">
+        {#if OBR.isAvailable}
+        <button
+          onclick={openStandaloneTab}
+          title="Ouvrir la fiche dans un onglet du navigateur"
+          class="h-8 min-w-8 px-2 @2xl:px-3 bg-[#111827] rounded-full text-[10px] font-semibold text-[#9ca3af] hover:text-white transition-colors whitespace-nowrap flex items-center justify-center"
+        >
+          <span class="hidden @2xl:inline">ONGLET</span><span class="@2xl:hidden">↗</span>
+        </button>
+        {/if}
         <button
           onclick={toggleSheetPopover}
           title="Fiche compacte — favoris et lancers rapides"
@@ -1064,6 +1142,26 @@
         </button>
       </div>
     </div>
+
+    {#if standaloneBlocked}
+      <div class="flex items-center gap-2 px-3 py-1.5 bg-[#1e1b4b] border-b border-indigo-700 shrink-0">
+        <span class="text-[11px] text-indigo-200 shrink-0">Onglet bloqué par le navigateur — ouvrez ce lien :</span>
+        <input
+          readonly
+          value={standaloneUrl}
+          onfocus={(e) => e.currentTarget.select()}
+          class="flex-1 min-w-0 bg-[#111827] border border-[#374151] rounded px-2 py-1 text-[11px] font-mono text-gray-200 focus:outline-none focus:border-indigo-500"
+        />
+        <button
+          onclick={copyStandaloneUrl}
+          class="shrink-0 text-[10px] font-semibold px-2 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-500"
+        >COPIER</button>
+        <button
+          onclick={() => (standaloneBlocked = false)}
+          class="text-[11px] text-gray-400 hover:text-white shrink-0"
+        >✕</button>
+      </div>
+    {/if}
 
     {#if isImporting}
       <div class="fixed inset-0 z-[80] bg-black/60 flex flex-col items-center justify-center gap-3">
@@ -1411,7 +1509,11 @@
           </div>
 
           {#if diceResult}
-            {#if diceResult.error}
+            {#if diceResult.notice}
+              <div class="mt-3 bg-[#111827] border border-[#374151] rounded-lg p-3 text-[13px] text-gray-300">
+                {diceResult.notice} <span class="text-[11px] text-gray-500">({diceResult.timestamp})</span>
+              </div>
+            {:else if diceResult.error}
               <div class="mt-3 bg-red-950 border border-red-800 rounded-lg p-3">
                 <div class="text-[13px] text-red-200">Formule invalide : {diceResult.error}</div>
               </div>

@@ -13,6 +13,7 @@
     toggleHandAnchor,
   } from "./handAnchor.js";
   import { suitColorBySymbol, classicSuitColor, getCardScheme, setCardScheme, onCardSchemeChange, CARD_SCHEME_KEY, STAT_COLORS } from "./characterSheet.js";
+  import { applyHandOrder, getHandOrder, setHandOrder, onHandOrderChange, handOrderKey } from "./handOrder.js";
   import HandModal from "./HandModal.svelte";
 
   initDiag('hand');
@@ -194,6 +195,7 @@
       demo.maxTokens = { force: 5, agilite: 5, esprit: 5, social: 5 };
       myId = 'demo-player';
       roomId = 'demo-room';
+      loadHandOrder();
       gameState = { ...createInitialGameState(), players: { 'demo-player': demo } };
       const state = params.get('state') || 'fanned';
       if (state === 'folded') folded = true;
@@ -229,6 +231,7 @@
         myId = playerIdParam || await OBR.player.getId();
         roomId = OBR.room.id;
         setLogContext({ roomId, playerId: myId });
+        loadHandOrder();
         party = await OBR.party.getPlayers();
         // Room viewport for the size clamps (see viewportW/H comment).
         viewportW = await OBR.viewport.getWidth();
@@ -283,7 +286,14 @@
     }
   }
 
+  // The order is a local preference shared with the other frames of this
+  // browser (the `storage` event) — never with the other players.
+  const offHandOrder = onHandOrderChange(() => loadHandOrder());
+  window.addEventListener('storage', onStorageEvent);
+
   onDestroy(() => {
+    offHandOrder();
+    window.removeEventListener('storage', onStorageEvent);
     stopRealtime();
     unsubParty?.();
     offCardScheme();
@@ -320,14 +330,121 @@
     !player || handFull || mustCrystallize || player.pendingHalfling != null,
   );
 
+  // The fan sorts by suit and value; the player's own order is applied AFTER
+  // the sort (issue #18) — otherwise the sort would undo it on every render.
+  let handOrder = $state({});
+
   let allCards = $derived(
     player
-      ? sortCards([...player.hand, ...player.crystallized]).map((c) => ({
+      ? applyHandOrder(sortCards([...player.hand, ...player.crystallized]), handOrder).map((c) => ({
           card: c,
           isCrystallized: player.crystallized.includes(c),
         }))
       : [],
   );
+
+  // ── Drag to reorder (issue #18) ────────────────────────────────────────
+  // The fan is a straight horizontal line (SPREAD_X), so the pointer's X maps
+  // straight onto a card slot. The order is a LOCAL preference: the hand's
+  // order carries no rules weight (the reducer only looks cards up by id), so
+  // nothing goes to the server.
+  const DRAG_THRESHOLD_PX = 5;
+
+  let drag = $state(null);
+  /** Set after a drag so the click that follows it does not select the card. */
+  let justDragged = $state(false);
+
+  /** The fan while a card is being dragged: it already sits in its new slot. */
+  let fanCards = $derived.by(() => {
+    if (!drag?.moved) return allCards;
+    const copy = [...allCards];
+    const [moved] = copy.splice(drag.fromIndex, 1);
+    copy.splice(drag.toIndex, 0, moved);
+    return copy;
+  });
+
+  /** The slot whose centre is closest to `centreX` (both relative to the fan). */
+  function slotAt(centreX, count) {
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < count; i++) {
+      const dist = Math.abs(cardTx(i, count) - centreX);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  function onCardPointerDown(e, card, index) {
+    if (e.button !== 0) return;
+    if (card._pending) return; // a card the server has not confirmed yet
+    if (action || interactionFrozen) return; // a modal pick owns the cards
+    justDragged = false;
+    drag = {
+      cardId: card.id,
+      fromIndex: index,
+      toIndex: index,
+      startX: e.clientX,
+      dx: 0,
+      pointerId: e.pointerId,
+      moved: false,
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* capture unavailable: the fan's own listeners still see the moves */
+    }
+  }
+
+  function onFanPointerMove(e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    if (!drag.moved) {
+      if (Math.abs(dx) < DRAG_THRESHOLD_PX) return;
+      drag.moved = true;
+    }
+    drag.dx = dx;
+    // The card keeps its grab offset: its centre follows the pointer.
+    const to = slotAt(cardTx(drag.fromIndex, allCards.length) + dx, allCards.length);
+    if (to !== drag.toIndex) drag.toIndex = to;
+  }
+
+  function onFanPointerUp(e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const finished = drag;
+    drag = null;
+    if (!finished.moved) return; // a plain click: the card's own action
+    justDragged = true;
+    const list = [...allCards];
+    const [moved] = list.splice(finished.fromIndex, 1);
+    list.splice(finished.toIndex, 0, moved);
+    const order = {};
+    list.forEach(({ card }, i) => {
+      order[card.id] = i;
+    });
+    setHandOrder(roomId, myId, order);
+  }
+
+  /**
+   * The card's X. The dragged one keeps the slot it was grabbed in and follows
+   * the pointer from there — placing it at its NEW slot as well would offset it
+   * by the drag distance.
+   */
+  function cardOffsetX(i, count, cardId) {
+    if (drag?.moved && drag.cardId === cardId) return cardTx(drag.fromIndex, count) + drag.dx;
+    return cardTx(i, count);
+  }
+
+  function loadHandOrder() {
+    handOrder = getHandOrder(roomId, myId);
+  }
+
+  /** Another frame of this browser changed the order (the `storage` event). */
+  function onStorageEvent(e) {
+    if (e.key === handOrderKey(roomId, myId)) loadHandOrder();
+  }
 
   let partyIds = $derived(new Set(party.map((p) => p.id)));
 
@@ -537,6 +654,11 @@
   }
 
   function onCardClick(card, isCrystallized) {
+    if (justDragged) {
+      // The click that ends a drag must not select the card.
+      justDragged = false;
+      return;
+    }
     if (interactionFrozen) return;
     if (card._pending) return;
     const isGrayed = (player?.grayedCards ?? []).includes(card.id);
@@ -662,6 +784,9 @@
         bind:this={fanEl}
         class="shrink-0 relative flex items-end justify-center overflow-visible"
         style="height: {allCards.length ? FAN_H : EMPTY_FAN_H}px;"
+        onpointermove={onFanPointerMove}
+        onpointerup={onFanPointerUp}
+        onpointercancel={onFanPointerUp}
       >
         {#if allCards.length === 0}
           <p class="text-[10px] text-gray-600">Aucune carte</p>
@@ -671,7 +796,7 @@
             class="relative flex items-end justify-center"
             style="width: {fanWidth(n)}px; height: {FAN_H}px;"
           >
-            {#each allCards as { card, isCrystallized }, i (card.id)}
+            {#each fanCards as { card, isCrystallized }, i (card.id)}
               {@const isActive = active?.card.id === card.id}
               {@const isGrayed = (player.grayedCards ?? []).includes(card.id)}
               {@const isSelectable =
@@ -680,12 +805,15 @@
                 !isGrayed}
 
               <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
-                class="absolute bottom-0 left-1/2 cursor-pointer transition-all duration-150"
+                class="absolute bottom-0 left-1/2 cursor-pointer {drag?.moved && drag.cardId === card.id
+                  ? 'transition-none'
+                  : 'transition-all duration-150'}"
                 style="
-                  transform: translateX({cardTx(i, n)}px);
+                  transform: translateX({cardOffsetX(i, n, card.id)}px);
                   margin-left: -40px;
-                  z-index: {isActive ? 50 : i};
+                  z-index: {drag?.moved && drag.cardId === card.id ? 1000 : isActive ? 50 : i};
                   filter: {isActive
                   ? 'drop-shadow(0 0 8px rgba(99,102,241,0.9))'
                   : isSelectable
@@ -693,6 +821,7 @@
                     : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'};
                 "
                 onclick={() => onCardClick(card, isCrystallized)}
+                onpointerdown={(e) => onCardPointerDown(e, card, i)}
               >
                 {#if card._pending}
                   <div

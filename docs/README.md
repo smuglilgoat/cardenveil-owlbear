@@ -35,6 +35,7 @@ still cite them. Their published equivalents live under `docs/documentation/`:
 | `docs/debug-live-room.md` | `docs/documentation/operations/debug-live-room.md` |
 | `docs/Reglejetdattaque.md` + `docs/patch.md` | `docs/documentation/game-rules/damage-rolls.md` |
 | `docs/character-sheet-analysis.md` | not published (outdated planning doc) |
+| `docs/credential-recovery.md` | not published (owner runbook for a refused identity) |
 
 ## Git Sync setup
 

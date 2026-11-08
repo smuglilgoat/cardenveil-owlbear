@@ -345,7 +345,7 @@ describe('runAttack — staged driving (3D physics pipeline)', () => {
   });
 });
 
-describe('Hybride: the GM formula (issue #12)', () => {
+describe('Hybride: the GM formula (issue #17, which supersedes #12)', () => {
   // stats: force 16 (+3), agilite 14 (+2)
   const fists = () => noMiss({ de: '1d6', tags: ['impact', 'hybride'] });
 
@@ -355,11 +355,12 @@ describe('Hybride: the GM formula (issue #12)', () => {
     expect(p.engagementMod).toBe(5);
   });
 
-  it('no engagement: dés + bonus + critiques × (bonus − min(Force,0))', async () => {
+  it('no engagement: dés + bonus + critiques × (bonus − max(Force,0))', async () => {
     // die 6 = crit, explosion 2 → one crit. bonus = B. ATT. = 4.
     const r = await withRolls([6, 2], 6, (rng) => rollAttack(fists(), stats, { bonus: 4, rng }));
     expect(r.critCount).toBe(1);
-    expect(r.total).toBe(6 + 2 + 4 + 4); // dice + bonus + one crit repeating the bonus
+    // dice + bonus + one crit repeating (bonus − max(Force,0) = 4 − 3)
+    expect(r.total).toBe(6 + 2 + 4 + 1);
   });
 
   it('engagement without a crit: + max(Force,0) + max(Agilité,0) per level', async () => {
@@ -369,24 +370,34 @@ describe('Hybride: the GM formula (issue #12)', () => {
     expect(r.total).toBe(3 + 4 + (3 + 2));
   });
 
-  it('engagement on a crit loses the Force part', async () => {
+  it('a crit keeps the Force part of the engagement and adds the Agility one', async () => {
     // 3 dés gardés au min : il faut 6,6,6 pour garder un 6, puis l'explosion.
     const r = await withRolls([6, 6, 6, 2], 6, (rng) => rollAttack(fists(), stats, { bonus: 4, engagement: 1, rng }));
-    expect(r.total).toBe(6 + 2 + 4 + 4 + 2); // dice + bonus + crit + max(Agilité,0)
+    // dice + bonus + crit (bonus − max(Force,0) = 1) + engagement (Force 3 + Agilité 2 + Agilité 2 par critique)
+    expect(r.total).toBe(6 + 2 + 4 + 1 + 7);
   });
 
-  it('a negative Force modifier is corrected on a crit', async () => {
+  it('the engagement level multiplies the crit bonus too', async () => {
+    // 2 engagements = 2 désavantages → 5 dés, on garde le min : il faut 5 six.
+    const r = await withRolls([6, 6, 6, 6, 6, 2], 6, (rng) => rollAttack(fists(), stats, { bonus: 4, engagement: 2, rng }));
+    expect(r.critCount).toBe(1);
+    // dice + bonus + crit (1) + 2 × (Force 3 + Agilité 2 + Agilité 2 par critique)
+    expect(r.total).toBe(6 + 2 + 4 + 1 + 14);
+  });
+
+  it('a negative Force modifier is simply not taken into account', async () => {
     const weak = { force: 8, agilite: 14 }; // Force -1, Agilité +2
     const r = await withRolls([6, 2], 6, (rng) => rollAttack(fists(), weak, { bonus: 4, rng }));
-    // bonus − min(-1, 0) = 4 + 1 per crit
-    expect(r.total).toBe(6 + 2 + 4 + 5);
+    // max(Force, 0) = 0 : the crit repeats the whole bonus, and the negative
+    // Force changes nothing — neither the crit nor the damage.
+    expect(r.total).toBe(6 + 2 + 4 + 4);
   });
 
   it('does not double-count with the Finesse repeat', async () => {
     // A Hybride weapon explicitly ticked Finesse keeps the Hybride rule only.
     const tagged = noMiss({ de: '1d6', tags: ['hybride', 'finesse'], finesse: true });
     const r = await withRolls([6, 2], 6, (rng) => rollAttack(tagged, stats, { bonus: 4, rng }));
-    expect(r.total).toBe(6 + 2 + 4 + 4);
+    expect(r.total).toBe(6 + 2 + 4 + 1);
   });
 });
 

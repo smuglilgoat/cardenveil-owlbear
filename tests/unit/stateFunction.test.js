@@ -49,6 +49,7 @@ function makeFakeSupabase(initialRow = null) {
 }
 
 const handler = (await import('../../netlify/functions/state.js')).default;
+const { mintRecoveryCode } = await import('../../src/lib/recoveryCode.js');
 
 function post(action) {
   return handler(
@@ -65,6 +66,7 @@ const bodyOf = async (res) => JSON.parse(await res.text());
 describe('netlify /api/state write path', () => {
   beforeEach(() => {
     fake = null;
+    process.env.RECOVERY_SECRET = 'owner-secret';
   });
 
   it('answers GET with 410 Gone without touching the database', async () => {
@@ -229,5 +231,72 @@ describe('netlify /api/state write path', () => {
     const reclaimed = await bodyOf(await post({ type: 'REGISTER_PLAYER', playerId: 'p1', name: 'P1' }));
     expect(reclaimed.token).toMatch(/^[0-9a-f]{64}$/);
     expect(reclaimed.token).not.toBe(p1.token);
+  });
+
+  it('lets the GM re-claim a refused identity with the owner recovery code', async () => {
+    fake = makeFakeSupabase();
+    await post({ type: 'INIT_GAME', playerId: 'gm-1' });
+
+    // The GM's credential went stale: the room keeps the hash, the client lost
+    // the token — every write is refused.
+    const stale = 'a'.repeat(64);
+    const refused = await post({
+      type: 'REGISTER_PLAYER',
+      playerId: 'p1',
+      name: 'P1',
+      actorId: 'gm-1',
+      actorToken: stale,
+    });
+    expect(refused.status).toBe(401);
+    expect((await bodyOf(refused)).reason).toBe('bad_token');
+
+    // The owner's code is the way back: it is checked BEFORE the credential,
+    // because the locked-out GM cannot present one.
+    const code = await mintRecoveryCode('owner-secret', { roomId: 'room-1', gmId: 'gm-1' });
+    const recovered = await bodyOf(
+      await post({ type: 'RECOVER_IDENTITY', playerId: 'gm-1', actorId: 'gm-1', code })
+    );
+    expect(recovered.token).toMatch(/^[0-9a-f]{64}$/);
+    expect(recovered.token).not.toBe(stale);
+    expect(recovered.state.actorTokens['gm-1']).toHaveLength(1);
+
+    // The fresh credential works again.
+    const ok = await post({
+      type: 'REGISTER_PLAYER',
+      playerId: 'p1',
+      name: 'P1',
+      actorId: 'gm-1',
+      actorToken: recovered.token,
+    });
+    expect(ok.status).toBe(200);
+  });
+
+  it('refuses a recovery without a valid code', async () => {
+    fake = makeFakeSupabase();
+    await post({ type: 'INIT_GAME', playerId: 'gm-1' });
+
+    const noCode = await post({ type: 'RECOVER_IDENTITY', playerId: 'gm-1', actorId: 'gm-1' });
+    expect(noCode.status).toBe(401);
+
+    const wrongSecret = await mintRecoveryCode('other-secret', { roomId: 'room-1', gmId: 'gm-1' });
+    const forged = await post({
+      type: 'RECOVER_IDENTITY',
+      playerId: 'gm-1',
+      actorId: 'gm-1',
+      code: wrongSecret,
+    });
+    expect(forged.status).toBe(401);
+    expect((await bodyOf(forged)).reason).toBe('bad_signature');
+
+    // A code minted for another room must not unlock this one.
+    const otherRoom = await mintRecoveryCode('owner-secret', { roomId: 'room-2', gmId: 'gm-1' });
+    const wrongRoom = await post({
+      type: 'RECOVER_IDENTITY',
+      playerId: 'gm-1',
+      actorId: 'gm-1',
+      code: otherRoom,
+    });
+    expect(wrongRoom.status).toBe(401);
+    expect((await bodyOf(wrongRoom)).reason).toBe('wrong_room');
   });
 });

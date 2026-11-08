@@ -1,6 +1,6 @@
 // Persistent page that opens each client's dice popup when a roll starts.
 import OBR from '@owlbear-rodeo/sdk';
-import { ROLL_CHANNEL, DICE_POPOVER_ID } from '../lib/rollBroadcast.js';
+import { ROLL_CHANNEL, DICE_POPOVER_ID, sendRollToRoom } from '../lib/rollBroadcast.js';
 import { initLogging, setLogContext, logEvent, logError } from '../lib/appLog.js';
 import { initDiag } from '../lib/diag.js';
 
@@ -64,6 +64,84 @@ OBR.onReady(() => {
       localStorage.setItem('cardenveil-dice-style', diceStyle);
     }
   });
+
+  // Commands from the standalone sheet tab (issue #14). The tab is a top-level
+  // page while the room's frames are embedded in www.owlbear.rodeo: Chrome
+  // partitions BroadcastChannel AND localStorage by top-level site, so the tab
+  // can reach neither. The command channel (Supabase) crosses that boundary.
+  //
+  // This page is the room's executor: it is always inside Owlbear, it holds
+  // the room's credentials, and it opens the dice popup. Only the tab owner's
+  // browser acts on a command — the room's frames all receive it.
+  import('../lib/roomBridge.js')
+    .then(async ({ onCommand, isStaleCommand, discardCommand, COMMAND_ROLL, COMMAND_ACTION }) => {
+      const { readCommandSecret, verifyCommand } = await import('../lib/commandSecret.js');
+      // Signatures already executed in this page: the table is public, so a
+      // captured command can be inserted again — once is enough.
+      const seen = new Set();
+
+      onCommand(OBR.room.id, async (command) => {
+        if (isStaleCommand(command)) return;
+        if (seen.has(command.signature)) return;
+        // The secret is read per command: it is minted when the room opens
+        // the tab, which is AFTER this page loaded.
+        const secret = readCommandSecret(OBR.room.id);
+        // The table is public: only the tab the room opened may act.
+        if (!(await verifyCommand(secret, command))) {
+          logEvent('warn', 'command_rejected_unsigned', { detail: { kind: command.kind } });
+          return;
+        }
+        const payload = command.payload ?? {};
+        const ownerId = payload.playerId;
+        let myId = null;
+        try {
+          myId = await OBR.player.getId();
+        } catch {
+          /* not ready */
+        }
+        if (!ownerId || ownerId !== myId) return;
+        seen.add(command.signature);
+        // The row is a delivery vehicle, not a log: drop it once it is read.
+        discardCommand(command.id).catch(() => {});
+
+        if (command.kind === COMMAND_ROLL) {
+          let playerName = payload.playerName;
+          if (!playerName) {
+            try {
+              playerName = await OBR.player.getName();
+            } catch {
+              /* name optional */
+            }
+          }
+          // The tab cannot read the room's dice style (its storage partition is
+          // separate), so the room's style wins.
+          const style = localStorage.getItem('cardenveil-dice-style') || '';
+          await sendRollToRoom({ ...payload, playerName, mode: style });
+          logEvent('info', 'roll_relay_sent', { detail: { rollId: payload.rollId, label: payload.label } });
+          return;
+        }
+
+        if (command.kind === COMMAND_ACTION) {
+          const action = payload.action ?? {};
+          if (!action?.type) return;
+          // The executor acts as the tab's owner and nobody else: the action's
+          // own identity fields are overwritten, so a signed command cannot
+          // borrow the room's credential for a third player.
+          if (action.playerId && action.playerId !== ownerId) {
+            logEvent('warn', 'command_rejected_identity', { detail: { type: action.type } });
+            return;
+          }
+          try {
+            const { dispatch } = await import('../lib/api.js');
+            await dispatch(OBR.room.id, { ...action, playerId: ownerId, actorId: ownerId });
+            logEvent('info', 'command_action_applied', { detail: { type: action.type } });
+          } catch (err) {
+            logError('command_action_failed', err);
+          }
+        }
+      });
+    })
+    .catch((err) => logError('command_bridge_unavailable', err));
 
   OBR.broadcast.onMessage(ROLL_CHANNEL, async ({ data, connectionId }) => {
     if (!data?.rollId || data.rollId === lastRollId) return;

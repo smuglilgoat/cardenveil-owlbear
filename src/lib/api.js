@@ -591,6 +591,32 @@ function newActionId() {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Handler for refused/failed writes, so a frame can tell the player instead of
+ *  silently reverting the optimistic state. One handler per frame. */
+let dispatchErrorHandler = null;
+
+/** Register the frame's handler for refused writes (one per frame). */
+export function setDispatchErrorHandler(fn) {
+  dispatchErrorHandler = fn;
+}
+
+/**
+ * The Edge Function's own error body. supabase-js hides it behind a
+ * FunctionsHttpError, and the difference matters: "unauthorized:bad_token"
+ * means this browser's credential is stale, not that the table is down.
+ * @param {any} error
+ * @returns {Promise<string|null>} 'error:reason' or null
+ */
+async function edgeErrorReason(error) {
+  try {
+    const body = await error?.context?.json();
+    if (body?.error) return body.reason ? `${body.error}:${body.reason}` : String(body.error);
+  } catch {
+    /* body not JSON or already read */
+  }
+  return null;
+}
+
 /**
  * Mark a dispatched action as confirmed. If Realtime already delivered that
  * version, drop the optimistic entry and re-render: replaying it on top of a
@@ -603,7 +629,15 @@ function confirmPending(pendingEntry, version) {
   if (lastServerState && onStateCallback) onStateCallback(replayPending(lastServerState));
 }
 
-export async function dispatch(roomId, action) {
+/**
+ * Send an action to the room.
+ * @param {string} roomId
+ * @param {object} action
+ * @param {{onError?: (info: {type: string, message: string, reason: string|null}) => void}} [options]
+ *   a per-call error callback, for a flow that needs its own outcome (the
+ *   recovery code box). The frame-wide handler still fires.
+ */
+export async function dispatch(roomId, action, options = {}) {
   const currentState = lastServerState
     ? replayPending(lastServerState)
     : (await fetchState(roomId)) ?? createInitialGameState();
@@ -613,7 +647,10 @@ export async function dispatch(roomId, action) {
   const wireAction = {
     ...action,
     actorId,
-    actionId: newActionId(),
+    // A caller may bring its own id: the command channel (issue #14) relays an
+    // action the tab minted, and the server's idempotency must recognise the
+    // replay of that exact action.
+    actionId: action.actionId ?? newActionId(),
     // The credential has its OWN field: `token` belongs to the game (the token
     // TYPE of SPEND_TOKEN & co), and writing the credential there made the
     // reducer drop every token action (issue #16).
@@ -637,6 +674,10 @@ export async function dispatch(roomId, action) {
   (async () => {
     let lastError;
     let useFallback = false;
+    // The server's own words ('unauthorized:bad_token'), when it gave any.
+    // Read without awaiting here: the fallback must not be delayed by a tick.
+    let reason = null;
+    let edgeReason = null;
 
     for (let attempt = 0; attempt < MAX_CLIENT_RETRIES; attempt++) {
       try {
@@ -647,7 +688,11 @@ export async function dispatch(roomId, action) {
 
         if (error) {
           lastError = error;
-          useFallback = true;
+          edgeReason = edgeErrorReason(error);
+          // A refusal (401) is not an outage: the Netlify fallback runs the
+          // same guard and would refuse too — and in dev there is no fallback
+          // at all, so the POST only adds a 404 to the console.
+          useFallback = error?.context?.status !== 401;
           break;
         }
 
@@ -659,6 +704,7 @@ export async function dispatch(roomId, action) {
 
         if (data?.error) {
           lastError = new Error(data.error);
+          reason = String(data.error);
         }
       } catch (e) {
         lastError = e;
@@ -701,6 +747,7 @@ export async function dispatch(roomId, action) {
               detail: { action: action?.type, roomId, reason: data?.reason },
             });
             lastError = new Error('Action refusée : identité du joueur non reconnue');
+            reason = `unauthorized:${data?.reason ?? 'unknown'}`;
             break;
           }
 
@@ -724,10 +771,21 @@ export async function dispatch(roomId, action) {
       }
     }
 
+    const serverReason = (await edgeReason) || reason;
+    const message = serverReason ?? lastError?.message ?? 'erreur inconnue';
     logEvent('error', 'dispatch_failed', {
-      message: lastError?.message ?? String(lastError),
+      message,
       detail: { action: action?.type, roomId },
     });
+    // The optimistic state is about to be dropped: tell the frame, or the
+    // sheet silently snaps back and the player thinks the table broke.
+    try {
+      const info = { type: action?.type, message, reason: serverReason };
+      dispatchErrorHandler?.(info);
+      options.onError?.(info);
+    } catch {
+      /* a broken handler must not break the recovery */
+    }
     pendingActions = pendingActions.filter(a => a !== pendingEntry);
     if (currentRoomId) {
       try {

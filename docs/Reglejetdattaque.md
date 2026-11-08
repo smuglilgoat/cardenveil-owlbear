@@ -721,6 +721,7 @@ Double ?
 | Hache : explosion | Lance 2 dés et additionne |
 | Hache : Crit suivant | Double sur les 2 dés |
 | Hache + Avantage | Avantage uniquement sur le jet initial ; explosion toujours en 2 dés normaux |
+| Hybride | Bonus + (critiques × (bonus − max(Force, 0))) ; l'engagement ajoute Force + Agilité, plus Agilité par critique |
 
 ---
 
@@ -877,3 +878,41 @@ Ce n'est **qu'après ce premier critique** que la mécanique spéciale de Hache 
 `2d6 → somme des deux dés`
 
 À partir de ce moment, un **double** déclenche le critique suivant et une nouvelle explosion de `2d6`.
+
+# 21. Cas spécial : Hybride
+
+> Règle du MJ (issue #17, qui remplace la version antérieure de l’issue #12).
+
+L’arme **Hybride** compte comme une arme Finesse pour l’**Agilité** — mais
+l’Agilité est **déjà comprise dans le bonus de l’arme** : on n’ajoute donc
+rien par-dessus.
+
+## Les dégâts
+
+```text
+Dégâts Hybride = Somme des dés
+                + Bonus de l’arme
+                + (Nombre de critiques × (Bonus − max(Force, 0)))
+```
+
+- Le **critique répète le bonus**, réduit du modificateur de **Force positif**
+  (`max(Force, 0)`). Un modificateur de Force **négatif n’est pas pris en
+  compte** : ni sur le critique, ni sur les dégâts.
+- L’**Engagement** ajoute, par niveau, `max(Force, 0) + max(Agilité, 0)`, et
+  **chaque critique ajoute `max(Agilité, 0)` de plus** — comme pour une arme
+  Finesse, dont le bonus d’engagement est répété à chaque critique.
+
+## Exemple
+
+Fist weapons (1d4, Hybride), bonus +4, Force +3, Agilité +2, 1 engagement,
+1 critique :
+
+```text
+Dés         : 4 (critique) + 2       = 6
+Bonus       : +4
+Critique    : 1 × (4 − max(3, 0))  = +1
+Engagement  : 1 × (3 + 2 + 1×2)     = +7
+                                 Total = 18
+```
+
+Sans critique, le même jet donnerait `6 + 4 + 5 = 15`.

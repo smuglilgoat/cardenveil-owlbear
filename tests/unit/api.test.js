@@ -59,7 +59,7 @@ function emitHealthProblem(status) {
 }
 
 // Import after mocking
-const { fetchState, startRealtime, stopRealtime, recoverConnection, dispatch, isConnected } = await import('../../src/lib/api.js');
+const { fetchState, startRealtime, stopRealtime, recoverConnection, dispatch, isConnected, setDispatchErrorHandler } = await import('../../src/lib/api.js');
 
 describe('API Client', () => {
   beforeEach(() => {
@@ -292,6 +292,62 @@ describe('API Client', () => {
           body: expect.any(String),
         })
       );
+    });
+
+    it('hands the server\'s own refusal reason to the frame', async () => {
+      const flush = () => new Promise((r) => setTimeout(r, 0));
+      const seen = [];
+      setDispatchErrorHandler((info) => seen.push(info));
+
+      // supabase-js hides the Edge Function's body behind FunctionsHttpError;
+      // "unauthorized:bad_token" is what tells the player their credential is
+      // stale instead of the table being down.
+      mockSupabase.functions.invoke.mockResolvedValueOnce({
+        data: null,
+        // A distinct `code` keeps this probe out of appLog's dedupe window of
+        // the tests that assert on the coarse fallback message.
+        error: Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+          code: 'EDGE_PROBE',
+          context: { json: async () => ({ error: 'unauthorized', reason: 'bad_token' }) },
+        }),
+      });
+      global.fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+      });
+
+      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+      await flush();
+
+      expect(seen).toHaveLength(1);
+      expect(seen[0].reason).toBe('unauthorized:bad_token');
+      expect(seen[0].message).toBe('unauthorized:bad_token');
+      setDispatchErrorHandler(null);
+    });
+
+    it('does not retry a refused write on the Netlify fallback', async () => {
+      const flush = () => new Promise((r) => setTimeout(r, 0));
+      const seen = [];
+      setDispatchErrorHandler((info) => seen.push(info));
+
+      // 401 is a refusal, not an outage: the fallback runs the same guard, so
+      // it would refuse too — and in dev it only adds a 404 to the console.
+      mockSupabase.functions.invoke.mockResolvedValueOnce({
+        data: null,
+        error: Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+          code: 'EDGE_PROBE',
+          context: { status: 401, json: async () => ({ error: 'unauthorized', reason: 'bad_token' }) },
+        }),
+      });
+
+      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
+      await flush();
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      expect(seen).toHaveLength(1);
+      expect(seen[0].message).toBe('unauthorized:bad_token');
+      setDispatchErrorHandler(null);
     });
 
     it('logs a coarse, stable message when the write fallback fires', async () => {
