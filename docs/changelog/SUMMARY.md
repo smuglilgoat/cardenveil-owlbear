@@ -1,6 +1,7 @@
 # Table of contents
 
 * [Notes de version](README.md)
+* [Cardenveil 2.10.0 — la fiche dans un onglet séparé](2.10.0.md)
 * [Cardenveil 2.9.1 — les jetons, Brute et la division Nimbri](2.9.1.md)
 * [Cardenveil 2.9.0 — armes à propriétés, jetons et Nimbri](2.9.0.md)
 * [Cardenveil 2.8.1 — connexion stable et fiche fiable](2.8.1.md)
