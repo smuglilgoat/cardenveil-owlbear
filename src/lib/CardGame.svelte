@@ -3,7 +3,8 @@
   import OBR from '@owlbear-rodeo/sdk';
   import GMDashboard from './GMDashboard.svelte';
   import PlayerHand from './PlayerHand.svelte';
-  import { startRealtime, stopRealtime, dispatch, fetchState, recoverConnection } from './api.js';
+  import { startRealtime, stopRealtime, dispatch, fetchState, recoverConnection, setDispatchErrorHandler } from './api.js';
+  import { identityResetSql } from './credentialRecovery.js';
   import { logError, setLogContext } from './appLog.js';
   import { initDiag } from './diag.js';
 
@@ -20,6 +21,8 @@
   let gameState = $state(null);
 
   let toasts = $state([]);
+  /** The server's reason for refusing the last write ('' when it did not). */
+  let dispatchError = $state('');
 
   // Realtime connection status: 'connected' | 'disconnected' | 'permanently_disconnected'
   let connectionStatus = $state('connected');
@@ -61,6 +64,18 @@
 
   function dismissToast(id) {
     toasts = toasts.filter(t => t.id !== id);
+  }
+
+  /** The owner's way out of a refused identity (see docs/credential-recovery.md). */
+  const recoverySql = $derived(identityResetSql(roomId));
+
+  async function copyRecoverySql() {
+    try {
+      await navigator.clipboard.writeText(recoverySql);
+      addToast('SQL copié — transmettez-le au propriétaire de la table.', 'info');
+    } catch {
+      addToast('Copie impossible : sélectionnez le SQL à la main.', 'error');
+    }
   }
 
   async function onAction(action) {
@@ -127,6 +142,20 @@
   onMount(() => {
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('online', recoverConnection);
+    // A refused write drops the optimistic state: without this the sheet
+    // snaps back silently and the player thinks the table broke.
+    setDispatchErrorHandler(({ message }) => {
+      const text = message?.startsWith('unauthorized')
+        ? 'Action refusée : identité du joueur non reconnue. Rechargez la page ; si cela persiste, la table doit être réinitialisée.'
+        : `Action non enregistrée : ${message ?? 'erreur inconnue'}`;
+      // A refused credential fails every action the same way: one toast, not one
+      // per click.
+      if (toasts.some((t) => t.msg === text)) return;
+      addToast(text, 'error');
+      // A refused identity is not a transient hiccup: the sheet says so, with
+      // the way out (the owner has to reset the table's identities).
+      if (message?.startsWith('unauthorized')) dispatchError = message;
+    });
     OBR.onReady(async () => {
       try {
         myId   = await OBR.player.getId();
@@ -158,11 +187,48 @@
 
   onDestroy(() => {
     stopRealtime();
+    setDispatchErrorHandler(null);
     unsubParty?.();
     document.removeEventListener('visibilitychange', onVisibilityChange);
     window.removeEventListener('online', recoverConnection);
   });
 </script>
+
+{#if dispatchError}
+  <div class="fixed bottom-2 left-2 right-2 z-[60] rounded-lg border border-amber-600 bg-amber-950/95 p-3 shadow-xl">
+    <div class="flex items-start gap-2">
+      <div class="min-w-0 flex-1">
+        <div class="text-xs font-bold text-amber-200">Identifiant de joueur non reconnu</div>
+        <p class="text-[11px] text-amber-100/90 mt-1">
+          La table refuse vos actions (<span class="font-mono">{dispatchError}</span>) : votre identifiant
+          n'est plus reconnu, donc les jets et les actions ne partent plus. Demandez au propriétaire de la
+          table de remettre à zéro les identifiants (SQL ci-dessous), puis rechargez cette page.
+        </p>
+        {#if recoverySql}
+          <div class="mt-2 flex items-center gap-2">
+            <input
+              readonly
+              value={recoverySql}
+              onfocus={(e) => e.currentTarget.select()}
+              class="flex-1 min-w-0 bg-[#111827] border border-amber-700 rounded px-2 py-1 text-[10px] font-mono text-amber-100 focus:outline-none focus:border-amber-400"
+            />
+            <button
+              onclick={copyRecoverySql}
+              style="background:#d97706"
+              class="shrink-0 text-[10px] font-semibold px-2 py-1 rounded text-black hover:opacity-90"
+            >COPIER</button>
+            <button
+              onclick={() => (dispatchError = '')}
+              style="background:transparent"
+              class="shrink-0 text-[11px] text-amber-200 hover:text-white"
+              title="Masquer"
+            >✕</button>
+          </div>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if toasts.length > 0}
   <div class="fixed top-2 left-2 right-2 z-50 flex flex-col gap-1.5 pointer-events-none">
@@ -220,7 +286,7 @@
   </div>
 
 {:else if myRole === 'GM'}
-  <GMDashboard {gameState} {party} {myId} onAction={onAction} />
+  <GMDashboard {gameState} {party} {myId} onAction={onAction} {dispatchError} />
 
 {:else}
   <PlayerHand {gameState} {myId} {myName} {party} onAction={onAction} />

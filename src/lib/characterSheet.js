@@ -602,7 +602,7 @@ export const PROPERTY_TAGS = [
   { id: 'entrave', label: 'Entrave', desc: 'Fouet : attaques d’opportunité avec désavantage ; si elles touchent, test d’Escamotage contre l’Athlétisme pour mettre à terre.' },
   { id: 'destabilisation', label: 'Déstabilisation', desc: 'Fléau : sur un critique, la cible a désavantage à sa prochaine attaque.' },
   { id: 'double-frappe', label: 'Double Frappe', desc: 'Twinblades : action + bonus action pour 2d8 + 2×FOR ; deux dés identiques = critique automatique.' },
-  { id: 'hybride', label: 'Hybride', desc: 'L’arme compte comme Finesse pour l’Agilité (déjà comprise dans le bonus) : dégâts = dé + bonus, et chaque critique ajoute (bonus − min(Force, 0)). L’engagement ajoute max(Force, 0) + max(Agilité, 0), sans la Force sur un critique.' },
+  { id: 'hybride', label: 'Hybride', desc: 'L’arme compte comme Finesse pour l’Agilité (déjà comprise dans le bonus) : dégâts = dé + bonus, et chaque critique ajoute (bonus − max(Force, 0)) — une Force négative n’est pas prise en compte. L’engagement ajoute max(Force, 0) + max(Agilité, 0), et chaque critique ajoute max(Agilité, 0) de plus.' },
   { id: 'catalyseur', label: 'Catalyseur', desc: 'Utilise l’Esprit pour l’attaque et permet la canalisation.' },
   { id: 'naturelle', label: 'Naturelle', desc: 'Arme naturelle (griffes) : toujours disponible, sans équipement.' },
 ];

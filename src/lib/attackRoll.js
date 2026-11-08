@@ -122,8 +122,8 @@ export function attackPreview(weapon, stats = {}, { advantage = 0, engagement = 
     : typeof finesseOption === 'boolean' ? finesseOption : flags.finesse;
   const eStat = finesse ? 'agilite' : flags.catalyseur ? 'esprit' : 'force';
   // Hybride: the engagement adds BOTH modifiers (only their positive part),
-  // and loses the Force part on a crit (issue #12). The preview shows the
-  // non-crit value; the crit correction happens in runAttack.
+  // and each crit adds the Agility one on top (issue #17). The preview shows
+  // the non-crit value; the crit correction happens in runAttack.
   const hybrideEngagement = flags.hybride
     ? { force: Math.max(statMod(stats, 'force'), 0), agilite: Math.max(statMod(stats, 'agilite'), 0) }
     : null;
@@ -236,20 +236,19 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
   // Bonuses. Finesse: (weapon bonus + engagement mods) × (1 + crit count)
   // (patch §2); otherwise weapon bonus once + engagement mods flat.
   //
-  // Hybride (issue #12, the GM's rule): the weapon counts as Finesse for
-  // Agility only — the Agility modifier already sits inside the weapon bonus,
-  // so nothing is added on top. Each crit repeats the bonus, corrected by the
-  // Force modifier when it is negative; the engagement adds both modifiers
-  // (positive parts only) and loses the Force part on a crit.
+  // Hybride (issue #17, the GM's later rule — it supersedes #12): the weapon
+  // counts as Finesse for Agility only — the Agility modifier already sits
+  // inside the weapon bonus, so nothing is added on top. Each crit repeats the
+  // bonus, REDUCED by the POSITIVE Force modifier; a negative Force is simply
+  // not taken into account (max(Force, 0)). The engagement adds both modifiers
+  // (positive parts only) and each crit adds the Agility one on top.
   const forceMod = statMod(stats, 'force');
   const agiMod = statMod(stats, 'agilite');
   let engagementMods = engLevel * engagementMod;
   let hybrideBonus = 0;
   if (hybride) {
-    hybrideBonus = critCount * (weaponBonus - Math.min(forceMod, 0));
-    const perLevel = critCount > 0
-      ? Math.max(agiMod, 0)
-      : Math.max(forceMod, 0) + Math.max(agiMod, 0);
+    hybrideBonus = critCount * (weaponBonus - Math.max(forceMod, 0));
+    const perLevel = Math.max(forceMod, 0) + Math.max(agiMod, 0) + critCount * Math.max(agiMod, 0);
     engagementMods = engLevel * perLevel;
   }
   const flatBonus = hybride
@@ -278,7 +277,7 @@ export async function runAttack(weapon, stats = {}, opts = {}, rollStage) {
   }
   if (hybride) {
     breakdown.splice(-2, 0, critCount > 0
-      ? `Hybride : bonus ×${1 + critCount}${forceMod < 0 ? ' (Force négative corrigée)' : ''}, engagement sans la Force`
+      ? `Hybride : bonus ×${1 + critCount} (Force positive soustraite), engagement Force + Agilité + Agilité par critique`
       : 'Hybride : dé + bonus (Agilité déjà comprise), engagement Force + Agilité');
   }
   return result(total, false, engagementMods, hybrideBonus);

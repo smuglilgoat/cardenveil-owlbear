@@ -1343,6 +1343,7 @@ Offre une **armure passive** indépendante de la Force et une **valeur de Parade
 - **Déstabilisation (Fléau)** : Quand vous infligez un critique avec un fléau, la cible a désavantage à sa prochaine attaque.
 - **Double Frappe (Twinblades)** : En dépensant votre action et votre bonus action vous faites une attaque combinée de 2d8 + 2×FOR et si les deux dés sont identiques l’attaque est un critique automatique.
 - **Maines nues (Fist weapons)** : Ces armes se comptent comme des attaques à mains nues améliorées.
+- **Hybride** : L’arme compte comme une arme Finesse pour l’**Agilité** (déjà comprise dans son bonus, on n’ajoute donc rien par-dessus). Les dégâts valent `dé + bonus`, et chaque critique ajoute `(bonus − max(Force, 0))` ; une Force **négative n’est pas prise en compte** (ni sur le critique, ni sur les dégâts). L’**Engagement** ajoute par niveau `max(Force, 0) + max(Agilité, 0)`, et chaque critique ajoute `max(Agilité, 0)` de plus.
 
 # **Armures**
 

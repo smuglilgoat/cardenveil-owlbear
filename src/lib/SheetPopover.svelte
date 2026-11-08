@@ -305,7 +305,7 @@
           seed: Math.floor(Math.random() * 0xffffffff),
           zoomCrit: !!opts?.zoomCrit,
           keep: spec.keep || ''
-        });
+        }, roomId);
         return;
       }
     }
@@ -318,7 +318,7 @@
         portrait: sheet?.portrait || '',
         portraitIsImage: isImageUrl(sheet?.portrait),
         ...result
-      });
+      }, roomId);
       dispatch(roomId, {
         type: 'USE_CAPACITY',
         playerId,
@@ -529,7 +529,7 @@
       diceTypes: rolls.map(() => sides),
       total,
       breakdown: [`Dé : ${count}d6 [${rolls.join(', ')}]`, `Total : ${total}`]
-    });
+    }, roomId);
     dispatch(roomId, {
       type: 'USE_CAPACITY',
       playerId,
@@ -574,7 +574,7 @@
       // Gobelin crits on dé − 1: let the popup chips glow on a 5+ (d6)
       critFrom: isGobelin(sheet?.identity?.race) ? Math.max(2, sides - 1) : sides,
       noCrit: !!noCrit
-    });
+    }, roomId);
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         pendingStage = null;
@@ -636,7 +636,7 @@
       // Property tags travel with the roll so the popup can show them under
       // the formula (issue #5).
       tags: weaponTagInfo(weapon).map((t) => t.label).join(', ')
-    });
+    }, roomId);
     // Action log: same USE_CAPACITY channel, breakdown folded into the formula string (32 chars max).
     dispatch(roomId, {
       type: 'USE_CAPACITY',

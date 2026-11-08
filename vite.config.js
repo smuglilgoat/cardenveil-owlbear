@@ -84,6 +84,7 @@ export default defineConfig({
         dice: path.resolve('dice.html'),
         background: path.resolve('background.html'),
         sheet: path.resolve('sheet.html'),
+        sheetFull: path.resolve('sheetFull.html'),
       },
     },
   },
