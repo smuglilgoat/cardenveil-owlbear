@@ -243,30 +243,17 @@ describe('API Client', () => {
       );
     });
 
-    it('stores a first-claim token and echoes it on the next dispatch', async () => {
+    it('sends no credential and stores none (2.10.2)', async () => {
       localStorage.removeItem('cardenveil-token:test-room:player-1');
-      const token = 'a'.repeat(64);
 
-      mockSupabase.functions.invoke.mockResolvedValueOnce({
-        data: { version: 3, token },
-        error: null,
-      });
-      await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
-      await new Promise((r) => setTimeout(r, 0));
-      expect(localStorage.getItem('cardenveil-token:test-room:player-1')).toBe(token);
-
-      mockSupabase.functions.invoke.mockResolvedValueOnce({
-        data: { version: 4 },
-        error: null,
-      });
+      mockSupabase.functions.invoke.mockResolvedValueOnce({ data: { version: 3 }, error: null });
       await dispatch('test-room', { type: 'DRAW', playerId: 'player-1' });
 
       const body = mockSupabase.functions.invoke.mock.calls.at(-1)[1].body;
-      // The credential travels in its own field: `token` is the game's token
-      // type for SPEND_TOKEN & co (issue #16).
-      expect(body.action.actorToken).toBe(token);
-      expect(body.action.token).toBeUndefined();
-      // A retried action must be recognisable as the same action instance.
+      // The actor-token guard is gone: nothing to mint, nothing to echo.
+      expect(body.action.actorToken).toBeUndefined();
+      expect(localStorage.getItem('cardenveil-token:test-room:player-1')).toBeNull();
+      // A retried action must still be recognisable as the same action instance.
       expect(body.action.actionId).toEqual(expect.any(String));
     });
 

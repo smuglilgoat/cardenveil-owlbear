@@ -558,32 +558,6 @@ function timeoutSignal(ms) {
 
 const MAX_CLIENT_RETRIES = 3;
 
-// ─── Actor tokens ───────────────────────────────────────────────────────
-// The server mints a token on a player's first accepted write and returns it
-// once; every later write must echo it. Shared through localStorage so the
-// main panel, the hand fan and the compact sheet all present the same token.
-const TOKEN_PREFIX = 'cardenveil-token';
-
-function tokenKey(roomId, actorId) {
-  return `${TOKEN_PREFIX}:${roomId}:${actorId}`;
-}
-
-function getActorToken(roomId, actorId) {
-  try {
-    return localStorage.getItem(tokenKey(roomId, actorId));
-  } catch {
-    return null;
-  }
-}
-
-function setActorToken(roomId, actorId, token) {
-  try {
-    localStorage.setItem(tokenKey(roomId, actorId), token);
-  } catch {
-    /* private mode / storage disabled: the next write simply re-claims */
-  }
-}
-
 /** 128-bit id used by the server to ignore a retried action. */
 function newActionId() {
   const bytes = new Uint8Array(16);
@@ -643,7 +617,6 @@ export async function dispatch(roomId, action, options = {}) {
     : (await fetchState(roomId)) ?? createInitialGameState();
 
   const actorId = action.actorId ?? action.playerId;
-  const token = actorId ? getActorToken(roomId, actorId) : null;
   const wireAction = {
     ...action,
     actorId,
@@ -651,10 +624,6 @@ export async function dispatch(roomId, action, options = {}) {
     // action the tab minted, and the server's idempotency must recognise the
     // replay of that exact action.
     actionId: action.actionId ?? newActionId(),
-    // The credential has its OWN field: `token` belongs to the game (the token
-    // TYPE of SPEND_TOKEN & co), and writing the credential there made the
-    // reducer drop every token action (issue #16).
-    ...(token ? { actorToken: token } : {}),
   };
 
   const { state: rawOptimistic } = applyAction(currentState, action);
@@ -665,11 +634,6 @@ export async function dispatch(roomId, action, options = {}) {
 
   const pendingEntry = { ...wireAction, _dispatchTime: Date.now() };
   pendingActions.push(pendingEntry);
-
-  /** Persist a first-claim token so the next write is accepted. */
-  function acceptToken(data) {
-    if (data?.token) setActorToken(roomId, actorId, data.token);
-  }
 
   (async () => {
     let lastError;
@@ -697,7 +661,6 @@ export async function dispatch(roomId, action, options = {}) {
         }
 
         if (data?.version != null) {
-          acceptToken(data);
           confirmPending(pendingEntry, data.version);
           return;
         }
@@ -733,7 +696,6 @@ export async function dispatch(roomId, action, options = {}) {
 
           if (res.ok) {
             const data = await res.json();
-            acceptToken(data);
             confirmPending(pendingEntry, data.version);
             return;
           }

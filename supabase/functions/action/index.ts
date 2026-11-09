@@ -1,13 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { applyAction, hydrateState, dehydrateState, createInitialGameState } from './_gameLogic.ts'
-import {
-  verifyActor,
-  mintToken,
-  hashToken,
-  rememberTokenHash,
-  isDuplicateAction,
-  rememberActionId,
-} from './_actionGuard.js'
+import { isDuplicateAction, rememberActionId } from './_actionGuard.js'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,8 +55,6 @@ Deno.serve(async (req) => {
         currentState = createInitialGameState()
       }
 
-      const actorId = action.actorId ?? action.playerId
-
       // A retried action must not be applied twice: when this function commits
       // but its response is lost, the client re-sends it to the Netlify fallback.
       if (isDuplicateAction(currentState, action.actionId)) {
@@ -73,30 +64,8 @@ Deno.serve(async (req) => {
         )
       }
 
-      // HARD_RESET is the way back from a refused identity: the reducer drops
-      // the stored credential hashes, so every client re-claims on its next
-      // write. It must therefore go through even when the GM's own credential
-      // is the one being refused — otherwise a client that lost its token is
-      // locked out of the table for good. The reducer still restricts the reset
-      // to the room's GM (isGM), and the room is already takeable by anyone
-      // through INIT_GAME, so this opens no new door.
-      const isReset = action.type === 'HARD_RESET' && action.playerId === currentState.gmId
-      const verdict = isReset ? { ok: true } : await verifyActor(currentState, action)
-      if (!verdict.ok) {
-        return new Response(
-          JSON.stringify({ error: 'unauthorized', reason: verdict.reason }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-
       const { state: appliedState } = applyAction(currentState, action)
-      // Mint for an identity that has no hash yet — including one claimed by
-      // this very action (INIT_GAME, REGISTER_PLAYER, CREATE_GM_CHAR). The GM
-      // and the GM character act without a player record, so this checks both.
-      const actorKnown = !!appliedState.players?.[actorId] || appliedState.gmId === actorId
-      const minted = actorKnown && (appliedState.actorTokens?.[actorId] ?? []).length === 0 ? mintToken() : null
-      let newState = rememberActionId(appliedState, action.actionId)
-      if (minted) newState = rememberTokenHash(newState, actorId, await hashToken(minted))
+      const newState = rememberActionId(appliedState, action.actionId)
 
       const dehydrated = dehydrateState(newState)
       const newVersion = currentVersion + 1
@@ -133,7 +102,7 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ version: newVersion, state: dehydrated, token: minted ?? undefined }),
+        JSON.stringify({ version: newVersion, state: dehydrated }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
