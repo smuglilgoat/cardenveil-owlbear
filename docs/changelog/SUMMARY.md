@@ -1,6 +1,7 @@
 # Table of contents
 
 * [Notes de version](README.md)
+* [Cardenveil 2.10.3 — les boutons de carte de la main flottante](2.10.3.md)
 * [Cardenveil 2.10.2 — les cartes répondent de nouveau](2.10.2.md)
 * [Cardenveil 2.10.1 — la réinitialisation qui débloque la table](2.10.1.md)
 * [Cardenveil 2.10.0 — la fiche dans un onglet séparé](2.10.0.md)

@@ -391,11 +391,11 @@
       pointerId: e.pointerId,
       moved: false,
     };
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* capture unavailable: the fan's own listeners still see the moves */
-    }
+    // No pointer capture here. Capturing on pointerdown makes Chrome retarget
+    // the click that follows to the capture element (the card), so a click on
+    // the in-card buttons (défausser / cristalliser / bloquer) never reaches
+    // them — it toggles the card's strip off instead. Capture starts with the
+    // drag itself, in onFanPointerMove.
   }
 
   function onFanPointerMove(e) {
@@ -404,6 +404,14 @@
     if (!drag.moved) {
       if (Math.abs(dx) < DRAG_THRESHOLD_PX) return;
       drag.moved = true;
+      // Capture only once the drag is real: from here the card must follow the
+      // pointer even outside the fan. A plain click never captures, so its
+      // click still lands on the button under the pointer.
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* capture unavailable: the fan's own listeners still see the moves */
+      }
     }
     drag.dx = dx;
     // The card keeps its grab offset: its centre follows the pointer.
