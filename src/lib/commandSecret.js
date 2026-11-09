@@ -45,22 +45,6 @@ export function getOrCreateCommandSecret(roomId) {
   }
 }
 
-/**
- * Replace the room's command secret — a HARD_RESET does this, so the tab URLs
- * handed out before the reset stop granting anything.
- * @param {string} roomId
- * @returns {string} the new secret ('' when storage is unavailable)
- */
-export function rotateCommandSecret(roomId) {
-  const secret = newCommandSecret();
-  try {
-    localStorage.setItem(commandSecretKey(roomId), secret);
-  } catch {
-    return '';
-  }
-  return secret;
-}
-
 /** The room's command secret, or '' when there is none. */
 export function readCommandSecret(roomId) {
   try {

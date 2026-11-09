@@ -1,6 +1,7 @@
 # Table of contents
 
 * [Notes de version](README.md)
+* [Cardenveil 2.10.1 — la réinitialisation qui débloque la table](2.10.1.md)
 * [Cardenveil 2.10.0 — la fiche dans un onglet séparé](2.10.0.md)
 * [Cardenveil 2.9.1 — les jetons, Brute et la division Nimbri](2.9.1.md)
 * [Cardenveil 2.9.0 — armes à propriétés, jetons et Nimbri](2.9.0.md)

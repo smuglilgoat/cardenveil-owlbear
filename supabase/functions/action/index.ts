@@ -8,7 +8,6 @@ import {
   isDuplicateAction,
   rememberActionId,
 } from './_actionGuard.js'
-import { verifyRecoveryCode } from './_recoveryCode.js'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,29 +73,20 @@ Deno.serve(async (req) => {
         )
       }
 
-      // RECOVER_IDENTITY is the owner's escape hatch for a GM whose credential
-      // the guard refuses: the recovery code is checked BEFORE the credential,
-      // because that GM cannot present one. The reducer then drops the stored
-      // hashes and the mint below issues a fresh credential.
-      if (action.type === 'RECOVER_IDENTITY') {
-        const check = await verifyRecoveryCode(Deno.env.get('RECOVERY_SECRET') ?? '', action.code, {
-          roomId,
-          gmId: action.playerId,
-        })
-        if (!check.ok) {
-          return new Response(
-            JSON.stringify({ error: 'unauthorized', reason: check.reason }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
-      } else {
-        const verdict = await verifyActor(currentState, action)
-        if (!verdict.ok) {
-          return new Response(
-            JSON.stringify({ error: 'unauthorized', reason: verdict.reason }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        }
+      // HARD_RESET is the way back from a refused identity: the reducer drops
+      // the stored credential hashes, so every client re-claims on its next
+      // write. It must therefore go through even when the GM's own credential
+      // is the one being refused — otherwise a client that lost its token is
+      // locked out of the table for good. The reducer still restricts the reset
+      // to the room's GM (isGM), and the room is already takeable by anyone
+      // through INIT_GAME, so this opens no new door.
+      const isReset = action.type === 'HARD_RESET' && action.playerId === currentState.gmId
+      const verdict = isReset ? { ok: true } : await verifyActor(currentState, action)
+      if (!verdict.ok) {
+        return new Response(
+          JSON.stringify({ error: 'unauthorized', reason: verdict.reason }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
 
       const { state: appliedState } = applyAction(currentState, action)

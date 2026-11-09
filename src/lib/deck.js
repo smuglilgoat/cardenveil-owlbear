@@ -819,18 +819,6 @@ export function applyAction(state, action) {
       return { state: { ...fresh, gmId: state.gmId, players }, log: null };
     }
 
-    case 'RECOVER_IDENTITY': {
-      // The GM re-claims an identity the actor guard refused (a stale
-      // credential). The server has already verified the owner's recovery code;
-      // the reducer drops the stored hashes, so the write that follows mints a
-      // fresh credential. GM-only, like every other GM action.
-      if (!isGM(state, action.playerId)) return { state, log: null };
-      const actorId = action.actorId ?? action.playerId;
-      const tokens = { ...(state.actorTokens ?? {}) };
-      delete tokens[actorId];
-      return { state: { ...state, actorTokens: tokens }, log: null };
-    }
-
     case 'IMPORT_STATE': {
       if (!isGM(state, action.playerId)) return { state, log: null };
       const imported = action.state;

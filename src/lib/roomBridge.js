@@ -66,30 +66,44 @@ export function discardCommand(id) {
 
 /**
  * Listen to the room's commands.
+ *
+ * POLLING, not Realtime: the postgres_changes subscription on this table kept
+ * dying with CHANNEL_ERROR while the game's own channels were fine, and a roll
+ * that arrives a second late is still a roll that arrives. One REST read every
+ * 1.5 s per client — cheap, and it cannot break.
+ *
  * @param {string} roomId
  * @param {(command: {id: string, kind: string, payload: any, created_at: string}) => void} callback
  * @returns {() => void} unsubscribe
  */
 export function onCommand(roomId, callback) {
-  const channel = supabase
-    .channel(`commands:${roomId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'room_commands',
-        filter: `room_id=eq.${roomId}`,
-      },
-      (payload) => callback(payload.new)
-    );
-  channel.subscribe((status) => {
-    // A command that is never delivered must be diagnosable, not silent.
-    if (status === 'SUBSCRIBED') return;
-    logEvent('warn', 'command_channel_status', { message: String(status) });
-  });
+  let stopped = false;
+  const since = new Date(Date.now() - 5000).toISOString();
+  const seen = new Set();
+
+  (async () => {
+    while (!stopped) {
+      try {
+        const { data } = await supabase
+          .from('room_commands')
+          .select('id, room_id, kind, payload, signature, created_at')
+          .eq('room_id', roomId)
+          .gt('created_at', since)
+          .order('created_at');
+        for (const row of data ?? []) {
+          if (seen.has(row.id)) continue;
+          seen.add(row.id);
+          callback(row);
+        }
+      } catch {
+        /* offline — the next tick tries again */
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  })();
+
   return () => {
-    supabase.removeChannel(channel);
+    stopped = true;
   };
 }
 
