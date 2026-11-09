@@ -351,6 +351,9 @@
   const DRAG_THRESHOLD_PX = 5;
 
   let drag = $state(null);
+  /** The hovered card is lifted above its neighbours, so the fan's overlap
+   *  cannot hide the in-card buttons. */
+  let hoveredId = $state(null);
   /** Set after a drag so the click that follows it does not select the card. */
   let justDragged = $state(false);
 
@@ -815,13 +818,17 @@
               <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
-                class="absolute bottom-0 left-1/2 cursor-pointer {drag?.moved && drag.cardId === card.id
+                class="absolute bottom-0 left-1/2 cursor-pointer group {drag?.moved && drag.cardId === card.id
                   ? 'transition-none'
                   : 'transition-all duration-150'}"
                 style="
                   transform: translateX({cardOffsetX(i, n, card.id)}px);
                   margin-left: -40px;
-                  z-index: {drag?.moved && drag.cardId === card.id ? 1000 : isActive ? 50 : i};
+                  z-index: {drag?.moved && drag.cardId === card.id
+                    ? 1000
+                    : isActive || hoveredId === card.id
+                      ? 50
+                      : i};
                   filter: {isActive
                   ? 'drop-shadow(0 0 8px rgba(99,102,241,0.9))'
                   : isSelectable
@@ -830,6 +837,10 @@
                 "
                 onclick={() => onCardClick(card, isCrystallized)}
                 onpointerdown={(e) => onCardPointerDown(e, card, i)}
+                onpointerenter={() => (hoveredId = card.id)}
+                onpointerleave={() => {
+                  if (hoveredId === card.id) hoveredId = null;
+                }}
               >
                 {#if card._pending}
                   <div
@@ -883,16 +894,26 @@
                   </div>
                 {/if}
 
-                <!-- Actions of the active card, inside its own bounds -->
-                {#if isActive && !action && !interactionFrozen}
-                  <div class="absolute inset-x-0 bottom-0 z-30 flex items-center justify-center gap-0.5 pb-0.5">
+                <!-- Actions of the card: a vertical stack over the whole card,
+                     shown on hover like the main hand panel's overlay (a tapped
+                     card keeps it open for touch). The overlay lets pointer
+                     events through, so a press anywhere on the card still
+                     starts a drag; only the buttons take them, and the drag
+                     threshold turns a press on a button into a drag. -->
+                {#if !action && !interactionFrozen && !drag?.moved}
+                  <div
+                    class="absolute inset-0 z-30 rounded-lg bg-black/80 pointer-events-none flex-col items-center justify-center gap-1 p-1 {isActive
+                      ? 'flex'
+                      : 'hidden group-hover:flex'}"
+                  >
                     {#if isCrystallized || (!spiritLocked && !isGrayed)}
                       <button
                         onclick={(e) => {
                           e.stopPropagation();
                           discard(card, isCrystallized);
                         }}
-                        class="w-6 h-6 p-0 flex items-center justify-center rounded-md text-[10px] font-bold bg-red-700/95 hover:bg-red-600 text-white transition-colors"
+                        class="w-1/2 flex-1 min-h-0 flex items-center justify-center rounded-md text-[14px] font-bold pointer-events-auto"
+                        style="padding: 0; background: #b91c1c; color: #fff;"
                         title="Défausser">▶️</button
                       >
                     {/if}
@@ -903,7 +924,8 @@
                           crystallize(card);
                         }}
                         disabled={(player.spiritBounds ?? 0) <= 0}
-                        class="w-6 h-6 p-0 flex items-center justify-center rounded-md text-[10px] font-bold bg-blue-700/95 hover:bg-blue-600 text-white transition-colors disabled:opacity-40"
+                        class="w-1/2 flex-1 min-h-0 flex items-center justify-center rounded-md text-[14px] font-bold pointer-events-auto disabled:opacity-40"
+                        style="padding: 0; background: #1d4ed8; color: #fff;"
                         title="Cristalliser (−1 Spirit Slot)">✦</button
                       >
                     {/if}
@@ -913,13 +935,8 @@
                           e.stopPropagation();
                           toggleGray(card, isCrystallized);
                         }}
-                        class="w-6 h-6 p-0 flex items-center justify-center rounded-md text-[10px] font-bold transition-colors"
-                        class:bg-gray-600={!isGrayed}
-                        class:hover:bg-gray-500={!isGrayed}
-                        class:bg-gray-400={isGrayed}
-                        class:hover:bg-gray-300={isGrayed}
-                        class:text-white={!isGrayed}
-                        class:text-gray-800={isGrayed}
+                        class="w-1/2 flex-1 min-h-0 flex items-center justify-center rounded-md text-[14px] font-bold pointer-events-auto"
+                        style="padding: 0; background: {isGrayed ? '#9ca3af' : '#4b5563'}; color: {isGrayed ? '#1f2937' : '#fff'};"
                         title={isGrayed ? "Débloquer" : "Bloquer"}>◑</button
                       >
                     {/if}
