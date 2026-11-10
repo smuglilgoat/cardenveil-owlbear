@@ -13,7 +13,7 @@ dashboard — all synchronized in real time across the table.
 | | |
 |---|---|
 | **Install link** | `https://cardenveil.netlify.app/manifest.json` |
-| **Version** | 2.7.18 — see [release notes](docs/patch-notes/) |
+| **Version** | 2.10.4 — see [release notes](docs/changelog/) |
 | **Requires** | Owlbear Rodeo 2 (extension manifest v1) |
 | **Built with** | Svelte 5 · Vite 7 · Tailwind CSS 4 · Supabase |
 
@@ -246,7 +246,7 @@ published at [Signaler un bug](docs/documentation/game-rules/signaler-un-bug.md)
 - `npm test` and `npm run check` must pass before a PR — CI enforces both.
 - UI text is **French**; code, comments and docs are English.
 - Game-state changes belong in `src/lib/deck.js` (never in a component), and
-  anything player-visible gets a note in `docs/patch-notes/`.
+  anything player-visible gets a note in `docs/changelog/`.
 
 ## License
 
