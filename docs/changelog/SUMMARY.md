@@ -11,4 +11,3 @@
 * [Cardenveil 2.3 — vue compacte et sac](2.3.md)
 * [Cardenveil 2.2 — inventaire refait et compétences maîtrisées](2.2.md)
 * [Cardenveil 2.1 — la fiche de personnage et les jets de dés](2.1.md)
-* [Cardenveil — notes complètes (2.6.1 → 2.7.18)](consolidated-2.6.0-2.7.18.md)

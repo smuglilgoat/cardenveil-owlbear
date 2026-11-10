@@ -9,5 +9,3 @@ la plus récente à la plus ancienne, chacune dans sa section : les notes d'une
 correctifs qui se succèdent sur le même sujet restent groupés dans une seule
 section (par exemple 2.7.1 → 2.7.15), où chaque point indique la version où le
 correctif est arrivé.
-
-* **Notes complètes** — tout ce qui a changé depuis la 2.6.0, regroupé par thème plutôt que par version.

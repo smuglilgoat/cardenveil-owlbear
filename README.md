@@ -216,7 +216,7 @@ open in live rooms.
 |---|---|
 | [AGENTS.md](AGENTS.md) | Maintainer guide: commands, architecture, conventions, gotchas |
 | [docs/system-overview.md](docs/system-overview.md) | Full system mapping: rules → code, data model, transports |
-| [docs/patch-notes/](docs/patch-notes/) | Release notes per version (+ a consolidated summary) |
+| [docs/changelog/](docs/changelog/) | Release notes, one page per version |
 | [CARDENVEIL.md](CARDENVEIL.md) | The game's rules (French) |
 | [docs/Reglejetdattaque.md](docs/Reglejetdattaque.md) | Attack-roll rules (French) |
 | [TESTING.md](TESTING.md) | Testing guide and the build gate |

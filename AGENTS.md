@@ -80,7 +80,6 @@ The notes are written **for the players and the GM**, not for developers. Descri
 - **Say what the table must do.** When a release needs an action after updating (reload the room once, redeploy), give it an `### À faire une fois après la mise à jour` section, inside that release's section.
 - Authoring rules for the body (categories, translating developer detail, what to exclude) live in the
   `cardenveil-release-notes` skill; load it before writing or rewriting a note.
-- The consolidated digest is the only exception: `# Cardenveil — notes complètes (<from> → <to>)`, grouped by theme rather than by version.
 
 ## Bug reports
 
